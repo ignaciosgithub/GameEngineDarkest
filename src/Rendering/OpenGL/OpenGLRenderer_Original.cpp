@@ -2,7 +2,7 @@
 #include "../Meshes/Mesh.h"
 #include "../Shaders/Shader.h"
 #include "../../Core/Logging/Logger.h"
-#include <GL/gl.h>
+#include "../Core/OpenGLHeaders.h"
 #include <string>
 
 namespace GameEngine {

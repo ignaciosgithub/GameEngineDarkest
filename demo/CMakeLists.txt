@@ -10,6 +10,7 @@ target_link_libraries(GameEngineDemo PRIVATE
     Core
     Rendering
     Physics
+    Physics2D
     # UI  # Temporarily disabled
 )
 

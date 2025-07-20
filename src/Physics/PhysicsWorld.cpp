@@ -2,6 +2,7 @@
 #include "RigidBody/RigidBody.h"
 #include "Collision/CollisionDetection.h"
 #include "Spatial/Octree.h"
+#include "2D/PhysicsWorld2D.h"
 #include "../Core/Logging/Logger.h"
 #include <algorithm>
 
@@ -24,6 +25,12 @@ void PhysicsWorld::Initialize() {
     AABB worldBounds(Vector3(-1000, -1000, -1000), Vector3(1000, 1000, 1000));
     m_octree = std::make_unique<Octree>(worldBounds);
     
+    if (m_enable2DPhysics) {
+        m_physicsWorld2D = std::make_unique<PhysicsWorld2D>();
+        m_physicsWorld2D->Initialize();
+        Logger::Info("2D Physics World initialized");
+    }
+    
     m_initialized = true;
     
     Logger::Info("PhysicsWorld initialized with spatial partitioning");
@@ -33,6 +40,13 @@ void PhysicsWorld::Shutdown() {
     if (m_initialized) {
         m_rigidBodies.clear();
         m_octree.reset();
+        
+        if (m_physicsWorld2D) {
+            m_physicsWorld2D->Shutdown();
+            m_physicsWorld2D.reset();
+            Logger::Info("2D Physics World shutdown");
+        }
+        
         m_initialized = false;
         
         Logger::Info("PhysicsWorld shutdown");
@@ -60,6 +74,10 @@ void PhysicsWorld::FixedUpdate(float fixedDeltaTime) {
     ResolveCollisions();
     
     IntegratePositions(fixedDeltaTime);
+    
+    if (m_enable2DPhysics && m_physicsWorld2D) {
+        m_physicsWorld2D->FixedUpdate(fixedDeltaTime);
+    }
 }
 
 void PhysicsWorld::AddRigidBody(RigidBody* rigidBody) {

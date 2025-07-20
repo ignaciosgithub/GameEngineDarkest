@@ -9,6 +9,7 @@ namespace GameEngine {
     class Entity;
     class World;
     class Octree;
+    class PhysicsWorld2D;
     
     class PhysicsWorld {
     public:
@@ -44,6 +45,11 @@ namespace GameEngine {
         void SetUseSpatialPartitioning(bool use) { m_useSpatialPartitioning = use; }
         bool GetUseSpatialPartitioning() const { return m_useSpatialPartitioning; }
         
+        // 2D Physics integration
+        PhysicsWorld2D* GetPhysicsWorld2D() const { return m_physicsWorld2D.get(); }
+        void SetEnable2DPhysics(bool enable) { m_enable2DPhysics = enable; }
+        bool IsEnable2DPhysics() const { return m_enable2DPhysics; }
+        
     private:
         std::vector<RigidBody*> m_rigidBodies;
         Vector3 m_gravity = Vector3(0.0f, -9.81f, 0.0f);
@@ -51,6 +57,10 @@ namespace GameEngine {
         // Spatial partitioning
         std::unique_ptr<Octree> m_octree;
         bool m_useSpatialPartitioning = true;
+        
+        // 2D Physics integration
+        std::unique_ptr<PhysicsWorld2D> m_physicsWorld2D;
+        bool m_enable2DPhysics = true;
         
         bool m_initialized = false;
     };

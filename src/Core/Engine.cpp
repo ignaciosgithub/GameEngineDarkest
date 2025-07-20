@@ -9,6 +9,7 @@
 #include "Components/RigidBodyComponent.h"
 #include "Systems/CameraSystem.h"
 #include "Systems/MovementSystem.h"
+#include "Scenes/TestSceneManager.h"
 #include "../Rendering/Renderer.h"
 #include "../Rendering/RenderManager.h"
 #include "../Rendering/Meshes/Mesh.h"
@@ -65,6 +66,9 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     m_world->AddSystem<CameraSystem>();
     m_world->AddSystem<MovementSystem>(m_inputManager.get(), m_window.get());
 
+    m_testSceneManager = std::make_unique<TestSceneManager>(m_world.get(), m_renderManager.get());
+    Logger::Info("Test scene manager initialized");
+
     CreateDemoScene();
 
     m_isRunning = true;
@@ -110,6 +114,31 @@ void Engine::Update(float deltaTime) {
 
     if (m_inputManager && m_inputManager->IsKeyPressed(KeyCode::Escape)) {
         m_isRunning = false;
+    }
+
+    if (m_testSceneManager) {
+        if (m_inputManager->IsKeyPressed(KeyCode::Key1)) {
+            m_testSceneManager->LoadScene(TestSceneType::BasicLighting);
+            m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Deferred);
+        }
+        if (m_inputManager->IsKeyPressed(KeyCode::Key2)) {
+            m_testSceneManager->LoadScene(TestSceneType::MultipleLight);
+            m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Forward);
+        }
+        if (m_inputManager->IsKeyPressed(KeyCode::Key3)) {
+            m_testSceneManager->LoadScene(TestSceneType::PBRMaterials);
+            m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Deferred);
+        }
+        if (m_inputManager->IsKeyPressed(KeyCode::Key4)) {
+            m_testSceneManager->LoadScene(TestSceneType::PostProcessing);
+            m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Forward);
+        }
+        if (m_inputManager->IsKeyPressed(KeyCode::Key5)) {
+            m_testSceneManager->LoadScene(TestSceneType::Raytracing);
+            m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Raytracing);
+        }
+        
+        m_testSceneManager->Update(deltaTime);
     }
 }
 
@@ -217,6 +246,9 @@ void Engine::Shutdown() {
     Logger::Info("Shutting down Game Engine...");
     
     // m_engineUI.reset();  // Temporarily disabled
+    if (m_testSceneManager) {
+        m_testSceneManager.reset();
+    }
     if (m_renderManager) {
         m_renderManager->Shutdown();
         m_renderManager.reset();

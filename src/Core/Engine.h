@@ -10,6 +10,7 @@ namespace GameEngine {
     class RenderManager;
     class InputManager;
     class PhysicsWorld;
+    class TestSceneManager;
     // class EngineUI;  // Temporarily disabled
 
     class Engine {
@@ -27,6 +28,7 @@ namespace GameEngine {
         RenderManager* GetRenderManager() const { return m_renderManager.get(); }
         InputManager* GetInputManager() const { return m_inputManager.get(); }
         PhysicsWorld* GetPhysicsWorld() const { return m_physicsWorld.get(); }
+        TestSceneManager* GetTestSceneManager() const { return m_testSceneManager.get(); }
         // EngineUI* GetEngineUI() const { return m_engineUI.get(); }  // Temporarily disabled
 
         bool IsRunning() const { return m_isRunning; }
@@ -43,6 +45,7 @@ namespace GameEngine {
         std::unique_ptr<RenderManager> m_renderManager;
         std::unique_ptr<InputManager> m_inputManager;
         std::unique_ptr<PhysicsWorld> m_physicsWorld;
+        std::unique_ptr<TestSceneManager> m_testSceneManager;
         // std::unique_ptr<EngineUI> m_engineUI;  // Temporarily disabled
 
         bool m_isRunning = false;

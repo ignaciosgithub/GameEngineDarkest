@@ -16,6 +16,7 @@ add_library(Core STATIC
     Components/RigidBodyComponent.cpp
     Systems/CameraSystem.cpp
     Systems/MovementSystem.cpp
+    Scenes/TestSceneManager.cpp
     Engine.cpp
 )
 

@@ -28,6 +28,17 @@ target_link_libraries(Rendering PUBLIC
     OpenGL::GL
 )
 
+# Platform-specific OpenGL extension loading configuration
+if(WIN32)
+    # Windows: glad handles static linking automatically
+    target_compile_definitions(Rendering PRIVATE GLAD_GLAPI_EXPORT)
+else()
+    # Linux: Define GLEW_STATIC if using static GLEW
+    if(GLEW_STATIC_LIBRARIES)
+        target_compile_definitions(Rendering PRIVATE GLEW_STATIC)
+    endif()
+endif()
+
 target_include_directories(Rendering PUBLIC
     ${GLEW_INCLUDE_DIRS}
 )

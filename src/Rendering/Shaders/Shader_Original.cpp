@@ -1,6 +1,6 @@
 #include "Shader.h"
 #include "../../Core/Logging/Logger.h"
-#include <GL/gl.h>
+#include "../Core/OpenGLHeaders.h"
 #include <fstream>
 #include <sstream>
 

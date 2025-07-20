@@ -1,7 +1,6 @@
 #include "Texture.h"
 #include "../../Core/Logging/Logger.h"
-#include <GL/gl.h>
-#include <GL/glext.h>
+#include "OpenGLHeaders.h"
 
 namespace GameEngine {
 

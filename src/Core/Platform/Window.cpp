@@ -1,7 +1,7 @@
 #include "Window.h"
 #include "../Logging/Logger.h"
 #include <GLFW/glfw3.h>
-#include <GL/gl.h>
+#include "../../Rendering/Core/OpenGLHeaders.h"
 
 namespace GameEngine {
 

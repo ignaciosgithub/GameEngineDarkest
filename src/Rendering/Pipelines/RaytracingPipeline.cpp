@@ -1,8 +1,7 @@
 #include "RaytracingPipeline.h"
 #include "../../Core/Logging/Logger.h"
 #include "../../Core/ECS/World.h"
-#include <GL/gl.h>
-#include <GL/glext.h>
+#include "../Core/OpenGLHeaders.h"
 #include <cmath>
 #include <algorithm>
 #include <random>

@@ -1,7 +1,7 @@
 #include "ForwardRenderPipeline.h"
 #include "../../Core/Logging/Logger.h"
 #include "../../Core/ECS/World.h"
-#include <GL/gl.h>
+#include "../Core/OpenGLHeaders.h"
 
 namespace GameEngine {
 

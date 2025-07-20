@@ -2,7 +2,7 @@
 #include "../../Core/Logging/Logger.h"
 #include "../../Core/Math/Vector2.h"
 #include "../../Core/Math/Vector4.h"
-#include <GL/gl.h>
+#include "../Core/OpenGLHeaders.h"
 
 namespace GameEngine {
 

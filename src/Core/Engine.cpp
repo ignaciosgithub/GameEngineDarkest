@@ -16,7 +16,7 @@
 #include "../Physics/PhysicsWorld.h"
 // #include "../UI/EngineUI.h"  // Temporarily disabled
 #include <GLFW/glfw3.h>
-#include <GL/gl.h>
+#include "../Rendering/Core/OpenGLHeaders.h"
 
 namespace GameEngine {
 

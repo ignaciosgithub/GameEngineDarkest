@@ -22,9 +22,9 @@ target_include_directories(Rendering PUBLIC
 
 target_link_libraries(Rendering PUBLIC
     Core
-    ${GLFW3_LIBRARIES}
+    glfw
+    glad::glad
     glm::glm
-    GL
 )
 
 target_compile_features(Rendering PUBLIC cxx_std_20)

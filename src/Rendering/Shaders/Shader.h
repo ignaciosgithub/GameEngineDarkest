@@ -13,6 +13,8 @@ namespace GameEngine {
         
         bool LoadFromFile(const std::string& vertexPath, const std::string& fragmentPath);
         bool LoadFromSource(const std::string& vertexSource, const std::string& fragmentSource);
+        bool LoadComputeShader(const std::string& computePath);
+        bool LoadComputeShaderFromSource(const std::string& computeSource);
         
         void Use() const;
         void Unuse() const;
@@ -29,6 +31,7 @@ namespace GameEngine {
     private:
         unsigned int CompileShader(const std::string& source, unsigned int type);
         bool LinkProgram(unsigned int vertexShader, unsigned int fragmentShader);
+        bool LinkComputeProgram(unsigned int computeShader);
         int GetUniformLocation(const std::string& name);
         
         unsigned int m_programID = 0;

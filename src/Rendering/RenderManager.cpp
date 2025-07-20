@@ -18,6 +18,12 @@ bool RenderManager::Initialize(int width, int height) {
         return false;
     }
     
+    m_forwardPipeline = std::make_unique<ForwardRenderPipeline>();
+    m_forwardPipeline->Initialize(width, height);
+    
+    m_raytracingPipeline = std::make_unique<RaytracingPipeline>();
+    m_raytracingPipeline->Initialize(width, height);
+    
     SetPipeline(RenderPipelineType::Deferred);
     
     Logger::Info("Render Manager initialized successfully");
@@ -32,6 +38,16 @@ void RenderManager::Shutdown() {
         m_deferredPipeline.reset();
     }
     
+    if (m_forwardPipeline) {
+        m_forwardPipeline->Shutdown();
+        m_forwardPipeline.reset();
+    }
+    
+    if (m_raytracingPipeline) {
+        m_raytracingPipeline->Shutdown();
+        m_raytracingPipeline.reset();
+    }
+    
     m_currentPipeline = nullptr;
 }
 
@@ -43,7 +59,14 @@ void RenderManager::SetPipeline(RenderPipelineType type) {
             Logger::Info("Switched to Deferred Rendering Pipeline");
             break;
         case RenderPipelineType::Forward:
-            Logger::Warning("Forward rendering pipeline not implemented yet");
+            m_currentPipeline = m_forwardPipeline.get();
+            m_currentPipelineType = RenderPipelineType::Forward;
+            Logger::Info("Switched to Forward Rendering Pipeline");
+            break;
+        case RenderPipelineType::Raytracing:
+            m_currentPipeline = m_raytracingPipeline.get();
+            m_currentPipelineType = RenderPipelineType::Raytracing;
+            Logger::Info("Switched to Raytracing Pipeline");
             break;
     }
 }
@@ -72,6 +95,14 @@ void RenderManager::Resize(int width, int height) {
     
     if (m_deferredPipeline) {
         m_deferredPipeline->Resize(width, height);
+    }
+    
+    if (m_forwardPipeline) {
+        m_forwardPipeline->Resize(width, height);
+    }
+    
+    if (m_raytracingPipeline) {
+        m_raytracingPipeline->Resize(width, height);
     }
 }
 

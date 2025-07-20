@@ -2,12 +2,15 @@
 
 #include "Pipelines/RenderPipeline.h"
 #include "Pipelines/DeferredRenderPipeline.h"
+#include "Pipelines/ForwardRenderPipeline.h"
+#include "Pipelines/RaytracingPipeline.h"
 #include <memory>
 
 namespace GameEngine {
     enum class RenderPipelineType {
         Deferred,
-        Forward
+        Forward,
+        Raytracing
     };
 
     class RenderManager {
@@ -31,6 +34,8 @@ namespace GameEngine {
 
     private:
         std::unique_ptr<DeferredRenderPipeline> m_deferredPipeline;
+        std::unique_ptr<ForwardRenderPipeline> m_forwardPipeline;
+        std::unique_ptr<RaytracingPipeline> m_raytracingPipeline;
         RenderPipeline* m_currentPipeline = nullptr;
         RenderPipelineType m_currentPipelineType = RenderPipelineType::Deferred;
         

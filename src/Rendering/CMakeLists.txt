@@ -7,6 +7,8 @@ add_library(Rendering STATIC
     Core/Texture.cpp
     Core/FrameBuffer.cpp
     Pipelines/DeferredRenderPipeline.cpp
+    Pipelines/ForwardRenderPipeline.cpp
+    Pipelines/RaytracingPipeline.cpp
     RenderManager.cpp
 )
 

@@ -8,6 +8,7 @@ namespace GameEngine {
     class RigidBody;
     class Entity;
     class World;
+    class Octree;
     
     class PhysicsWorld {
     public:
@@ -36,9 +37,20 @@ namespace GameEngine {
         void IntegrateVelocities(float deltaTime);
         void IntegratePositions(float deltaTime);
         
+        // Spatial partitioning
+        void UpdateSpatialPartitioning();
+        
+        // Performance settings
+        void SetUseSpatialPartitioning(bool use) { m_useSpatialPartitioning = use; }
+        bool GetUseSpatialPartitioning() const { return m_useSpatialPartitioning; }
+        
     private:
         std::vector<RigidBody*> m_rigidBodies;
         Vector3 m_gravity = Vector3(0.0f, -9.81f, 0.0f);
+        
+        // Spatial partitioning
+        std::unique_ptr<Octree> m_octree;
+        bool m_useSpatialPartitioning = true;
         
         bool m_initialized = false;
     };

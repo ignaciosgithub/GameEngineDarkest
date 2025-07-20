@@ -233,7 +233,7 @@ void Engine::CreateDemoScene() {
         groundRigidBody->SetPosition(Vector3(0, -1, 0));
         groundRigidBody->SetColliderType(ColliderType::Box);
         groundRigidBody->SetColliderSize(Vector3(20.0f, 1.0f, 20.0f));
-        groundRigidBody->SetStatic(true);
+        groundRigidBody->SetBodyType(RigidBodyType::Static);
 
         m_physicsWorld->AddRigidBody(groundRigidBody);
     }

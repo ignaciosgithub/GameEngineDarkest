@@ -2,6 +2,10 @@ add_library(Physics STATIC
     PhysicsWorld.cpp
     RigidBody/RigidBody.cpp
     Collision/CollisionDetection.cpp
+    Collision/ContinuousCollisionDetection.cpp
+    Spatial/Octree.cpp
+    Colliders/ColliderShape.cpp
+    Materials/PhysicsMaterial.cpp
 )
 
 target_include_directories(Physics PUBLIC

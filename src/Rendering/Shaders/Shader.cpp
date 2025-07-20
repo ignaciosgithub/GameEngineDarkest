@@ -88,6 +88,11 @@ void Shader::SetVector3(const std::string& name, const Vector3& /*value*/) {
     Logger::Debug("Set Vector3 uniform: " + name);
 }
 
+void Shader::SetVector4(const std::string& name, const Vector4& /*value*/) {
+    GetUniformLocation(name);
+    Logger::Debug("Set Vector4 uniform: " + name);
+}
+
 void Shader::SetMatrix4(const std::string& name, const Matrix4& /*value*/) {
     GetUniformLocation(name);
     Logger::Debug("Set Matrix4 uniform: " + name);

@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include "../../Core/Math/Matrix4.h"
 #include "../../Core/Math/Vector3.h"
+#include "../../Core/Math/Vector4.h"
 
 namespace GameEngine {
     class Shader {
@@ -26,6 +27,7 @@ namespace GameEngine {
         void SetInt(const std::string& name, int value);
         void SetFloat(const std::string& name, float value);
         void SetVector3(const std::string& name, const Vector3& value);
+        void SetVector4(const std::string& name, const Vector4& value);
         void SetMatrix4(const std::string& name, const Matrix4& value);
         
     private:

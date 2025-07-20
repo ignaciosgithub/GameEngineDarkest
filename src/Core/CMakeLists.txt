@@ -3,7 +3,9 @@ add_library(Core STATIC
     ECS/Component.cpp
     ECS/System.cpp
     ECS/World.cpp
+    Math/Vector2.cpp
     Math/Vector3.cpp
+    Math/Vector4.cpp
     Math/Matrix4.cpp
     Math/Quaternion.cpp
     Math/Transform.cpp

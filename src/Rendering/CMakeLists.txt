@@ -9,6 +9,9 @@ add_library(Rendering STATIC
     Pipelines/DeferredRenderPipeline.cpp
     Pipelines/ForwardRenderPipeline.cpp
     Pipelines/RaytracingPipeline.cpp
+    PostProcessing/PostProcessingStack.cpp
+    Materials/Material.cpp
+    Lighting/Light.cpp
     RenderManager.cpp
 )
 

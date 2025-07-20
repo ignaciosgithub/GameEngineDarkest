@@ -174,8 +174,8 @@ float Light::GetSpotAttenuation(const Vector3& lightToPoint) const {
     Vector3 pointDirection = lightToPoint.Normalized();
     
     float cosAngle = lightDirection.Dot(pointDirection);
-    float innerCos = std::cos(m_data.innerConeAngle * 0.5f * M_PI / 180.0f);
-    float outerCos = std::cos(m_data.outerConeAngle * 0.5f * M_PI / 180.0f);
+    float innerCos = std::cos(m_data.innerConeAngle * 0.5f * static_cast<float>(M_PI) / 180.0f);
+    float outerCos = std::cos(m_data.outerConeAngle * 0.5f * static_cast<float>(M_PI) / 180.0f);
     
     if (cosAngle > innerCos) {
         return 1.0f; // Full intensity

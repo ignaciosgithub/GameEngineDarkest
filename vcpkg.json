@@ -6,7 +6,10 @@
         "glfw3",
         "glad",
         "glm",
-        "imgui[glfw-binding,opengl3-binding]",
+        {
+            "name": "imgui",
+            "features": ["glfw-binding", "opengl3-binding"]
+        },
         "gtest"
     ],
     "builtin-baseline": "b91c3336aee7f32412508f7dd351ae2cabdb8819"

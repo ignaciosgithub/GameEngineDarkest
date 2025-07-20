@@ -1,0 +1,23 @@
+#pragma once
+
+#include "../ECS/System.h"
+
+namespace GameEngine {
+    class InputManager;
+    class Window;
+    
+    class MovementSystem : public System<MovementSystem> {
+    public:
+        MovementSystem(InputManager* inputManager, Window* window);
+        
+        void OnUpdate(World* world, float deltaTime) override;
+        void OnInitialize(World* world) override;
+        
+    private:
+        void UpdateMovement(World* world, float deltaTime);
+        void UpdateMouseLook(World* world, float deltaTime);
+        
+        InputManager* m_inputManager;
+        Window* m_window;
+    };
+}

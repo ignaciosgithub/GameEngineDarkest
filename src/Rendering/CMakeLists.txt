@@ -22,9 +22,9 @@ target_include_directories(Rendering PUBLIC
 
 target_link_libraries(Rendering PUBLIC
     Core
-    glfw
+    ${GLFW_LIBRARIES}
     ${GLEW_LIBRARIES}
-    glm::glm
+    ${GLM_LIBRARIES}
     OpenGL::GL
 )
 

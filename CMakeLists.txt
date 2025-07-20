@@ -13,13 +13,37 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Enable testing
 enable_testing()
 
-# Find packages using system packages
-find_package(PkgConfig REQUIRED)
+# Cross-platform package management
 find_package(OpenGL REQUIRED)
-find_package(glfw3 REQUIRED)
-pkg_check_modules(GLEW REQUIRED glew)
-find_package(glm REQUIRED)
-find_package(GTest REQUIRED)
+
+# Use vcpkg on Windows, system packages on Linux
+if(WIN32)
+    # Windows: Use vcpkg packages
+    find_package(glfw3 CONFIG REQUIRED)
+    find_package(glad CONFIG REQUIRED)
+    find_package(glm CONFIG REQUIRED)
+    find_package(imgui CONFIG REQUIRED)
+    find_package(GTest CONFIG REQUIRED)
+    
+    # Set variables for compatibility
+    set(GLFW_LIBRARIES glfw)
+    set(GLEW_LIBRARIES glad::glad)
+    set(GLM_LIBRARIES glm::glm)
+    set(GTEST_LIBRARIES GTest::gtest GTest::gtest_main)
+else()
+    # Linux: Use system packages
+    find_package(PkgConfig REQUIRED)
+    find_package(glfw3 REQUIRED)
+    pkg_check_modules(GLEW REQUIRED glew)
+    find_package(glm REQUIRED)
+    find_package(GTest REQUIRED)
+    
+    # Set variables for compatibility
+    set(GLFW_LIBRARIES glfw)
+    set(GLEW_LIBRARIES ${GLEW_LIBRARIES})
+    set(GLM_LIBRARIES glm::glm)
+    set(GTEST_LIBRARIES ${GTEST_LIBRARIES})
+endif()
 
 # Compiler-specific options
 if(MSVC)

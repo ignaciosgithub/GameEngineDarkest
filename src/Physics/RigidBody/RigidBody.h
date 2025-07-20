@@ -4,11 +4,22 @@
 #include "../../Core/Math/Quaternion.h"
 
 namespace GameEngine {
+    class PhysicsMaterial;
+    
     enum class ColliderType {
         None = 0,
         Sphere,
         Box,
-        Plane
+        Plane,
+        Capsule,
+        ConvexHull,
+        TriangleMesh
+    };
+    
+    enum class RigidBodyType {
+        Static = 0,    // Immovable, infinite mass
+        Kinematic,     // Movable by script, not affected by forces
+        Dynamic        // Affected by forces and collisions
     };
     
     class RigidBody {
@@ -32,30 +43,53 @@ namespace GameEngine {
         
         // Forces
         const Vector3& GetForce() const { return m_force; }
-        void AddForce(const Vector3& force) { m_force += force; }
-        void ClearForces() { m_force = Vector3::Zero; }
+        const Vector3& GetTorque() const { return m_torque; }
+        void AddForce(const Vector3& force);
+        void AddForceAtPosition(const Vector3& force, const Vector3& position);
+        void AddTorque(const Vector3& torque);
+        void AddImpulse(const Vector3& impulse);
+        void AddImpulseAtPosition(const Vector3& impulse, const Vector3& position);
+        void ClearForces() { m_force = Vector3::Zero; m_torque = Vector3::Zero; }
         
         // Mass and inertia
         float GetMass() const { return m_mass; }
         void SetMass(float mass) { m_mass = mass; m_invMass = (mass > 0.0f) ? 1.0f / mass : 0.0f; }
         float GetInverseMass() const { return m_invMass; }
         
-        // Material properties
-        float GetRestitution() const { return m_restitution; }
-        void SetRestitution(float restitution) { m_restitution = restitution; }
+        // Body type
+        RigidBodyType GetBodyType() const { return m_bodyType; }
+        void SetBodyType(RigidBodyType type) { m_bodyType = type; }
         
-        float GetFriction() const { return m_friction; }
-        void SetFriction(float friction) { m_friction = friction; }
+        // Physics material
+        PhysicsMaterial* GetMaterial() const { return m_material; }
+        void SetMaterial(PhysicsMaterial* material) { m_material = material; }
+        
+        // Legacy material properties (for backward compatibility)
+        float GetRestitution() const;
+        void SetRestitution(float restitution);
+        
+        float GetFriction() const;
+        void SetFriction(float friction);
         
         float GetDamping() const { return m_damping; }
         void SetDamping(float damping) { m_damping = damping; }
         
-        // Static/kinematic flags
-        bool IsStatic() const { return m_isStatic; }
-        void SetStatic(bool isStatic) { m_isStatic = isStatic; }
+        // Body state checks
+        bool IsStatic() const { return m_bodyType == RigidBodyType::Static; }
+        bool IsKinematic() const { return m_bodyType == RigidBodyType::Kinematic; }
+        bool IsDynamic() const { return m_bodyType == RigidBodyType::Dynamic; }
         
-        bool IsKinematic() const { return m_isKinematic; }
-        void SetKinematic(bool isKinematic) { m_isKinematic = isKinematic; }
+        // Sleeping/activation
+        bool IsSleeping() const { return m_sleeping; }
+        void SetSleeping(bool sleeping) { m_sleeping = sleeping; }
+        void WakeUp() { m_sleeping = false; }
+        
+        // Constraints
+        void SetFreezeRotation(bool freeze) { m_freezeRotation = freeze; }
+        bool IsFreezeRotation() const { return m_freezeRotation; }
+        
+        void SetFreezePosition(const Vector3& freeze) { m_freezePosition = freeze; }
+        const Vector3& GetFreezePosition() const { return m_freezePosition; }
         
         // Collider
         ColliderType GetColliderType() const { return m_colliderType; }
@@ -63,6 +97,13 @@ namespace GameEngine {
         
         const Vector3& GetColliderSize() const { return m_colliderSize; }
         void SetColliderSize(const Vector3& size) { m_colliderSize = size; }
+        
+        // Integration
+        void IntegrateVelocity(float deltaTime);
+        void IntegratePosition(float deltaTime);
+        
+        // Utility
+        Vector3 GetPointVelocity(const Vector3& worldPoint) const;
         
     private:
         // Transform
@@ -73,17 +114,30 @@ namespace GameEngine {
         Vector3 m_velocity = Vector3::Zero;
         Vector3 m_angularVelocity = Vector3::Zero;
         Vector3 m_force = Vector3::Zero;
+        Vector3 m_torque = Vector3::Zero;
         
         // Physical properties
         float m_mass = 1.0f;
         float m_invMass = 1.0f;
-        float m_restitution = 0.5f;
-        float m_friction = 0.5f;
+        RigidBodyType m_bodyType = RigidBodyType::Dynamic;
         float m_damping = 0.01f;
         
-        // Flags
-        bool m_isStatic = false;
-        bool m_isKinematic = false;
+        // Physics material
+        PhysicsMaterial* m_material = nullptr;
+        
+        // Legacy properties
+        float m_restitution = 0.5f;
+        float m_friction = 0.5f;
+        
+        // State
+        bool m_sleeping = false;
+        bool m_freezeRotation = false;
+        Vector3 m_freezePosition = Vector3::Zero; // 0 = free, 1 = frozen
+        
+        // Sleep threshold
+        float m_sleepThreshold = 0.1f;
+        float m_sleepTimer = 0.0f;
+        static const float SLEEP_TIME_THRESHOLD;
         
         // Collider
         ColliderType m_colliderType = ColliderType::None;

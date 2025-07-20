@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <algorithm>
 
 namespace GameEngine {
     struct Vector3 {
@@ -25,6 +26,10 @@ namespace GameEngine {
         
         Vector3 operator*(float scalar) const {
             return Vector3(x * scalar, y * scalar, z * scalar);
+        }
+        
+        Vector3 operator*(const Vector3& other) const {
+            return Vector3(x * other.x, y * other.y, z * other.z);
         }
         
         Vector3 operator/(float scalar) const {
@@ -85,6 +90,34 @@ namespace GameEngine {
             if (len > 0.0f) {
                 *this /= len;
             }
+        }
+        
+        // Array access
+        float operator[](int index) const {
+            switch (index) {
+                case 0: return x;
+                case 1: return y;
+                case 2: return z;
+                default: return x;
+            }
+        }
+        
+        float& operator[](int index) {
+            switch (index) {
+                case 0: return x;
+                case 1: return y;
+                case 2: return z;
+                default: return x;
+            }
+        }
+        
+        // Static utility methods
+        static Vector3 Min(const Vector3& a, const Vector3& b) {
+            return Vector3(std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z));
+        }
+        
+        static Vector3 Max(const Vector3& a, const Vector3& b) {
+            return Vector3(std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z));
         }
         
         // Static constants

@@ -3,6 +3,16 @@ add_library(Rendering STATIC
     OpenGL/OpenGLRenderer.cpp
     Shaders/Shader.cpp
     Meshes/Mesh.cpp
+    Core/Buffer.cpp
+    Core/Texture.cpp
+    Core/FrameBuffer.cpp
+    Pipelines/DeferredRenderPipeline.cpp
+    Pipelines/ForwardRenderPipeline.cpp
+    Pipelines/RaytracingPipeline.cpp
+    PostProcessing/PostProcessingStack.cpp
+    Materials/Material.cpp
+    Lighting/Light.cpp
+    RenderManager.cpp
 )
 
 target_include_directories(Rendering PUBLIC

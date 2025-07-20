@@ -1,7 +1,9 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 #include "../../Core/Math/Vector3.h"
+#include "../Core/Buffer.h"
 
 namespace GameEngine {
     struct Vertex {
@@ -18,6 +20,14 @@ namespace GameEngine {
     public:
         Mesh();
         ~Mesh();
+        
+        // Delete copy constructor and assignment operator due to unique_ptr members
+        Mesh(const Mesh&) = delete;
+        Mesh& operator=(const Mesh&) = delete;
+        
+        // Enable move semantics
+        Mesh(Mesh&&) = default;
+        Mesh& operator=(Mesh&&) = default;
         
         void SetVertices(const std::vector<Vertex>& vertices);
         void SetIndices(const std::vector<unsigned int>& indices);
@@ -42,9 +52,9 @@ namespace GameEngine {
         std::vector<Vertex> m_vertices;
         std::vector<unsigned int> m_indices;
         
-        unsigned int m_VAO = 0;
-        unsigned int m_VBO = 0;
-        unsigned int m_EBO = 0;
+        std::unique_ptr<VertexArray> m_vertexArray;
+        std::unique_ptr<Buffer> m_vertexBuffer;
+        std::unique_ptr<Buffer> m_indexBuffer;
         
         bool m_uploaded = false;
     };

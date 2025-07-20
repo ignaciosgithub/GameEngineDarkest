@@ -1,6 +1,10 @@
 #include "Shader.h"
 #include "../../Core/Logging/Logger.h"
-#include <GL/glew.h>
+#ifdef _WIN32
+    #include <glad/glad.h>
+#else
+    #include <GL/glew.h>
+#endif
 #include <fstream>
 #include <sstream>
 

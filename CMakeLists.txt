@@ -13,13 +13,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Enable testing
 enable_testing()
 
-# Find packages using vcpkg/CMake
-find_package(glfw3 CONFIG REQUIRED)
-find_package(glad CONFIG REQUIRED)
-find_package(glm CONFIG REQUIRED)
-find_package(imgui CONFIG REQUIRED)
-find_package(GTest CONFIG REQUIRED)
+# Find packages using system packages
+find_package(PkgConfig REQUIRED)
 find_package(OpenGL REQUIRED)
+find_package(glfw3 REQUIRED)
+pkg_check_modules(GLEW REQUIRED glew)
+find_package(glm REQUIRED)
+find_package(GTest REQUIRED)
 
 # Compiler-specific options
 if(MSVC)

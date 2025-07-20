@@ -2,8 +2,11 @@
 
 #include "../Renderer.h"
 #include "../../Core/Math/Matrix4.h"
+#include <memory>
 
 namespace GameEngine {
+    class Shader;
+    
     class OpenGLRenderer : public Renderer {
     public:
         OpenGLRenderer();
@@ -27,6 +30,7 @@ namespace GameEngine {
         Matrix4 m_viewMatrix;
         Matrix4 m_projectionMatrix;
         
+        std::unique_ptr<Shader> m_basicShader;
         unsigned int m_defaultShaderProgram = 0;
         bool m_initialized = false;
         

@@ -23,9 +23,13 @@ target_include_directories(Rendering PUBLIC
 target_link_libraries(Rendering PUBLIC
     Core
     glfw
-    glad::glad
+    ${GLEW_LIBRARIES}
     glm::glm
     OpenGL::GL
+)
+
+target_include_directories(Rendering PUBLIC
+    ${GLEW_INCLUDE_DIRS}
 )
 
 target_compile_features(Rendering PUBLIC cxx_std_20)

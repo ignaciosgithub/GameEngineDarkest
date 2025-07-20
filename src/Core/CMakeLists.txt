@@ -27,7 +27,7 @@ target_include_directories(Core PUBLIC
 )
 
 target_link_libraries(Core PUBLIC
-    ${GLFW3_LIBRARIES}
+    glfw
     glm::glm
     OpenGL::GL
 )

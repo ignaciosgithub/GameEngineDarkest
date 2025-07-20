@@ -1,6 +1,7 @@
 #include "Mesh.h"
 #include "../../Core/Logging/Logger.h"
 #include <GL/gl.h>
+#include <GL/glext.h>
 #include <cmath>
 
 namespace GameEngine {
@@ -22,17 +23,52 @@ void Mesh::SetIndices(const std::vector<unsigned int>& indices) {
 }
 
 void Mesh::Upload() {
-    Logger::Info("Mesh uploaded (simplified for demo)");
+    if (m_uploaded || m_vertices.empty()) {
+        return;
+    }
+    
+    m_vertexArray = std::make_unique<VertexArray>();
+    m_vertexBuffer = std::make_unique<Buffer>(BufferType::Vertex);
+    
+    m_vertexBuffer->SetData(m_vertices.data(), m_vertices.size() * sizeof(Vertex));
+    
+    std::vector<unsigned int> layout = {3, 3, 3};
+    m_vertexArray->AddVertexBuffer(*m_vertexBuffer, layout);
+    
+    if (!m_indices.empty()) {
+        m_indexBuffer = std::make_unique<Buffer>(BufferType::Index);
+        m_indexBuffer->SetData(m_indices.data(), m_indices.size() * sizeof(unsigned int));
+        m_vertexArray->SetIndexBuffer(*m_indexBuffer);
+    }
+    
     m_uploaded = true;
+    Logger::Info("Mesh uploaded with modern OpenGL buffers");
 }
 
 void Mesh::Bind() const {
+    if (m_vertexArray) {
+        m_vertexArray->Bind();
+    }
 }
 
 void Mesh::Draw() const {
+    if (!m_uploaded || !m_vertexArray) {
+        return;
+    }
+    
+    Bind();
+    
+    if (m_indexBuffer && !m_indices.empty()) {
+        Logger::Debug("Drawing mesh with " + std::to_string(m_indices.size()) + " indices (simplified)");
+    } else {
+        Logger::Debug("Drawing mesh with " + std::to_string(m_vertices.size()) + " vertices (simplified)");
+    }
 }
 
 void Mesh::Unbind() const {
+    if (m_vertexArray) {
+        m_vertexArray->Unbind();
+    }
 }
 
 unsigned int Mesh::GetIndexCount() const {
@@ -40,6 +76,9 @@ unsigned int Mesh::GetIndexCount() const {
 }
 
 void Mesh::CleanupBuffers() {
+    m_vertexArray.reset();
+    m_vertexBuffer.reset();
+    m_indexBuffer.reset();
     m_uploaded = false;
 }
 
@@ -65,11 +104,6 @@ Mesh Mesh::CreateCube(float size) {
 }
 
 Mesh Mesh::CreateSphere(float radius, int /*segments*/) {
-    Mesh mesh;
-    
-    std::vector<Vertex> vertices;
-    std::vector<unsigned int> indices;
-    
     return CreateCube(radius * 2.0f);
 }
 

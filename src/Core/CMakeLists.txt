@@ -29,7 +29,7 @@ target_include_directories(Core PUBLIC
 target_link_libraries(Core PUBLIC
     ${GLFW3_LIBRARIES}
     glm::glm
-    GL
+    OpenGL::GL
 )
 
 target_compile_features(Core PUBLIC cxx_std_20)

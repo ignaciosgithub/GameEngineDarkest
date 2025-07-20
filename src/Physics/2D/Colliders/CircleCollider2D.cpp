@@ -31,7 +31,7 @@ Vector2 CircleCollider2D::GetSupport(const Vector2& direction) const {
 }
 
 float CircleCollider2D::GetArea() const {
-    return M_PI * m_radius * m_radius;
+    return static_cast<float>(M_PI) * m_radius * m_radius;
 }
 
 float CircleCollider2D::CalculateInertia(float mass) const {

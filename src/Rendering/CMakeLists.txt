@@ -25,6 +25,7 @@ target_link_libraries(Rendering PUBLIC
     glfw
     glad::glad
     glm::glm
+    OpenGL::GL
 )
 
 target_compile_features(Rendering PUBLIC cxx_std_20)

@@ -18,3 +18,6 @@ target_link_libraries(Physics PUBLIC
 )
 
 target_compile_features(Physics PUBLIC cxx_std_20)
+
+# Add 2D Physics subdirectory
+add_subdirectory(2D)

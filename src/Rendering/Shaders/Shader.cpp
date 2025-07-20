@@ -1,6 +1,6 @@
 #include "Shader.h"
 #include "../../Core/Logging/Logger.h"
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include <fstream>
 #include <sstream>
 

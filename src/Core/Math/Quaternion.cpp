@@ -94,7 +94,7 @@ Vector3 Quaternion::ToEulerAngles() const {
     
     float sinp = 2 * (w * y - z * x);
     if (std::abs(sinp) >= 1) {
-        angles.y = std::copysign(M_PI / 2, sinp);
+        angles.y = std::copysignf(static_cast<float>(M_PI) / 2.0f, sinp);
     } else {
         angles.y = std::asin(sinp);
     }

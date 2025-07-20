@@ -1,6 +1,10 @@
 #include "Quaternion.h"
 #include <cmath>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 namespace GameEngine {
 
 Quaternion::Quaternion(const Vector3& axis, float angle) {

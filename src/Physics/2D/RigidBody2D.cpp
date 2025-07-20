@@ -4,6 +4,10 @@
 #include "../../Core/Logging/Logger.h"
 #include <cmath>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 namespace GameEngine {
 
 const float RigidBody2D::SLEEP_TIME_THRESHOLD = 1.0f;

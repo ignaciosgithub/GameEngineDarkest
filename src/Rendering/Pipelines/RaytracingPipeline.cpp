@@ -327,7 +327,7 @@ Vector3 RaytracingPipeline::CalculateLighting(const HitInfo& hit, const Vector3&
 
 Ray RaytracingPipeline::GetCameraRay(float x, float y) {
     float aspect = static_cast<float>(m_renderData.viewportWidth) / static_cast<float>(m_renderData.viewportHeight);
-    float theta = m_fov * M_PI / 180.0f;
+    float theta = m_fov * static_cast<float>(M_PI) / 180.0f;
     float halfHeight = std::tan(theta / 2.0f);
     float halfWidth = aspect * halfHeight;
     

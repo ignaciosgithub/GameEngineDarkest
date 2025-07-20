@@ -10,6 +10,7 @@
 #include "Systems/CameraSystem.h"
 #include "Systems/MovementSystem.h"
 #include "../Rendering/Renderer.h"
+#include "../Rendering/RenderManager.h"
 #include "../Rendering/Meshes/Mesh.h"
 #include "../Physics/PhysicsWorld.h"
 // #include "../UI/EngineUI.h"  // Temporarily disabled
@@ -48,6 +49,13 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
         Logger::Error("Failed to initialize renderer");
         return false;
     }
+
+    m_renderManager = std::make_unique<RenderManager>();
+    if (!m_renderManager->Initialize(1280, 720)) {
+        Logger::Error("Failed to initialize render manager");
+        return false;
+    }
+    Logger::Info("Render manager initialized with multiple pipelines");
 
     m_physicsWorld = std::make_unique<PhysicsWorld>();
 
@@ -209,6 +217,10 @@ void Engine::Shutdown() {
     Logger::Info("Shutting down Game Engine...");
     
     // m_engineUI.reset();  // Temporarily disabled
+    if (m_renderManager) {
+        m_renderManager->Shutdown();
+        m_renderManager.reset();
+    }
     m_physicsWorld.reset();
     m_renderer.reset();
     m_inputManager.reset();

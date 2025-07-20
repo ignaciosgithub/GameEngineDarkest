@@ -119,7 +119,7 @@ void QuadTree::Retrieve(std::vector<RigidBody2D*>& returnObjects, const QuadTree
 }
 
 int QuadTree::GetObjectCount() const {
-    int count = m_objects.size();
+    int count = static_cast<int>(m_objects.size());
     
     if (m_nodes[0]) {
         for (int i = 0; i < 4; ++i) {

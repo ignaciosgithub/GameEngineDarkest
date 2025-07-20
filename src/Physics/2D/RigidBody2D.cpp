@@ -124,8 +124,8 @@ void RigidBody2D::IntegratePosition(float deltaTime) {
     if (!m_freezeRotation) {
         m_rotation += m_angularVelocity * deltaTime;
         
-        while (m_rotation > M_PI) m_rotation -= 2.0f * M_PI;
-        while (m_rotation < -M_PI) m_rotation += 2.0f * M_PI;
+        while (m_rotation > static_cast<float>(M_PI)) m_rotation -= 2.0f * static_cast<float>(M_PI);
+        while (m_rotation < -static_cast<float>(M_PI)) m_rotation += 2.0f * static_cast<float>(M_PI);
     }
 }
 

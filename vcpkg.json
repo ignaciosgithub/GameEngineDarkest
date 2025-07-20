@@ -1,0 +1,13 @@
+{
+    "name": "gameenginedarkest",
+    "version": "1.0.0",
+    "description": "Modular 3D/2D Game Engine",
+    "dependencies": [
+        "glfw3",
+        "glad",
+        "glm",
+        "imgui[glfw-binding,opengl3-binding]",
+        "gtest"
+    ],
+    "builtin-baseline": "2024.07.12"
+}

@@ -2,6 +2,11 @@
 #include "../Logging/Logger.h"
 #include <GLFW/glfw3.h>
 #include "../../Rendering/Core/OpenGLHeaders.h"
+#ifdef _WIN32
+    #include <glad/glad.h>
+#else
+    #include <GL/glew.h>
+#endif
 
 namespace GameEngine {
 
@@ -33,6 +38,20 @@ bool Window::Create(const std::string& title, int width, int height) {
     glfwSetCursorPosCallback(m_window, OnMouseMove);
     
     glfwMakeContextCurrent(m_window);
+    
+#ifdef _WIN32
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        Logger::Error("Failed to initialize GLAD");
+        return false;
+    }
+    Logger::Info("GLAD initialized successfully");
+#else
+    if (glewInit() != GLEW_OK) {
+        Logger::Error("Failed to initialize GLEW");
+        return false;
+    }
+    Logger::Info("GLEW initialized successfully");
+#endif
     
     glfwSwapInterval(1);
     

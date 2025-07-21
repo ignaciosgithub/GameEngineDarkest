@@ -27,21 +27,41 @@ bool OpenGLRenderer::Initialize() {
         uniform mat4 uView;
         uniform mat4 uProjection;
         
-        out vec3 FragColor;
+        out vec3 FragPos;
+        out vec3 Normal;
+        out vec3 VertexColor;
         
         void main() {
-            gl_Position = uProjection * uView * uModel * vec4(aPos, 1.0);
-            FragColor = aColor;
+            FragPos = vec3(uModel * vec4(aPos, 1.0));
+            Normal = mat3(transpose(inverse(uModel))) * aNormal;
+            VertexColor = aColor;
+            
+            gl_Position = uProjection * uView * vec4(FragPos, 1.0);
         }
     )";
     
     const std::string fragmentSource = R"(
         #version 330 core
-        in vec3 FragColor;
+        in vec3 FragPos;
+        in vec3 Normal;
+        in vec3 VertexColor;
+        
         out vec4 color;
         
+        uniform vec3 lightDir = vec3(-0.2, -1.0, -0.3);
+        uniform vec3 lightColor = vec3(1.0, 1.0, 1.0);
+        uniform vec3 ambientColor = vec3(0.1, 0.1, 0.1);
+        
         void main() {
-            color = vec4(FragColor, 1.0);
+            vec3 ambient = ambientColor * VertexColor;
+            
+            vec3 norm = normalize(Normal);
+            vec3 lightDirection = normalize(-lightDir);
+            float diff = max(dot(norm, lightDirection), 0.0);
+            vec3 diffuse = diff * lightColor * VertexColor;
+            
+            vec3 result = ambient + diffuse;
+            color = vec4(result, 1.0);
         }
     )";
     
@@ -90,6 +110,10 @@ void OpenGLRenderer::DrawMesh(const Mesh& mesh, const Matrix4& modelMatrix, Shad
         activeShader->SetMatrix4("uModel", modelMatrix);
         activeShader->SetMatrix4("uView", m_viewMatrix);
         activeShader->SetMatrix4("uProjection", m_projectionMatrix);
+        
+        activeShader->SetVector3("lightDir", Vector3(-0.2f, -1.0f, -0.3f));
+        activeShader->SetVector3("lightColor", Vector3(1.0f, 1.0f, 1.0f));
+        activeShader->SetVector3("ambientColor", Vector3(0.1f, 0.1f, 0.1f));
     }
     
     mesh.Draw();

@@ -1,12 +1,8 @@
 #include "Window.h"
 #include "../Logging/Logger.h"
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include "../../Rendering/Core/OpenGLHeaders.h"
-#ifdef _WIN32
-    #include <glad/glad.h>
-#else
-    #include <GL/glew.h>
-#endif
 
 namespace GameEngine {
 

@@ -300,7 +300,13 @@ HitInfo RaytracingPipeline::RayIntersectScene(const Ray& ray) {
 }
 
 Vector3 RaytracingPipeline::CalculateLighting(const HitInfo& hit, const Vector3& viewDir) {
-    Vector3 lightDir = (m_lightPos - hit.point).Normalized();
+    Vector3 lightDirection = m_lightPos - hit.point;
+    Vector3 lightDir;
+    if (lightDirection.LengthSquared() > 0.0001f) {
+        lightDir = lightDirection.Normalized();
+    } else {
+        lightDir = Vector3(0.0f, 1.0f, 0.0f); // Default upward direction
+    }
     
     Ray shadowRay(hit.point + hit.normal * 0.001f, lightDir);
     HitInfo shadowHit = RayIntersectScene(shadowRay);
@@ -331,8 +337,21 @@ Ray RaytracingPipeline::GetCameraRay(float x, float y) {
     float halfHeight = std::tan(theta / 2.0f);
     float halfWidth = aspect * halfHeight;
     
-    Vector3 w = (m_cameraPos - m_cameraTarget).Normalized();
-    Vector3 u = m_cameraUp.Cross(w).Normalized();
+    Vector3 wDirection = m_cameraPos - m_cameraTarget;
+    Vector3 w;
+    if (wDirection.LengthSquared() > 0.0001f) {
+        w = wDirection.Normalized();
+    } else {
+        w = Vector3(0.0f, 0.0f, 1.0f); // Default forward direction
+    }
+    
+    Vector3 uCross = m_cameraUp.Cross(w);
+    Vector3 u;
+    if (uCross.LengthSquared() > 0.0001f) {
+        u = uCross.Normalized();
+    } else {
+        u = Vector3(1.0f, 0.0f, 0.0f); // Default right direction
+    }
     Vector3 v = w.Cross(u);
     
     Vector3 lowerLeftCorner = m_cameraPos - halfWidth * u - halfHeight * v - w;
@@ -341,7 +360,13 @@ Ray RaytracingPipeline::GetCameraRay(float x, float y) {
     
     Vector3 direction = lowerLeftCorner + horizontal * x + vertical * y - m_cameraPos;
     
-    return Ray(m_cameraPos, direction.Normalized());
+    if (direction.LengthSquared() > 0.0001f) {
+        direction = direction.Normalized();
+    } else {
+        direction = Vector3(0.0f, 0.0f, -1.0f); // Default forward direction
+    }
+    
+    return Ray(m_cameraPos, direction);
 }
 
 void RaytracingPipeline::RenderPixel(int x, int y, std::vector<Vector3>& framebuffer) {

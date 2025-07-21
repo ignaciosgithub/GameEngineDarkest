@@ -29,7 +29,12 @@ struct Triangle {
         : v0(vertex0), v1(vertex1), v2(vertex2), color(col), reflectivity(refl) {
         Vector3 edge1 = v1 - v0;
         Vector3 edge2 = v2 - v0;
-        normal = edge1.Cross(edge2).Normalized();
+        Vector3 crossProduct = edge1.Cross(edge2);
+        if (crossProduct.LengthSquared() > 0.0001f) {
+            normal = crossProduct.Normalized();
+        } else {
+            normal = Vector3(0.0f, 1.0f, 0.0f); // Default up normal
+        }
     }
 };
 

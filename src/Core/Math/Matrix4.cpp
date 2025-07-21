@@ -60,7 +60,12 @@ Matrix4 Matrix4::Rotation(const Vector3& axis, float angle) {
     float s = std::sin(angle);
     float t = 1.0f - c;
     
-    Vector3 normalizedAxis = axis.Normalized();
+    Vector3 safeAxis = axis;
+    if (safeAxis.LengthSquared() < 0.0001f) {
+        safeAxis = Vector3(0.0f, 1.0f, 0.0f); // Default Y-axis rotation
+    }
+    
+    Vector3 normalizedAxis = safeAxis.Normalized();
     float x = normalizedAxis.x;
     float y = normalizedAxis.y;
     float z = normalizedAxis.z;
@@ -116,8 +121,21 @@ Matrix4 Matrix4::Orthographic(float left, float right, float bottom, float top, 
 }
 
 Matrix4 Matrix4::LookAt(const Vector3& eye, const Vector3& center, const Vector3& up) {
-    Vector3 f = (center - eye).Normalized();
-    Vector3 s = f.Cross(up).Normalized();
+    Vector3 direction = center - eye;
+    
+    if (direction.LengthSquared() < 0.0001f) {
+        direction = Vector3(0.0f, 0.0f, -1.0f); // Default forward direction
+    }
+    
+    Vector3 f = direction.Normalized();
+    Vector3 crossProduct = f.Cross(up);
+    
+    if (crossProduct.LengthSquared() < 0.0001f) {
+        Vector3 alternateUp = (std::abs(f.y) < 0.9f) ? Vector3(0.0f, 1.0f, 0.0f) : Vector3(1.0f, 0.0f, 0.0f);
+        crossProduct = f.Cross(alternateUp);
+    }
+    
+    Vector3 s = crossProduct.Normalized();
     Vector3 u = s.Cross(f);
     
     Matrix4 result = Identity();

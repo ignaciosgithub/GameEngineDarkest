@@ -170,8 +170,19 @@ float Light::GetSpotAttenuation(const Vector3& lightToPoint) const {
         return 1.0f;
     }
     
-    Vector3 lightDirection = m_data.direction.Normalized();
-    Vector3 pointDirection = lightToPoint.Normalized();
+    Vector3 lightDirection;
+    if (m_data.direction.LengthSquared() > 0.0001f) {
+        lightDirection = m_data.direction.Normalized();
+    } else {
+        lightDirection = Vector3(0.0f, -1.0f, 0.0f); // Default downward direction
+    }
+    
+    Vector3 pointDirection;
+    if (lightToPoint.LengthSquared() > 0.0001f) {
+        pointDirection = lightToPoint.Normalized();
+    } else {
+        pointDirection = Vector3(0.0f, 1.0f, 0.0f); // Default upward direction
+    }
     
     float cosAngle = lightDirection.Dot(pointDirection);
     float innerCos = std::cos(m_data.innerConeAngle * 0.5f * static_cast<float>(M_PI) / 180.0f);

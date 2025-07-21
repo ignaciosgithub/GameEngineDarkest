@@ -71,6 +71,8 @@ bool OpenGLRenderer::Initialize() {
         return false;
     }
     
+    Logger::Debug("Shader attribute locations - aPos: 0, aNormal: 1, aColor: 2");
+    
     Logger::Info("OpenGL Renderer initialized successfully");
     return true;
 }

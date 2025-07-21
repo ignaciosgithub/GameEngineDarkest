@@ -23,8 +23,13 @@ void Mesh::SetIndices(const std::vector<unsigned int>& indices) {
 
 void Mesh::Upload() {
     if (m_uploaded || m_vertices.empty()) {
+        Logger::Debug("Mesh upload skipped - uploaded: " + std::to_string(m_uploaded) + ", vertices empty: " + std::to_string(m_vertices.empty()));
         return;
     }
+    
+    Logger::Debug("Starting mesh upload with " + std::to_string(m_vertices.size()) + " vertices");
+    Logger::Debug("First vertex - pos: (" + std::to_string(m_vertices[0].position.x) + ", " + std::to_string(m_vertices[0].position.y) + ", " + std::to_string(m_vertices[0].position.z) + ")");
+    Logger::Debug("First vertex - color: (" + std::to_string(m_vertices[0].color.x) + ", " + std::to_string(m_vertices[0].color.y) + ", " + std::to_string(m_vertices[0].color.z) + ")");
     
     m_vertexArray = std::make_unique<VertexArray>();
     m_vertexBuffer = std::make_unique<Buffer>(BufferType::Vertex);
@@ -85,6 +90,7 @@ void Mesh::CleanupBuffers() {
 }
 
 Mesh Mesh::CreateCube(float size) {
+    Logger::Debug("Creating cube mesh with size: " + std::to_string(size));
     Mesh mesh;
     
     float halfSize = size * 0.5f;
@@ -133,6 +139,7 @@ Mesh Mesh::CreateCube(float size) {
     mesh.SetVertices(vertices);
     mesh.SetIndices(indices);
     
+    Logger::Debug("Cube mesh created with " + std::to_string(vertices.size()) + " vertices and " + std::to_string(indices.size()) + " indices");
     return mesh;
 }
 

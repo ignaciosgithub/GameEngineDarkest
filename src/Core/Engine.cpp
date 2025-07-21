@@ -179,8 +179,10 @@ void Engine::Render() {
     static Mesh cubeMesh = Mesh::CreateCube(1.0f);
     static bool meshUploaded = false;
     if (!meshUploaded) {
+        Logger::Debug("Attempting to upload cube mesh...");
         cubeMesh.Upload();
         meshUploaded = true;
+        Logger::Debug("Cube mesh upload completed, meshUploaded = true");
     }
 
     for (int x = -2; x <= 2; ++x) {

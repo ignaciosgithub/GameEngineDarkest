@@ -9,11 +9,11 @@ namespace GameEngine {
     struct Vertex {
         Vector3 position;
         Vector3 normal;
-        Vector3 texCoords; // Using Vector3 for UV + potential third coordinate
+        Vector3 color; // Using Vector3 for RGB color data
         
         Vertex() = default;
-        Vertex(const Vector3& pos, const Vector3& norm = Vector3::Up, const Vector3& tex = Vector3::Zero)
-            : position(pos), normal(norm), texCoords(tex) {}
+        Vertex(const Vector3& pos, const Vector3& norm = Vector3::Up, const Vector3& col = Vector3::Zero)
+            : position(pos), normal(norm), color(col) {}
     };
     
     class Mesh {

@@ -1,8 +1,8 @@
+#include "../../Rendering/Core/OpenGLHeaders.h"
 #include "Window.h"
 #include "../Logging/Logger.h"
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include "../../Rendering/Core/OpenGLHeaders.h"
 
 namespace GameEngine {
 

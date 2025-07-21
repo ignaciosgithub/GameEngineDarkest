@@ -69,27 +69,6 @@ void OpenGLRenderer::SetViewport(int x, int y, int width, int height) {
 }
 
 void OpenGLRenderer::BeginFrame() {
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    
-    float fov = 45.0f * 3.14159f / 180.0f;
-    float aspect = 1280.0f / 720.0f;
-    float near = 0.1f;
-    float far = 1000.0f;
-    
-    float f = 1.0f / tan(fov / 2.0f);
-    float projection[16] = {
-        f/aspect, 0, 0, 0,
-        0, f, 0, 0,
-        0, 0, (far+near)/(near-far), (2*far*near)/(near-far),
-        0, 0, -1, 0
-    };
-    glLoadMatrixf(projection);
-    
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    
-    glTranslatef(0.0f, -5.0f, -10.0f);
 }
 
 void OpenGLRenderer::EndFrame() {

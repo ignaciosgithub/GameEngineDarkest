@@ -80,6 +80,8 @@ void VertexArray::AddVertexBuffer(const Buffer& vertexBuffer, const std::vector<
     Bind();
     vertexBuffer.Bind();
     
+    m_vertexBufferIndex = 0;
+    
     size_t offset = 0;
     size_t stride = 0;
     for (unsigned int count : layout) {
@@ -87,6 +89,7 @@ void VertexArray::AddVertexBuffer(const Buffer& vertexBuffer, const std::vector<
     }
     
     for (size_t i = 0; i < layout.size(); ++i) {
+        Logger::Info("Setting vertex attribute " + std::to_string(m_vertexBufferIndex) + " with " + std::to_string(layout[i]) + " components, stride=" + std::to_string(stride) + ", offset=" + std::to_string(offset));
         glVertexAttribPointer(m_vertexBufferIndex, static_cast<GLint>(layout[i]), GL_FLOAT, GL_FALSE, static_cast<GLsizei>(stride), (void*)offset);
         glEnableVertexAttribArray(m_vertexBufferIndex);
         offset += layout[i] * sizeof(float);

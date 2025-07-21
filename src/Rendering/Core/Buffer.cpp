@@ -87,7 +87,7 @@ void VertexArray::AddVertexBuffer(const Buffer& vertexBuffer, const std::vector<
     }
     
     for (size_t i = 0; i < layout.size(); ++i) {
-        glVertexAttribPointer(m_vertexBufferIndex, layout[i], GL_FLOAT, GL_FALSE, stride, (void*)offset);
+        glVertexAttribPointer(m_vertexBufferIndex, static_cast<GLint>(layout[i]), GL_FLOAT, GL_FALSE, static_cast<GLsizei>(stride), (void*)offset);
         glEnableVertexAttribArray(m_vertexBufferIndex);
         offset += layout[i] * sizeof(float);
         m_vertexBufferIndex++;

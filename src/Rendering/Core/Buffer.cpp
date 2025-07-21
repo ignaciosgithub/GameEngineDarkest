@@ -5,29 +5,37 @@
 namespace GameEngine {
 
 Buffer::Buffer(BufferType type, BufferUsage usage) 
-    : m_bufferID(1), m_type(type), m_usage(usage) {
-    Logger::Info("Buffer created (simplified for compatibility)");
+    : m_type(type), m_usage(usage) {
+    glGenBuffers(1, &m_bufferID);
+    Logger::Info("Buffer created with ID: " + std::to_string(m_bufferID));
 }
 
 Buffer::~Buffer() {
-    Logger::Info("Buffer destroyed");
+    if (m_bufferID != 0) {
+        glDeleteBuffers(1, &m_bufferID);
+        Logger::Info("Buffer destroyed");
+    }
 }
 
-void Buffer::SetData(const void* /*data*/, size_t size) {
+void Buffer::SetData(const void* data, size_t size) {
     m_size = size;
+    Bind();
+    glBufferData(GetGLBufferType(), size, data, GetGLUsage());
     Logger::Info("Buffer data set, size: " + std::to_string(size));
 }
 
-void Buffer::SetSubData(const void* /*data*/, size_t /*size*/, size_t /*offset*/) {
+void Buffer::SetSubData(const void* data, size_t size, size_t offset) {
+    Bind();
+    glBufferSubData(GetGLBufferType(), offset, size, data);
     Logger::Info("Buffer sub-data set");
 }
 
 void Buffer::Bind() const {
-    Logger::Debug("Buffer bind (simplified)");
+    glBindBuffer(GetGLBufferType(), m_bufferID);
 }
 
 void Buffer::Unbind() const {
-    Logger::Debug("Buffer unbind (simplified)");
+    glBindBuffer(GetGLBufferType(), 0);
 }
 
 unsigned int Buffer::GetGLBufferType() const {
@@ -48,25 +56,44 @@ unsigned int Buffer::GetGLUsage() const {
     }
 }
 
-VertexArray::VertexArray() : m_arrayID(1), m_indexCount(0), m_vertexBufferIndex(0) {
-    Logger::Info("VertexArray created (simplified for compatibility)");
+VertexArray::VertexArray() : m_indexCount(0), m_vertexBufferIndex(0) {
+    glGenVertexArrays(1, &m_arrayID);
+    Logger::Info("VertexArray created with ID: " + std::to_string(m_arrayID));
 }
 
 VertexArray::~VertexArray() {
-    Logger::Info("VertexArray destroyed");
+    if (m_arrayID != 0) {
+        glDeleteVertexArrays(1, &m_arrayID);
+        Logger::Info("VertexArray destroyed");
+    }
 }
 
 void VertexArray::Bind() const {
-    Logger::Debug("VertexArray bind (simplified)");
+    glBindVertexArray(m_arrayID);
 }
 
 void VertexArray::Unbind() const {
-    Logger::Debug("VertexArray unbind (simplified)");
+    glBindVertexArray(0);
 }
 
-void VertexArray::AddVertexBuffer(const Buffer& /*vertexBuffer*/, const std::vector<unsigned int>& layout) {
+void VertexArray::AddVertexBuffer(const Buffer& vertexBuffer, const std::vector<unsigned int>& layout) {
+    Bind();
+    vertexBuffer.Bind();
+    
+    size_t offset = 0;
+    size_t stride = 0;
+    for (unsigned int count : layout) {
+        stride += count * sizeof(float);
+    }
+    
+    for (size_t i = 0; i < layout.size(); ++i) {
+        glVertexAttribPointer(m_vertexBufferIndex, layout[i], GL_FLOAT, GL_FALSE, stride, (void*)offset);
+        glEnableVertexAttribArray(m_vertexBufferIndex);
+        offset += layout[i] * sizeof(float);
+        m_vertexBufferIndex++;
+    }
+    
     Logger::Info("VertexArray buffer added with " + std::to_string(layout.size()) + " attributes");
-    m_vertexBufferIndex += static_cast<unsigned int>(layout.size());
 }
 
 void VertexArray::SetIndexBuffer(const Buffer& indexBuffer) {

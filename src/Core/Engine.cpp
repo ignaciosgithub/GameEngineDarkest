@@ -15,6 +15,7 @@
 #include "../Rendering/Meshes/Mesh.h"
 #include "../Physics/PhysicsWorld.h"
 // #include "../UI/EngineUI.h"  // Temporarily disabled
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include "../Rendering/Core/OpenGLHeaders.h"
 

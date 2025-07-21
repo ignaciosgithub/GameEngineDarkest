@@ -1,3 +1,4 @@
+#include "../Rendering/Core/OpenGLHeaders.h"
 #include "Engine.h"
 #include "ECS/World.h"
 #include "Platform/Window.h"
@@ -17,7 +18,6 @@
 // #include "../UI/EngineUI.h"  // Temporarily disabled
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include "../Rendering/Core/OpenGLHeaders.h"
 
 namespace GameEngine {
 

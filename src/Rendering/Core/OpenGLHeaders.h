@@ -13,9 +13,12 @@
     #undef max
 #endif
 
-// Include OpenGL headers in the correct order
-#include <GL/gl.h>
-#include <GL/glext.h>
+// Platform-specific OpenGL extension loading
+#ifdef _WIN32
+    #include <glad/glad.h>
+#else
+    #include <GL/glew.h>
+#endif
 
 // Additional OpenGL utilities if needed
 #ifdef _WIN32

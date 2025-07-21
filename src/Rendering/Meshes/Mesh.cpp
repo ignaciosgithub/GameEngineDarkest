@@ -1,6 +1,6 @@
 #include "Mesh.h"
 #include "../../Core/Logging/Logger.h"
-#include <glad/glad.h>
+#include "../Core/OpenGLHeaders.h"
 #include <cmath>
 
 namespace GameEngine {

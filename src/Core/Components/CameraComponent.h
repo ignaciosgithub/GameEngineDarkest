@@ -24,7 +24,24 @@ namespace GameEngine {
             Vector3 forward = transform.GetForward();
             Vector3 up = transform.GetUp();
             
-            return Matrix4::LookAt(position, position + forward, up);
+            // Safety check: ensure forward vector is not zero
+            if (forward.LengthSquared() < 0.0001f) {
+                forward = Vector3::Forward; // Default forward direction
+            }
+            
+            // Safety check: ensure up vector is not zero
+            if (up.LengthSquared() < 0.0001f) {
+                up = Vector3::Up; // Default up direction
+            }
+            
+            Vector3 target = position + forward;
+            
+            // Safety check: ensure camera is not looking at itself
+            if ((target - position).LengthSquared() < 0.0001f) {
+                target = position + Vector3::Forward;
+            }
+            
+            return Matrix4::LookAt(position, target, up);
         }
     };
 }

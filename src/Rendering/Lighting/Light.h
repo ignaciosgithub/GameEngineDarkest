@@ -44,7 +44,13 @@ public:
     
     // Light properties
     void SetPosition(const Vector3& position) { m_data.position = position; }
-    void SetDirection(const Vector3& direction) { m_data.direction = direction.Normalized(); }
+    void SetDirection(const Vector3& direction) { 
+        if (direction.LengthSquared() > 0.0001f) {
+            m_data.direction = direction.Normalized(); 
+        } else {
+            m_data.direction = Vector3(0.0f, -1.0f, 0.0f); // Default downward direction
+        }
+    }
     void SetColor(const Vector3& color) { m_data.color = color; }
     void SetIntensity(float intensity) { m_data.intensity = intensity; }
     void SetRange(float range) { m_data.range = range; }

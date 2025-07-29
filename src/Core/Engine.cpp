@@ -144,16 +144,11 @@ void Engine::Update(float deltaTime) {
 }
 
 void Engine::Render() {
-    if (!m_renderer) return;
+    if (!m_renderManager) return;
 
     int width, height;
     width = 1280; height = 720; // Simplified for demo
-    m_renderer->SetViewport(0, 0, width, height);
-
-    m_renderer->Clear();
-
-    m_renderer->BeginFrame();
-
+    
     Entity cameraEntity;
     for (const auto& entity : m_world->GetEntities()) {
         if (m_world->HasComponent<CameraComponent>(entity)) {
@@ -162,37 +157,24 @@ void Engine::Render() {
         }
     }
 
+    RenderData renderData;
+    renderData.viewportWidth = width;
+    renderData.viewportHeight = height;
+    
     if (cameraEntity.IsValid()) {
         auto* camera = m_world->GetComponent<CameraComponent>(cameraEntity);
         auto* transform = m_world->GetComponent<TransformComponent>(cameraEntity);
 
         if (camera && transform) {
             float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
-            Matrix4 projection = camera->GetProjectionMatrix(aspectRatio);
-            Matrix4 view = camera->GetViewMatrix(transform->transform);
-
-            m_renderer->SetProjectionMatrix(projection);
-            m_renderer->SetViewMatrix(view);
+            renderData.projectionMatrix = camera->GetProjectionMatrix(aspectRatio);
+            renderData.viewMatrix = camera->GetViewMatrix(transform->transform);
         }
     }
 
-    static Mesh cubeMesh = Mesh::CreateCube(1.0f);
-    static bool meshUploaded = false;
-    if (!meshUploaded) {
-        Logger::Debug("Attempting to upload cube mesh...");
-        cubeMesh.Upload();
-        meshUploaded = true;
-        Logger::Debug("Cube mesh upload completed, meshUploaded = true");
-    }
-
-    for (int x = -2; x <= 2; ++x) {
-        for (int z = -2; z <= 2; ++z) {
-            Matrix4 modelMatrix = Matrix4::Translation(Vector3(x * 3.0f, 0.0f, z * 3.0f));
-            m_renderer->DrawMesh(cubeMesh, modelMatrix);
-        }
-    }
-
-    m_renderer->EndFrame();
+    m_renderManager->BeginFrame(renderData);
+    m_renderManager->Render(m_world.get());
+    m_renderManager->EndFrame();
 
     // if (m_engineUI) {
     //     m_engineUI->Render();

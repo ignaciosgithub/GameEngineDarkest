@@ -5,21 +5,27 @@
 namespace GameEngine {
 
 FrameBuffer::FrameBuffer(int width, int height) 
-    : m_framebufferID(1), m_width(width), m_height(height) {
-    Logger::Info("FrameBuffer created (simplified for compatibility)");
+    : m_width(width), m_height(height) {
+    glGenFramebuffers(1, &m_framebufferID);
+    Logger::Info("FrameBuffer created with ID: " + std::to_string(m_framebufferID));
 }
 
 FrameBuffer::~FrameBuffer() {
+    if (m_framebufferID != 0) {
+        glDeleteFramebuffers(1, &m_framebufferID);
+    }
     Logger::Info("FrameBuffer destroyed");
 }
 
 void FrameBuffer::Bind() const {
-    Logger::Debug("FrameBuffer bind (simplified)");
+    glBindFramebuffer(GL_FRAMEBUFFER, m_framebufferID);
     glViewport(0, 0, m_width, m_height);
+    Logger::Debug("FrameBuffer bound with ID: " + std::to_string(m_framebufferID));
 }
 
 void FrameBuffer::Unbind() const {
-    Logger::Debug("FrameBuffer unbind (simplified)");
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    Logger::Debug("FrameBuffer unbound");
 }
 
 void FrameBuffer::AddColorAttachment(TextureFormat format) {
@@ -31,7 +37,10 @@ void FrameBuffer::AddColorAttachment(TextureFormat format) {
     
     m_colorAttachments.emplace_back(texture, attachment);
     
-    Logger::Info("FrameBuffer color attachment added (simplified)");
+    Bind();
+    AttachTexture(texture, attachment);
+    
+    Logger::Info("FrameBuffer color attachment " + std::to_string(attachmentIndex) + " added");
 }
 
 void FrameBuffer::AddDepthAttachment(TextureFormat format) {
@@ -58,8 +67,14 @@ void FrameBuffer::Resize(int width, int height) {
 }
 
 bool FrameBuffer::IsComplete() const {
-    Logger::Debug("FrameBuffer completeness check (simplified)");
-    return true;
+    Bind();
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    bool complete = (status == GL_FRAMEBUFFER_COMPLETE);
+    if (!complete) {
+        Logger::Error("FrameBuffer is not complete. Status: " + std::to_string(status));
+    }
+    Logger::Debug(std::string("FrameBuffer completeness check: ") + (complete ? "COMPLETE" : "INCOMPLETE"));
+    return complete;
 }
 
 std::shared_ptr<Texture> FrameBuffer::GetColorTexture(unsigned int index) const {
@@ -76,8 +91,14 @@ std::shared_ptr<Texture> FrameBuffer::GetDepthTexture() const {
 void FrameBuffer::CreateAttachments() {
     Bind();
     
+    std::vector<GLenum> drawBuffers;
     for (const auto& attachment : m_colorAttachments) {
         AttachTexture(attachment.texture, attachment.attachmentType);
+        drawBuffers.push_back(attachment.attachmentType);
+    }
+    
+    if (!drawBuffers.empty()) {
+        glDrawBuffers(static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
     }
     
     if (m_depthAttachment) {
@@ -85,8 +106,11 @@ void FrameBuffer::CreateAttachments() {
     }
 }
 
-void FrameBuffer::AttachTexture(const std::shared_ptr<Texture>& /*texture*/, unsigned int /*attachment*/) {
-    Logger::Debug("FrameBuffer texture attachment (simplified)");
+void FrameBuffer::AttachTexture(const std::shared_ptr<Texture>& texture, unsigned int attachment) {
+    if (texture) {
+        glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, texture->GetID(), 0);
+        Logger::Debug("Texture attached to framebuffer attachment: " + std::to_string(attachment));
+    }
 }
 
 }

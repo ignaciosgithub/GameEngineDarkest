@@ -4,11 +4,15 @@
 
 namespace GameEngine {
 
-Texture::Texture() : m_textureID(1), m_width(0), m_height(0), m_format(TextureFormat::RGBA8) {
-    Logger::Info("Texture created (simplified for compatibility)");
+Texture::Texture() : m_textureID(0), m_width(0), m_height(0), m_format(TextureFormat::RGBA8) {
+    glGenTextures(1, &m_textureID);
+    Logger::Info("Texture created with ID: " + std::to_string(m_textureID));
 }
 
 Texture::~Texture() {
+    if (m_textureID != 0) {
+        glDeleteTextures(1, &m_textureID);
+    }
     Logger::Info("Texture destroyed");
 }
 
@@ -23,23 +27,49 @@ void Texture::CreateEmpty(int width, int height, TextureFormat format) {
     m_height = height;
     m_format = format;
     
-    Logger::Info("Texture created empty (simplified): " + std::to_string(width) + "x" + std::to_string(height));
+    glBindTexture(GL_TEXTURE_2D, m_textureID);
+    
+    GLenum internalFormat = GetGLInternalFormat(format);
+    GLenum dataFormat = GetGLFormat(format);
+    GLenum dataType = GetGLType(format);
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, dataFormat, dataType, nullptr);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
+    
+    Logger::Info("Texture created empty: " + std::to_string(width) + "x" + std::to_string(height) + " with ID: " + std::to_string(m_textureID));
 }
 
 void Texture::Bind(unsigned int slot) const {
-    Logger::Debug("Texture bind to slot " + std::to_string(slot) + " (simplified)");
+    glActiveTexture(GL_TEXTURE0 + slot);
+    glBindTexture(GL_TEXTURE_2D, m_textureID);
+    Logger::Debug("Texture bound to slot " + std::to_string(slot) + " with ID: " + std::to_string(m_textureID));
 }
 
 void Texture::Unbind() const {
-    Logger::Debug("Texture unbind (simplified)");
+    glBindTexture(GL_TEXTURE_2D, 0);
+    Logger::Debug("Texture unbound");
 }
 
-void Texture::SetFilter(TextureFilter /*minFilter*/, TextureFilter /*magFilter*/) {
-    Logger::Debug("Texture filter set (simplified)");
+void Texture::SetFilter(TextureFilter minFilter, TextureFilter magFilter) {
+    glBindTexture(GL_TEXTURE_2D, m_textureID);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GetGLFilter(minFilter));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GetGLFilter(magFilter));
+    glBindTexture(GL_TEXTURE_2D, 0);
+    Logger::Debug("Texture filter set");
 }
 
-void Texture::SetWrap(TextureWrap /*wrapS*/, TextureWrap /*wrapT*/) {
-    Logger::Debug("Texture wrap set (simplified)");
+void Texture::SetWrap(TextureWrap wrapS, TextureWrap wrapT) {
+    glBindTexture(GL_TEXTURE_2D, m_textureID);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GetGLWrap(wrapS));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GetGLWrap(wrapT));
+    glBindTexture(GL_TEXTURE_2D, 0);
+    Logger::Debug("Texture wrap set");
 }
 
 unsigned int Texture::GetGLFormat(TextureFormat format) const {

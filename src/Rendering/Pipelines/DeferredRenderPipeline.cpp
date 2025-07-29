@@ -136,7 +136,7 @@ void DeferredRenderPipeline::CreateShaders() {
         #version 330 core
         layout (location = 0) in vec3 aPosition;
         layout (location = 1) in vec3 aNormal;
-        layout (location = 2) in vec2 aTexCoord;
+        layout (location = 2) in vec3 aColor;
         
         uniform mat4 uModel;
         uniform mat4 uView;
@@ -144,13 +144,13 @@ void DeferredRenderPipeline::CreateShaders() {
         
         out vec3 FragPos;
         out vec3 Normal;
-        out vec2 TexCoord;
+        out vec3 VertexColor;
         
         void main() {
             vec4 worldPos = uModel * vec4(aPosition, 1.0);
             FragPos = worldPos.xyz;
             Normal = mat3(transpose(inverse(uModel))) * aNormal;
-            TexCoord = aTexCoord;
+            VertexColor = aColor;
             
             gl_Position = uProjection * uView * worldPos;
         }
@@ -165,14 +165,13 @@ void DeferredRenderPipeline::CreateShaders() {
         
         in vec3 FragPos;
         in vec3 Normal;
-        in vec2 TexCoord;
+        in vec3 VertexColor;
         
-        uniform vec3 uAlbedo = vec3(1.0, 0.0, 0.0);
         uniform float uMetallic = 0.0;
         uniform float uRoughness = 0.5;
         
         void main() {
-            gAlbedoMetallic = vec4(uAlbedo, uMetallic);
+            gAlbedoMetallic = vec4(VertexColor, uMetallic);
             gNormalRoughness = vec4(normalize(Normal) * 0.5 + 0.5, uRoughness);
             gPosition = vec4(FragPos, gl_FragCoord.z);
             gMotionMaterial = vec4(0.0, 0.0, 1.0, 1.0);
@@ -282,7 +281,6 @@ void DeferredRenderPipeline::GeometryPass(World* /*world*/) {
             
             if (m_geometryShader) {
                 m_geometryShader->SetMatrix4("uModel", modelMatrix);
-                m_geometryShader->SetVector3("uAlbedo", Vector3(0.8f, 0.2f, 0.2f));
                 m_geometryShader->SetFloat("uMetallic", 0.1f);
                 m_geometryShader->SetFloat("uRoughness", 0.6f);
             }

@@ -161,8 +161,10 @@ void DeferredRenderPipeline::GeometryPass(World* /*world*/) {
     static Mesh cubeMesh = Mesh::CreateCube(1.0f);
     static bool meshUploaded = false;
     if (!meshUploaded) {
+        Logger::Debug("DeferredRenderPipeline: Attempting to upload cube mesh...");
         cubeMesh.Upload();
         meshUploaded = true;
+        Logger::Debug("DeferredRenderPipeline: Cube mesh upload completed, meshUploaded = true");
     }
     
     for (int x = -2; x <= 2; ++x) {

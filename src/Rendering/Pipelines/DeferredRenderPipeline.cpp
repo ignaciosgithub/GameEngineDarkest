@@ -203,8 +203,8 @@ void DeferredRenderPipeline::CreateShaders() {
         uniform sampler2D gPosition;
         
         uniform vec3 lightDir = vec3(-0.2, -1.0, -0.3);
-        uniform vec3 lightColor = vec3(1.0, 1.0, 1.0);
-        uniform vec3 ambientColor = vec3(0.1, 0.1, 0.1);
+        uniform vec3 lightColor = vec3(2.0, 2.0, 2.0);
+        uniform vec3 ambientColor = vec3(0.3, 0.3, 0.3);
         
         void main() {
             vec4 albedoMetallic = texture(gAlbedoMetallic, TexCoord);
@@ -319,8 +319,8 @@ void DeferredRenderPipeline::LightingPass(World* /*world*/) {
         }
         
         m_lightingShader->SetVector3("lightDir", Vector3(-0.2f, -1.0f, -0.3f));
-        m_lightingShader->SetVector3("lightColor", Vector3(1.0f, 1.0f, 1.0f));
-        m_lightingShader->SetVector3("ambientColor", Vector3(0.1f, 0.1f, 0.1f));
+        m_lightingShader->SetVector3("lightColor", Vector3(2.0f, 2.0f, 2.0f));
+        m_lightingShader->SetVector3("ambientColor", Vector3(0.3f, 0.3f, 0.3f));
     }
     
     RenderFullscreenQuad();

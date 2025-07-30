@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GameEngineDarkest Frame Viewer</title>
+    <style>
+        body { 
+            background-color: #222; 
+            color: white; 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+        }
+        .frame-container { 
+            margin: 20px 0; 
+            border: 2px solid #666; 
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .frame-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+        img { 
+            max-width: 100%; 
+            border: 1px solid #444;
+            display: block;
+        }
+        .frame-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #ccc;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 20px;
+        }
+        .sample-frames {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>GameEngineDarkest Rendering Frames</h1>
+        <p>Deferred Rendering Pipeline - 5x5 Cube Grid Demo</p>
+        <p>Total Frames Generated: 700+ (frame0.png - frame700+.png)</p>
+    </div>
+
+    <div class="sample-frames">
+        <div class="frame-container">
+            <div class="frame-title">Frame 0 (First Frame)</div>
+            <img src="frames/frame0.png" alt="Frame 0" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div style="display:none; color:red;">Error loading frame0.png</div>
+            <div class="frame-info">Initial rendering state</div>
+        </div>
+
+        <div class="frame-container">
+            <div class="frame-title">Frame 100 (Early Frame)</div>
+            <img src="frames/frame100.png" alt="Frame 100" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div style="display:none; color:red;">Error loading frame100.png</div>
+            <div class="frame-info">Early rendering sample</div>
+        </div>
+
+        <div class="frame-container">
+            <div class="frame-title">Frame 1000 (Mid Frame)</div>
+            <img src="frames/frame1000.png" alt="Frame 1000" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div style="display:none; color:red;">Error loading frame1000.png</div>
+            <div class="frame-info">Middle rendering sample</div>
+        </div>
+
+        <div class="frame-container">
+            <div class="frame-title">Frame 3000 (Late Frame)</div>
+            <img src="frames/frame3000.png" alt="Frame 3000" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div style="display:none; color:red;">Error loading frame3000.png</div>
+            <div class="frame-info">Late rendering sample</div>
+        </div>
+
+        <div class="frame-container">
+            <div class="frame-title">Frame 600 (Recent Frame)</div>
+            <img src="frames/frame600.png" alt="Frame 600" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div style="display:none; color:red;">Error loading frame600.png</div>
+            <div class="frame-info">Recent rendering state with World entity integration</div>
+        </div>
+    </div>
+
+    <div style="margin-top: 40px; padding: 20px; border: 1px solid #666; border-radius: 8px;">
+        <h3>Technical Details</h3>
+        <ul>
+            <li><strong>Rendering Pipeline:</strong> Deferred Rendering with G-Buffer</li>
+            <li><strong>Scene Content:</strong> 5x5 grid of cubes (25 total cubes)</li>
+            <li><strong>Frame Format:</strong> PNG with RGBA channels</li>
+            <li><strong>Frame Size:</strong> ~36KB per frame</li>
+            <li><strong>Resolution:</strong> 1280x720 pixels</li>
+            <li><strong>Frame Rate:</strong> ~12.5 FPS (125 frames in 10 seconds)</li>
+        </ul>
+    </div>
+</body>
+</html>

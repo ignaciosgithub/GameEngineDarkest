@@ -2,6 +2,37 @@
 
 namespace GameEngine {
 
+Matrix4 QuaternionToMatrix(const Quaternion& q) {
+    float x = q.x, y = q.y, z = q.z, w = q.w;
+    float x2 = x + x, y2 = y + y, z2 = z + z;
+    float xx = x * x2, xy = x * y2, xz = x * z2;
+    float yy = y * y2, yz = y * z2, zz = z * z2;
+    float wx = w * x2, wy = w * y2, wz = w * z2;
+
+    Matrix4 result;
+    result[0] = 1.0f - (yy + zz);
+    result[1] = xy + wz;
+    result[2] = xz - wy;
+    result[3] = 0.0f;
+    
+    result[4] = xy - wz;
+    result[5] = 1.0f - (xx + zz);
+    result[6] = yz + wx;
+    result[7] = 0.0f;
+    
+    result[8] = xz + wy;
+    result[9] = yz - wx;
+    result[10] = 1.0f - (xx + yy);
+    result[11] = 0.0f;
+    
+    result[12] = 0.0f;
+    result[13] = 0.0f;
+    result[14] = 0.0f;
+    result[15] = 1.0f;
+    
+    return result;
+}
+
 Transform::Transform() 
     : m_position(Vector3::Zero)
     , m_rotation(Quaternion::Identity())
@@ -110,7 +141,7 @@ void Transform::MarkDirty() {
 
 void Transform::UpdateMatrices() const {
     Matrix4 translation = Matrix4::Translation(m_position);
-    Matrix4 rotation = Matrix4::Rotation(Vector3(0, 1, 0), 0); // TODO: Convert quaternion to matrix
+    Matrix4 rotation = QuaternionToMatrix(m_rotation);
     Matrix4 scale = Matrix4::Scale(m_scale);
     
     m_localToWorld = translation * rotation * scale;

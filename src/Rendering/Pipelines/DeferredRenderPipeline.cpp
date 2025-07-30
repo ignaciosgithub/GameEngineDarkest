@@ -257,7 +257,7 @@ void DeferredRenderPipeline::CreateShaders() {
     Logger::Info("Created complete deferred rendering shaders with lighting and composite passes");
 }
 
-void DeferredRenderPipeline::GeometryPass(World* /*world*/) {
+void DeferredRenderPipeline::GeometryPass(World* world) {
     m_gBuffer->Bind();
     
     if (m_geometryShader) {
@@ -275,17 +275,40 @@ void DeferredRenderPipeline::GeometryPass(World* /*world*/) {
         Logger::Debug("DeferredRenderPipeline: Cube mesh upload completed, meshUploaded = true");
     }
     
-    for (int x = -2; x <= 2; ++x) {
-        for (int z = -2; z <= 2; ++z) {
-            Matrix4 modelMatrix = Matrix4::Translation(Vector3(x * 3.0f, 0.0f, z * 3.0f));
-            
-            if (m_geometryShader) {
-                m_geometryShader->SetMatrix4("uModel", modelMatrix);
-                m_geometryShader->SetFloat("uMetallic", 0.1f);
-                m_geometryShader->SetFloat("uRoughness", 0.6f);
+    if (world) {
+        int entityCount = 0;
+        for (const auto& entity : world->GetEntities()) {
+            if (world->HasComponent<TransformComponent>(entity)) {
+                auto* transformComp = world->GetComponent<TransformComponent>(entity);
+                if (transformComp) {
+                    Matrix4 modelMatrix = transformComp->transform.GetLocalToWorldMatrix();
+                    
+                    if (m_geometryShader) {
+                        m_geometryShader->SetMatrix4("uModel", modelMatrix);
+                        m_geometryShader->SetFloat("uMetallic", 0.1f);
+                        m_geometryShader->SetFloat("uRoughness", 0.6f);
+                    }
+                    
+                    cubeMesh.Draw();
+                    entityCount++;
+                }
             }
-            
-            cubeMesh.Draw();
+        }
+        Logger::Debug("DeferredRenderPipeline: Rendered " + std::to_string(entityCount) + " entities from World");
+    } else {
+        Logger::Warning("DeferredRenderPipeline: World is null, falling back to hardcoded cubes");
+        for (int x = -2; x <= 2; ++x) {
+            for (int z = -2; z <= 2; ++z) {
+                Matrix4 modelMatrix = Matrix4::Translation(Vector3(x * 3.0f, 0.0f, z * 3.0f));
+                
+                if (m_geometryShader) {
+                    m_geometryShader->SetMatrix4("uModel", modelMatrix);
+                    m_geometryShader->SetFloat("uMetallic", 0.1f);
+                    m_geometryShader->SetFloat("uRoughness", 0.6f);
+                }
+                
+                cubeMesh.Draw();
+            }
         }
     }
 }

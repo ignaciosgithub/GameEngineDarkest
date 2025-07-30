@@ -203,15 +203,15 @@ void DeferredRenderPipeline::CreateShaders() {
         uniform sampler2D gPosition;
         
         uniform vec3 lightDir = vec3(-0.2, -1.0, -0.3);
-        uniform vec3 lightColor = vec3(0.8, 0.8, 0.8);
-        uniform vec3 ambientColor = vec3(0.05, 0.05, 0.05);
+        uniform vec3 lightColor = vec3(2.0, 2.0, 2.0);
+        uniform vec3 ambientColor = vec3(0.3, 0.3, 0.3);
         
         void main() {
             vec4 albedoMetallic = texture(gAlbedoMetallic, TexCoord);
             vec4 normalRoughness = texture(gNormalRoughness, TexCoord);
             vec4 position = texture(gPosition, TexCoord);
             
-            if (position.w <= 0.0 || length(albedoMetallic.rgb) < 0.01) {
+            if (position.w <= 0.0 || length(albedoMetallic.rgb) < 0.001) {
                 FragColor = vec4(0.0, 0.0, 0.0, 1.0);
                 return;
             }
@@ -263,12 +263,17 @@ void DeferredRenderPipeline::CreateShaders() {
 }
 
 void DeferredRenderPipeline::GeometryPass(World* world) {
+    Logger::Debug("DeferredRenderPipeline: Starting geometry pass");
     m_gBuffer->Bind();
+    Logger::Debug("DeferredRenderPipeline: G-buffer bound successfully");
     
     if (m_geometryShader) {
         m_geometryShader->Use();
         m_geometryShader->SetMatrix4("uView", m_renderData.viewMatrix);
         m_geometryShader->SetMatrix4("uProjection", m_renderData.projectionMatrix);
+        Logger::Debug("DeferredRenderPipeline: Geometry shader activated and view/projection matrices set");
+    } else {
+        Logger::Warning("DeferredRenderPipeline: No geometry shader available!");
     }
     
     static Mesh cubeMesh = Mesh::CreateCube(1.0f);
@@ -288,13 +293,19 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
                 if (transformComp) {
                     Matrix4 modelMatrix = transformComp->transform.GetLocalToWorldMatrix();
                     
+                    Logger::Debug("DeferredRenderPipeline: Entity " + std::to_string(entity.GetID()) + 
+                                " position: (" + std::to_string(modelMatrix[12]) + ", " + 
+                                std::to_string(modelMatrix[13]) + ", " + std::to_string(modelMatrix[14]) + ")");
+                    
                     if (m_geometryShader) {
                         m_geometryShader->SetMatrix4("uModel", modelMatrix);
                         m_geometryShader->SetFloat("uMetallic", 0.1f);
                         m_geometryShader->SetFloat("uRoughness", 0.6f);
+                        Logger::Debug("DeferredRenderPipeline: Set uniforms for entity " + std::to_string(entity.GetID()));
                     }
                     
                     cubeMesh.Draw();
+                    Logger::Debug("DeferredRenderPipeline: Drew cube for entity " + std::to_string(entity.GetID()));
                     entityCount++;
                 }
             }
@@ -306,6 +317,9 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
             for (int z = -2; z <= 2; ++z) {
                 Matrix4 modelMatrix = Matrix4::Translation(Vector3(x * 3.0f, 0.0f, z * 3.0f));
                 
+                Logger::Debug("DeferredRenderPipeline: Hardcoded cube at (" + std::to_string(x * 3.0f) + 
+                            ", 0.0, " + std::to_string(z * 3.0f) + ")");
+                
                 if (m_geometryShader) {
                     m_geometryShader->SetMatrix4("uModel", modelMatrix);
                     m_geometryShader->SetFloat("uMetallic", 0.1f);
@@ -316,6 +330,7 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
             }
         }
     }
+    Logger::Debug("DeferredRenderPipeline: Geometry pass completed");
 }
 
 void DeferredRenderPipeline::LightingPass(World* /*world*/) {

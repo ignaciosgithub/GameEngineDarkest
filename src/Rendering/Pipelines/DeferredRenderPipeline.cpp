@@ -144,7 +144,7 @@ void DeferredRenderPipeline::CreateShaders() {
         
         out vec3 FragPos;
         out vec3 Normal;
-        out vec3 VertexColor;
+        flat out vec3 VertexColor;
         
         void main() {
             vec4 worldPos = uModel * vec4(aPosition, 1.0);
@@ -165,7 +165,7 @@ void DeferredRenderPipeline::CreateShaders() {
         
         in vec3 FragPos;
         in vec3 Normal;
-        in vec3 VertexColor;
+        flat in vec3 VertexColor;
         
         uniform float uMetallic = 0.0;
         uniform float uRoughness = 0.5;
@@ -342,8 +342,8 @@ void DeferredRenderPipeline::LightingPass(World* /*world*/) {
         }
         
         m_lightingShader->SetVector3("lightDir", Vector3(-0.2f, -1.0f, -0.3f));
-        m_lightingShader->SetVector3("lightColor", Vector3(0.8f, 0.8f, 0.8f));
-        m_lightingShader->SetVector3("ambientColor", Vector3(0.05f, 0.05f, 0.05f));
+        m_lightingShader->SetVector3("lightColor", Vector3(2.0f, 2.0f, 2.0f));
+        m_lightingShader->SetVector3("ambientColor", Vector3(0.3f, 0.3f, 0.3f));
     }
     
     RenderFullscreenQuad();

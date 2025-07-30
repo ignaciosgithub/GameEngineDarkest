@@ -29,7 +29,7 @@ bool OpenGLRenderer::Initialize() {
         
         out vec3 FragPos;
         out vec3 Normal;
-        out vec3 VertexColor;
+        flat out vec3 VertexColor;
         
         void main() {
             FragPos = vec3(uModel * vec4(aPos, 1.0));
@@ -44,7 +44,7 @@ bool OpenGLRenderer::Initialize() {
         #version 330 core
         in vec3 FragPos;
         in vec3 Normal;
-        in vec3 VertexColor;
+        flat in vec3 VertexColor;
         
         out vec4 color;
         

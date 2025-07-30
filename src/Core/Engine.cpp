@@ -189,10 +189,10 @@ void Engine::CreateDemoScene() {
     Logger::Info("Creating demo scene...");
 
     Entity cameraEntity = m_world->CreateEntity();
-    auto* cameraTransform = m_world->AddComponent<TransformComponent>(cameraEntity, Vector3(0, 5, 10));
+    auto* cameraTransform = m_world->AddComponent<TransformComponent>(cameraEntity, Vector3(0, 10, -15));
     
-    Quaternion lookDownRotation = Quaternion::FromAxisAngle(Vector3::Right, -0.3f);
-    cameraTransform->transform.SetRotation(lookDownRotation);
+    Quaternion lookAtRotation = Quaternion::FromAxisAngle(Vector3::Right, 0.3f);
+    cameraTransform->transform.SetRotation(lookAtRotation);
     
     m_world->AddComponent<CameraComponent>(cameraEntity, 45.0f);
     m_world->AddComponent<MovementComponent>(cameraEntity, 5.0f, 2.0f);

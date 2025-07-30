@@ -211,6 +211,11 @@ void DeferredRenderPipeline::CreateShaders() {
             vec4 normalRoughness = texture(gNormalRoughness, TexCoord);
             vec4 position = texture(gPosition, TexCoord);
             
+            if (position.w <= 0.0 || length(albedoMetallic.rgb) < 0.01) {
+                FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+                return;
+            }
+            
             vec3 albedo = albedoMetallic.rgb;
             vec3 normal = normalize(normalRoughness.rgb * 2.0 - 1.0);
             

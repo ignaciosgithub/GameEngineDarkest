@@ -15,7 +15,7 @@ bool OpenGLRenderer::Initialize() {
     Logger::Info("Initializing OpenGL Renderer...");
     
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     
     const std::string vertexSource = R"(
         #version 330 core

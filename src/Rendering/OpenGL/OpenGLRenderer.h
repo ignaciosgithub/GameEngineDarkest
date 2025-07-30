@@ -18,7 +18,7 @@ namespace GameEngine {
         void BeginFrame() override;
         void EndFrame() override;
         
-        void Clear(const Vector3& color = Vector3(0.2f, 0.3f, 0.3f)) override;
+        void Clear(const Vector3& color = Vector3(0.0f, 0.0f, 0.0f)) override;
         void SetViewport(int x, int y, int width, int height) override;
         
         void SetViewMatrix(const Matrix4& view) override;

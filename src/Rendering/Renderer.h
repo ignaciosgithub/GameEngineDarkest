@@ -26,7 +26,7 @@ namespace GameEngine {
         virtual void BeginFrame() = 0;
         virtual void EndFrame() = 0;
         
-        virtual void Clear(const Vector3& color = Vector3(0.2f, 0.3f, 0.3f)) = 0;
+        virtual void Clear(const Vector3& color = Vector3(0.0f, 0.0f, 0.0f)) = 0;
         virtual void SetViewport(int x, int y, int width, int height) = 0;
         
         virtual void SetViewMatrix(const Matrix4& view) = 0;

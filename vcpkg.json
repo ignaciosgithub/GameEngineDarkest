@@ -10,7 +10,9 @@
             "name": "imgui",
             "features": ["glfw-binding", "opengl3-binding"]
         },
-        "gtest"
+        "gtest",
+        "openal-soft",
+        "assimp"
     ],
     "builtin-baseline": "b91c3336aee7f32412508f7dd351ae2cabdb8819"
 }

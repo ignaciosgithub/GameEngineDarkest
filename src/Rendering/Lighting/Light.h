@@ -9,6 +9,11 @@
 
 namespace GameEngine {
 
+// Multi-light system constants
+static constexpr int MAX_LIGHTS = 32;
+static constexpr float MAX_BRIGHTNESS = 100.0f;
+static constexpr float DEFAULT_BRIGHTNESS = 1.0f;
+
 enum class LightType {
     Directional,
     Point,

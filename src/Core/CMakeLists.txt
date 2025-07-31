@@ -25,6 +25,7 @@ add_library(Core STATIC
     GameObject/Prefab.cpp
     Time/Timer.cpp
     Editor/PlayModeManager.cpp
+    Physics/RayCaster.cpp
     Engine.cpp
 )
 
@@ -43,3 +44,7 @@ target_link_libraries(Core PUBLIC
 )
 
 target_compile_features(Core PUBLIC cxx_std_20)
+
+# Test executables
+add_executable(LightIntegrationTest Tests/LightIntegrationTest.cpp)
+target_link_libraries(LightIntegrationTest Core Rendering)

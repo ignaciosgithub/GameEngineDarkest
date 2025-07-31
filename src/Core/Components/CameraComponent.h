@@ -4,6 +4,7 @@
 #include "../Math/Matrix4.h"
 #include "../Math/Transform.h"
 #include "../Logging/Logger.h"
+#include <algorithm>
 
 namespace GameEngine {
     class CameraComponent : public Component<CameraComponent> {
@@ -15,6 +16,18 @@ namespace GameEngine {
         float fieldOfView = 45.0f;
         float nearPlane = 0.1f;
         float farPlane = 1000.0f;
+        
+        void SetFOV(float fov) {
+            fieldOfView = std::clamp(fov, 10.0f, 170.0f);
+        }
+        
+        float GetFOV() const { 
+            return fieldOfView; 
+        }
+        
+        void AdjustFOV(float delta) {
+            SetFOV(fieldOfView + delta);
+        }
         
         Matrix4 GetProjectionMatrix(float aspectRatio) const {
             float fovRadians = fieldOfView * 3.14159f / 180.0f;

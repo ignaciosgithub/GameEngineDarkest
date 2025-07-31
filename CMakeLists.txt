@@ -24,12 +24,16 @@ if(WIN32)
     find_package(glm CONFIG REQUIRED)
     find_package(imgui CONFIG REQUIRED)
     find_package(GTest CONFIG REQUIRED)
+    find_package(OpenAL CONFIG)
+    find_package(assimp CONFIG)
     
     # Set variables for compatibility
     set(GLFW_LIBRARIES glfw)
     set(GLEW_LIBRARIES glad::glad)
     set(GLM_LIBRARIES glm::glm)
     set(GTEST_LIBRARIES GTest::gtest GTest::gtest_main)
+    set(OPENAL_LIBRARIES OpenAL::OpenAL)
+    set(ASSIMP_LIBRARIES assimp::assimp)
 else()
     # Linux: Use system packages
     find_package(PkgConfig REQUIRED)
@@ -37,6 +41,8 @@ else()
     pkg_check_modules(GLEW REQUIRED glew)
     find_package(glm REQUIRED)
     find_package(GTest REQUIRED)
+    pkg_check_modules(OPENAL openal)
+    find_package(assimp)
     
     # ImGui for Linux - use as submodule or system package
     find_path(IMGUI_INCLUDE_DIR imgui.h PATHS /usr/include/imgui /usr/local/include/imgui)
@@ -50,6 +56,8 @@ else()
     set(GLEW_LIBRARIES ${GLEW_LIBRARIES})
     set(GLM_LIBRARIES glm::glm)
     set(GTEST_LIBRARIES ${GTEST_LIBRARIES})
+    set(OPENAL_LIBRARIES ${OPENAL_LIBRARIES})
+    set(ASSIMP_LIBRARIES assimp)
     
     # Create ImGui target for Linux
     add_library(imgui INTERFACE)

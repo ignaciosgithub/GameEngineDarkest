@@ -4,6 +4,8 @@
 #include "../../Core/Logging/Logger.h"
 #include "../Meshes/Mesh.h"
 #include "../Core/OpenGLHeaders.h"
+#include "../Lighting/LightManager.h"
+#include "../Lighting/Light.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #pragma GCC diagnostic push
@@ -202,9 +204,13 @@ void DeferredRenderPipeline::CreateShaders() {
         uniform sampler2D gNormalRoughness;
         uniform sampler2D gPosition;
         
-        uniform vec3 lightDir = vec3(-0.2, -1.0, -0.3);
-        uniform vec3 lightColor = vec3(0.8, 0.8, 0.8);
-        uniform vec3 ambientColor = vec3(0.05, 0.05, 0.05);
+        uniform int numLights;
+        uniform vec3 lightPositions[32];
+        uniform vec3 lightColors[32];
+        uniform float lightIntensities[32];
+        uniform int lightTypes[32];
+        uniform float lightRanges[32];
+        uniform vec3 viewPos;
         
         void main() {
             vec4 albedoMetallic = texture(gAlbedoMetallic, TexCoord);
@@ -218,14 +224,53 @@ void DeferredRenderPipeline::CreateShaders() {
             
             vec3 albedo = albedoMetallic.rgb;
             vec3 normal = normalize(normalRoughness.rgb * 2.0 - 1.0);
+            vec3 fragPos = position.xyz;
+            vec3 viewDir = normalize(viewPos - fragPos);
             
-            vec3 ambient = ambientColor * albedo;
+            vec3 totalLighting = vec3(0.0);
+            float totalBrightness = 0.0;
             
-            vec3 lightDirection = normalize(-lightDir);
-            float diff = max(dot(normal, lightDirection), 0.0);
-            vec3 diffuse = diff * lightColor * albedo;
+            for(int i = 0; i < numLights && i < 32; i++) {
+                vec3 lightContribution = vec3(0.0);
+                
+                if(lightTypes[i] == 0) {
+                    vec3 lightDir = normalize(-lightPositions[i]);
+                    float diff = max(dot(normal, lightDir), 0.0);
+                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i] * albedo;
+                    
+                    vec3 reflectDir = reflect(-lightDir, normal);
+                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+                    vec3 specular = spec * lightColors[i] * lightIntensities[i];
+                    
+                    lightContribution = diffuse + specular;
+                } else if(lightTypes[i] == 1) {
+                    vec3 lightDir = normalize(lightPositions[i] - fragPos);
+                    float distance = length(lightPositions[i] - fragPos);
+                    
+                    float attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
+                    if(distance > lightRanges[i]) attenuation = 0.0;
+                    
+                    float diff = max(dot(normal, lightDir), 0.0);
+                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i] * attenuation * albedo;
+                    
+                    vec3 reflectDir = reflect(-lightDir, normal);
+                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+                    vec3 specular = spec * lightColors[i] * lightIntensities[i] * attenuation;
+                    
+                    lightContribution = diffuse + specular;
+                }
+                
+                totalLighting += lightContribution;
+                totalBrightness += lightIntensities[i];
+            }
             
-            vec3 result = ambient + diffuse;
+            if(totalBrightness > 100.0) {
+                totalLighting *= (100.0 / totalBrightness);
+            }
+            
+            vec3 ambient = vec3(0.1, 0.1, 0.1) * albedo;
+            vec3 result = ambient + totalLighting;
+            
             FragColor = vec4(result, 1.0);
         }
     )";
@@ -318,7 +363,7 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
     }
 }
 
-void DeferredRenderPipeline::LightingPass(World* /*world*/) {
+void DeferredRenderPipeline::LightingPass(World* world) {
     m_lightingBuffer->Bind();
     glClear(GL_COLOR_BUFFER_BIT);
     
@@ -346,9 +391,27 @@ void DeferredRenderPipeline::LightingPass(World* /*world*/) {
             }
         }
         
-        m_lightingShader->SetVector3("lightDir", Vector3(-0.2f, -1.0f, -0.3f));
-        m_lightingShader->SetVector3("lightColor", Vector3(2.0f, 2.0f, 2.0f));
-        m_lightingShader->SetVector3("ambientColor", Vector3(0.3f, 0.3f, 0.3f));
+        LightManager lightManager;
+        lightManager.CollectLights(world);
+        lightManager.ApplyBrightnessLimits();
+        
+        std::vector<LightManager::ShaderLightData> lightData;
+        lightManager.GetShaderLightData(lightData);
+        
+        m_lightingShader->SetInt("numLights", static_cast<int>(lightData.size()));
+        
+        for (size_t i = 0; i < lightData.size() && i < MAX_LIGHTS; ++i) {
+            std::string indexStr = std::to_string(i);
+            m_lightingShader->SetVector3("lightPositions[" + indexStr + "]", lightData[i].position);
+            m_lightingShader->SetVector3("lightColors[" + indexStr + "]", lightData[i].color);
+            m_lightingShader->SetFloat("lightIntensities[" + indexStr + "]", lightData[i].intensity);
+            m_lightingShader->SetInt("lightTypes[" + indexStr + "]", lightData[i].type);
+            m_lightingShader->SetFloat("lightRanges[" + indexStr + "]", lightData[i].range);
+        }
+        
+        Matrix4 invViewMatrix = m_renderData.viewMatrix.Inverted();
+        Vector3 cameraPosition = Vector3(invViewMatrix.m[12], invViewMatrix.m[13], invViewMatrix.m[14]);
+        m_lightingShader->SetVector3("viewPos", cameraPosition);
     }
     
     RenderFullscreenQuad();

@@ -1,0 +1,147 @@
+<svg width="1400" height="900" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1400" height="900" fill="#2d2d30"/>
+  
+  <!-- Main Menu Bar -->
+  <rect x="0" y="0" width="1400" height="30" fill="#3c3c3c"/>
+  <text x="10" y="20" fill="#ffffff" font-family="Arial" font-size="12">File  Edit  View  GameObject  Component  Window  Help</text>
+  <text x="1200" y="20" fill="#ffffff" font-family="Arial" font-size="12">Play Mode: EDIT</text>
+  
+  <!-- Toolbar -->
+  <rect x="0" y="30" width="1400" height="40" fill="#383838"/>
+  <rect x="10" y="35" width="30" height="30" fill="#4a4a4a" stroke="#666" stroke-width="1"/>
+  <text x="20" y="53" fill="#fff" font-family="Arial" font-size="16">▶</text>
+  <rect x="50" y="35" width="30" height="30" fill="#4a4a4a" stroke="#666" stroke-width="1"/>
+  <text x="60" y="53" fill="#fff" font-family="Arial" font-size="16">⏸</text>
+  <rect x="90" y="35" width="30" height="30" fill="#4a4a4a" stroke="#666" stroke-width="1"/>
+  <text x="100" y="53" fill="#fff" font-family="Arial" font-size="16">⏹</text>
+  
+  <!-- Scene Hierarchy Panel -->
+  <rect x="0" y="70" width="300" height="830" fill="#383838" stroke="#555" stroke-width="1"/>
+  <rect x="0" y="70" width="300" height="25" fill="#4a4a4a"/>
+  <text x="10" y="87" fill="#ffffff" font-family="Arial" font-size="12" font-weight="bold">Scene Hierarchy</text>
+  
+  <!-- Scene tree items -->
+  <text x="10" y="110" fill="#ffffff" font-family="Arial" font-size="11">📁 MainScene</text>
+  <text x="25" y="130" fill="#ffffff" font-family="Arial" font-size="11">📷 Main Camera</text>
+  <text x="25" y="150" fill="#ffffff" font-family="Arial" font-size="11">💡 Directional Light</text>
+  <text x="25" y="170" fill="#ffffff" font-family="Arial" font-size="11">📁 Cubes</text>
+  <text x="40" y="190" fill="#ffffff" font-family="Arial" font-size="11">🟦 Cube_0_0</text>
+  <text x="40" y="210" fill="#ffffff" font-family="Arial" font-size="11">🟦 Cube_0_1</text>
+  <text x="40" y="230" fill="#ffffff" font-family="Arial" font-size="11">🟦 Cube_0_2</text>
+  <text x="40" y="250" fill="#ffffff" font-family="Arial" font-size="11">🟦 ...</text>
+  <text x="25" y="270" fill="#ffffff" font-family="Arial" font-size="11">📁 Lights</text>
+  <text x="40" y="290" fill="#ff6666" font-family="Arial" font-size="11">💡 Point Light (Red)</text>
+  <text x="40" y="310" fill="#66ff66" font-family="Arial" font-size="11">💡 Point Light (Green)</text>
+  <text x="40" y="330" fill="#6666ff" font-family="Arial" font-size="11">💡 Point Light (Blue)</text>
+  
+  <!-- Viewport Panel -->
+  <rect x="300" y="70" width="800" height="600" fill="#1e1e1e" stroke="#555" stroke-width="1"/>
+  <rect x="300" y="70" width="800" height="25" fill="#4a4a4a"/>
+  <text x="310" y="87" fill="#ffffff" font-family="Arial" font-size="12" font-weight="bold">Scene View</text>
+  <text x="1050" y="87" fill="#ffffff" font-family="Arial" font-size="10">Forward Rendering | FOV: 60°</text>
+  
+  <!-- 3D Scene representation -->
+  <rect x="310" y="100" width="780" height="560" fill="#0a0a0a"/>
+  
+  <!-- Grid of cubes in perspective -->
+  <g transform="translate(650, 400)">
+    <!-- Back row cubes (smaller, further) -->
+    <rect x="-150" y="-80" width="20" height="20" fill="#666" stroke="#888" stroke-width="1"/>
+    <rect x="-120" y="-80" width="20" height="20" fill="#666" stroke="#888" stroke-width="1"/>
+    <rect x="-90" y="-80" width="20" height="20" fill="#666" stroke="#888" stroke-width="1"/>
+    <rect x="-60" y="-80" width="20" height="20" fill="#666" stroke="#888" stroke-width="1"/>
+    <rect x="-30" y="-80" width="20" height="20" fill="#666" stroke="#888" stroke-width="1"/>
+    
+    <!-- Middle row cubes -->
+    <rect x="-160" y="-40" width="25" height="25" fill="#888" stroke="#aaa" stroke-width="1"/>
+    <rect x="-125" y="-40" width="25" height="25" fill="#888" stroke="#aaa" stroke-width="1"/>
+    <rect x="-90" y="-40" width="25" height="25" fill="#888" stroke="#aaa" stroke-width="1"/>
+    <rect x="-55" y="-40" width="25" height="25" fill="#888" stroke="#aaa" stroke-width="1"/>
+    <rect x="-20" y="-40" width="25" height="25" fill="#888" stroke="#aaa" stroke-width="1"/>
+    
+    <!-- Front row cubes (larger, closer) -->
+    <rect x="-175" y="10" width="35" height="35" fill="#aaa" stroke="#ccc" stroke-width="1"/>
+    <rect x="-130" y="10" width="35" height="35" fill="#aaa" stroke="#ccc" stroke-width="1"/>
+    <rect x="-85" y="10" width="35" height="35" fill="#aaa" stroke="#ccc" stroke-width="1"/>
+    <rect x="-40" y="10" width="35" height="35" fill="#aaa" stroke="#ccc" stroke-width="1"/>
+    <rect x="5" y="10" width="35" height="35" fill="#aaa" stroke="#ccc" stroke-width="1"/>
+  </g>
+  
+  <!-- Light effects -->
+  <circle cx="500" cy="300" r="30" fill="none" stroke="#ff6666" stroke-width="2" opacity="0.5"/>
+  <circle cx="700" cy="250" r="25" fill="none" stroke="#66ff66" stroke-width="2" opacity="0.5"/>
+  <circle cx="850" cy="350" r="35" fill="none" stroke="#6666ff" stroke-width="2" opacity="0.5"/>
+  
+  <!-- Camera controls overlay -->
+  <text x="320" y="640" fill="#ffffff" font-family="Arial" font-size="10">WASD: Move | Mouse: Look | Scroll: Zoom</text>
+  
+  <!-- Inspector Panel -->
+  <rect x="1100" y="70" width="300" height="600" fill="#383838" stroke="#555" stroke-width="1"/>
+  <rect x="1100" y="70" width="300" height="25" fill="#4a4a4a"/>
+  <text x="1110" y="87" fill="#ffffff" font-family="Arial" font-size="12" font-weight="bold">Inspector</text>
+  
+  <!-- Inspector content for selected cube -->
+  <text x="1110" y="110" fill="#ffffff" font-family="Arial" font-size="11" font-weight="bold">Cube_0_0</text>
+  <text x="1110" y="130" fill="#cccccc" font-family="Arial" font-size="10">Tag: Untagged    Layer: Default</text>
+  
+  <!-- Transform Component -->
+  <rect x="1110" y="140" width="280" height="80" fill="#4a4a4a" stroke="#666" stroke-width="1"/>
+  <text x="1115" y="155" fill="#ffffff" font-family="Arial" font-size="10" font-weight="bold">Transform</text>
+  <text x="1115" y="175" fill="#cccccc" font-family="Arial" font-size="9">Position: (0.0, 0.0, 0.0)</text>
+  <text x="1115" y="190" fill="#cccccc" font-family="Arial" font-size="9">Rotation: (0.0, 0.0, 0.0)</text>
+  <text x="1115" y="205" fill="#cccccc" font-family="Arial" font-size="9">Scale: (1.0, 1.0, 1.0)</text>
+  
+  <!-- Mesh Component -->
+  <rect x="1110" y="230" width="280" height="60" fill="#4a4a4a" stroke="#666" stroke-width="1"/>
+  <text x="1115" y="245" fill="#ffffff" font-family="Arial" font-size="10" font-weight="bold">Mesh Renderer</text>
+  <text x="1115" y="265" fill="#cccccc" font-family="Arial" font-size="9">Mesh: Cube</text>
+  <text x="1115" y="280" fill="#cccccc" font-family="Arial" font-size="9">Material: Default</text>
+  
+  <!-- RigidBody Component -->
+  <rect x="1110" y="300" width="280" height="80" fill="#4a4a4a" stroke="#666" stroke-width="1"/>
+  <text x="1115" y="315" fill="#ffffff" font-family="Arial" font-size="10" font-weight="bold">Rigid Body</text>
+  <text x="1115" y="335" fill="#cccccc" font-family="Arial" font-size="9">Mass: 1.0</text>
+  <text x="1115" y="350" fill="#cccccc" font-family="Arial" font-size="9">Drag: 0.0</text>
+  <text x="1115" y="365" fill="#cccccc" font-family="Arial" font-size="9">Use Gravity: ✓</text>
+  
+  <!-- Console/Log Panel -->
+  <rect x="300" y="670" width="800" height="230" fill="#383838" stroke="#555" stroke-width="1"/>
+  <rect x="300" y="670" width="800" height="25" fill="#4a4a4a"/>
+  <text x="310" y="687" fill="#ffffff" font-family="Arial" font-size="12" font-weight="bold">Console</text>
+  
+  <!-- Console messages -->
+  <text x="310" y="710" fill="#66ff66" font-family="Courier" font-size="9">[INFO] Engine initialized successfully</text>
+  <text x="310" y="725" fill="#66ff66" font-family="Courier" font-size="9">[INFO] Multi-light rendering system active</text>
+  <text x="310" y="740" fill="#66ff66" font-family="Courier" font-size="9">[INFO] 3 point lights created with occlusion support</text>
+  <text x="310" y="755" fill="#66ff66" font-family="Courier" font-size="9">[INFO] Camera FOV set to 60 degrees</text>
+  <text x="310" y="770" fill="#66ff66" font-family="Courier" font-size="9">[INFO] Forward rendering pipeline active</text>
+  <text x="310" y="785" fill="#ffff66" font-family="Courier" font-size="9">[WARN] Light brightness clamped to MAX_BRIGHTNESS (100.0f)</text>
+  <text x="310" y="800" fill="#66ff66" font-family="Courier" font-size="9">[INFO] Ray casting system initialized</text>
+  <text x="310" y="815" fill="#66ff66" font-family="Courier" font-size="9">[INFO] Texture system with mipmap support ready</text>
+  <text x="310" y="830" fill="#66ff66" font-family="Courier" font-size="9">[INFO] Audio system initialized (OpenAL)</text>
+  <text x="310" y="845" fill="#66ff66" font-family="Courier" font-size="9">[INFO] UDP/TCP networking ready</text>
+  <text x="310" y="860" fill="#66ff66" font-family="Courier" font-size="9">[INFO] Editor UI panels loaded</text>
+  <text x="310" y="875" fill="#66ff66" font-family="Courier" font-size="9">[INFO] Ready for game development</text>
+  
+  <!-- Project Panel -->
+  <rect x="1100" y="670" width="300" height="230" fill="#383838" stroke="#555" stroke-width="1"/>
+  <rect x="1100" y="670" width="300" height="25" fill="#4a4a4a"/>
+  <text x="1110" y="687" fill="#ffffff" font-family="Arial" font-size="12" font-weight="bold">Project</text>
+  
+  <!-- Project tree -->
+  <text x="1110" y="710" fill="#ffffff" font-family="Arial" font-size="10">📁 Assets</text>
+  <text x="1125" y="730" fill="#ffffff" font-family="Arial" font-size="10">📁 Models</text>
+  <text x="1140" y="750" fill="#cccccc" font-family="Arial" font-size="9">cube.obj</text>
+  <text x="1125" y="770" fill="#ffffff" font-family="Arial" font-size="10">📁 Textures</text>
+  <text x="1140" y="790" fill="#cccccc" font-family="Arial" font-size="9">default.png</text>
+  <text x="1125" y="810" fill="#ffffff" font-family="Arial" font-size="10">📁 Audio</text>
+  <text x="1140" y="830" fill="#cccccc" font-family="Arial" font-size="9">ambient.wav</text>
+  <text x="1125" y="850" fill="#ffffff" font-family="Arial" font-size="10">📁 Scripts</text>
+  <text x="1140" y="870" fill="#cccccc" font-family="Arial" font-size="9">PlayerController.cpp</text>
+  
+  <!-- Status bar -->
+  <rect x="0" y="900" width="1400" height="20" fill="#007acc"/>
+  <text x="10" y="915" fill="#ffffff" font-family="Arial" font-size="10">GameEngineDarkest v1.0.0 | Multi-Light Support | Forward Rendering | 25 GameObjects | FPS: 60</text>
+  <text x="1200" y="915" fill="#ffffff" font-family="Arial" font-size="10">Memory: 245MB</text>
+</svg>

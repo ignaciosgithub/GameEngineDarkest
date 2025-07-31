@@ -13,6 +13,8 @@ add_library(Rendering STATIC
     PostProcessing/PostProcessingStack.cpp
     Materials/Material.cpp
     Lighting/Light.cpp
+    Lighting/LightManager.cpp
+    Lighting/LightOcclusion.cpp
     RenderManager.cpp
 )
 

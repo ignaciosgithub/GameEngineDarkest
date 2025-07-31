@@ -5,6 +5,8 @@
 #include "../Meshes/Mesh.h"
 #include "../Core/OpenGLHeaders.h"
 #include "../Core/stb_image_write.h"
+#include "../Lighting/LightManager.h"
+#include "../Lighting/Light.h"
 #include <string>
 #include <cstring>
 
@@ -75,24 +77,62 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         in vec3 Normal;
         in vec3 Color;
         
-        uniform vec3 lightPos;
-        uniform vec3 lightColor;
+        uniform int numLights;
+        uniform vec3 lightPositions[32];
+        uniform vec3 lightColors[32];
+        uniform float lightIntensities[32];
+        uniform int lightTypes[32];
+        uniform float lightRanges[32];
         uniform vec3 viewPos;
         
         void main() {
-            vec3 ambient = 1.5 * lightColor;
-            
             vec3 norm = normalize(Normal);
-            vec3 lightDir = normalize(lightPos - FragPos);
-            float diff = max(dot(norm, lightDir), 0.0);
-            vec3 diffuse = diff * lightColor;
-            
             vec3 viewDir = normalize(viewPos - FragPos);
-            vec3 reflectDir = reflect(-lightDir, norm);
-            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-            vec3 specular = spec * lightColor;
             
-            vec3 result = (ambient + diffuse + specular) * Color;
+            vec3 totalLighting = vec3(0.0);
+            float totalBrightness = 0.0;
+            
+            for(int i = 0; i < numLights && i < 32; i++) {
+                vec3 lightContribution = vec3(0.0);
+                
+                if(lightTypes[i] == 0) {
+                    vec3 lightDir = normalize(-lightPositions[i]);
+                    float diff = max(dot(norm, lightDir), 0.0);
+                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i];
+                    
+                    vec3 reflectDir = reflect(-lightDir, norm);
+                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+                    vec3 specular = spec * lightColors[i] * lightIntensities[i];
+                    
+                    lightContribution = diffuse + specular;
+                } else if(lightTypes[i] == 1) {
+                    vec3 lightDir = normalize(lightPositions[i] - FragPos);
+                    float distance = length(lightPositions[i] - FragPos);
+                    
+                    float attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
+                    if(distance > lightRanges[i]) attenuation = 0.0;
+                    
+                    float diff = max(dot(norm, lightDir), 0.0);
+                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i] * attenuation;
+                    
+                    vec3 reflectDir = reflect(-lightDir, norm);
+                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+                    vec3 specular = spec * lightColors[i] * lightIntensities[i] * attenuation;
+                    
+                    lightContribution = diffuse + specular;
+                }
+                
+                totalLighting += lightContribution;
+                totalBrightness += lightIntensities[i];
+            }
+            
+            if(totalBrightness > 100.0) {
+                totalLighting *= (100.0 / totalBrightness);
+            }
+            
+            vec3 ambient = vec3(0.1, 0.1, 0.1);
+            vec3 result = (ambient + totalLighting) * Color;
+            
             FragColor = vec4(result, 1.0);
         }
     )";
@@ -107,25 +147,63 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         in vec3 Normal;
         in vec3 Color;
         
-        uniform vec3 lightPos;
-        uniform vec3 lightColor;
+        uniform int numLights;
+        uniform vec3 lightPositions[32];
+        uniform vec3 lightColors[32];
+        uniform float lightIntensities[32];
+        uniform int lightTypes[32];
+        uniform float lightRanges[32];
         uniform vec3 viewPos;
         uniform float alpha;
         
         void main() {
-            vec3 ambient = 0.6 * lightColor;
-            
             vec3 norm = normalize(Normal);
-            vec3 lightDir = normalize(lightPos - FragPos);
-            float diff = max(dot(norm, lightDir), 0.0);
-            vec3 diffuse = diff * lightColor;
-            
             vec3 viewDir = normalize(viewPos - FragPos);
-            vec3 reflectDir = reflect(-lightDir, norm);
-            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-            vec3 specular = spec * lightColor;
             
-            vec3 result = (ambient + diffuse + specular) * Color;
+            vec3 totalLighting = vec3(0.0);
+            float totalBrightness = 0.0;
+            
+            for(int i = 0; i < numLights && i < 32; i++) {
+                vec3 lightContribution = vec3(0.0);
+                
+                if(lightTypes[i] == 0) {
+                    vec3 lightDir = normalize(-lightPositions[i]);
+                    float diff = max(dot(norm, lightDir), 0.0);
+                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i];
+                    
+                    vec3 reflectDir = reflect(-lightDir, norm);
+                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+                    vec3 specular = spec * lightColors[i] * lightIntensities[i];
+                    
+                    lightContribution = diffuse + specular;
+                } else if(lightTypes[i] == 1) {
+                    vec3 lightDir = normalize(lightPositions[i] - FragPos);
+                    float distance = length(lightPositions[i] - FragPos);
+                    
+                    float attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
+                    if(distance > lightRanges[i]) attenuation = 0.0;
+                    
+                    float diff = max(dot(norm, lightDir), 0.0);
+                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i] * attenuation;
+                    
+                    vec3 reflectDir = reflect(-lightDir, norm);
+                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+                    vec3 specular = spec * lightColors[i] * lightIntensities[i] * attenuation;
+                    
+                    lightContribution = diffuse + specular;
+                }
+                
+                totalLighting += lightContribution;
+                totalBrightness += lightIntensities[i];
+            }
+            
+            if(totalBrightness > 100.0) {
+                totalLighting *= (100.0 / totalBrightness);
+            }
+            
+            vec3 ambient = vec3(0.1, 0.1, 0.1);
+            vec3 result = (ambient + totalLighting) * Color;
+            
             FragColor = vec4(result, alpha);
         }
     )";
@@ -275,9 +353,27 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
         std::to_string(m_renderData.projectionMatrix.m[4]) + ", " + std::to_string(m_renderData.projectionMatrix.m[5]) + ", " + std::to_string(m_renderData.projectionMatrix.m[6]) + ", " + std::to_string(m_renderData.projectionMatrix.m[7]) + "]");
     m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
-    m_forwardShader->SetVector3("lightPos", Vector3(0.0f, 20.0f, 10.0f));
-    m_forwardShader->SetVector3("lightColor", Vector3(15.0f, 15.0f, 15.0f));
-    m_forwardShader->SetVector3("viewPos", Vector3(0.0f, 30.0f, 0.0f));
+    LightManager lightManager;
+    lightManager.CollectLights(world);
+    lightManager.ApplyBrightnessLimits();
+    
+    std::vector<LightManager::ShaderLightData> lightData;
+    lightManager.GetShaderLightData(lightData);
+    
+    m_forwardShader->SetInt("numLights", static_cast<int>(lightData.size()));
+    
+    for (size_t i = 0; i < lightData.size() && i < MAX_LIGHTS; ++i) {
+        std::string indexStr = std::to_string(i);
+        m_forwardShader->SetVector3("lightPositions[" + indexStr + "]", lightData[i].position);
+        m_forwardShader->SetVector3("lightColors[" + indexStr + "]", lightData[i].color);
+        m_forwardShader->SetFloat("lightIntensities[" + indexStr + "]", lightData[i].intensity);
+        m_forwardShader->SetInt("lightTypes[" + indexStr + "]", lightData[i].type);
+        m_forwardShader->SetFloat("lightRanges[" + indexStr + "]", lightData[i].range);
+    }
+    
+    Matrix4 invViewMatrix = m_renderData.viewMatrix.Inverted();
+    Vector3 cameraPosition = Vector3(invViewMatrix.m[12], invViewMatrix.m[13], invViewMatrix.m[14]);
+    m_forwardShader->SetVector3("viewPos", cameraPosition);
     
     int entitiesRendered = 0;
     
@@ -310,16 +406,34 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     Logger::Debug("Forward rendering: Rendered " + std::to_string(entitiesRendered) + " entities");
 }
 
-void ForwardRenderPipeline::RenderTransparentObjects(World* /*world*/) {
+void ForwardRenderPipeline::RenderTransparentObjects(World* world) {
     if (!m_transparentShader) {
         return;
     }
     
     m_transparentShader->Use();
     
-    m_transparentShader->SetVector3("lightPos", Vector3(5.0f, 5.0f, 5.0f));
-    m_transparentShader->SetVector3("lightColor", Vector3(1.0f, 1.0f, 1.0f));
-    m_transparentShader->SetVector3("viewPos", Vector3(0.0f, 0.0f, 3.0f));
+    LightManager transparentLightManager;
+    transparentLightManager.CollectLights(world);
+    transparentLightManager.ApplyBrightnessLimits();
+    
+    std::vector<LightManager::ShaderLightData> transparentLightData;
+    transparentLightManager.GetShaderLightData(transparentLightData);
+    
+    m_transparentShader->SetInt("numLights", static_cast<int>(transparentLightData.size()));
+    
+    for (size_t i = 0; i < transparentLightData.size() && i < MAX_LIGHTS; ++i) {
+        std::string indexStr = std::to_string(i);
+        m_transparentShader->SetVector3("lightPositions[" + indexStr + "]", transparentLightData[i].position);
+        m_transparentShader->SetVector3("lightColors[" + indexStr + "]", transparentLightData[i].color);
+        m_transparentShader->SetFloat("lightIntensities[" + indexStr + "]", transparentLightData[i].intensity);
+        m_transparentShader->SetInt("lightTypes[" + indexStr + "]", transparentLightData[i].type);
+        m_transparentShader->SetFloat("lightRanges[" + indexStr + "]", transparentLightData[i].range);
+    }
+    
+    Matrix4 invViewMatrix = m_renderData.viewMatrix.Inverted();
+    Vector3 cameraPosition = Vector3(invViewMatrix.m[12], invViewMatrix.m[13], invViewMatrix.m[14]);
+    m_transparentShader->SetVector3("viewPos", cameraPosition);
     m_transparentShader->SetFloat("alpha", 0.7f);
     
     Logger::Debug("Rendered transparent objects (simplified for demo)");

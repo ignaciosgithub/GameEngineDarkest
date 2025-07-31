@@ -170,9 +170,7 @@ void ForwardRenderPipeline::Render(World* world) {
     
     RenderSpecialEffects(world);
     
-    m_framebuffer->Unbind();
-    
-    Logger::Debug("Forward rendering pass completed");
+    Logger::Debug("Forward rendering pass completed - framebuffer still bound for pixel reading");
 }
 
 void ForwardRenderPipeline::Resize(int width, int height) {
@@ -205,16 +203,19 @@ void ForwardRenderPipeline::EndFrame() {
     
     Logger::Info("Saving frame " + std::to_string(frameCount) + " to " + filename);
     
+    Logger::Debug("CRITICAL: Ensuring framebuffer is bound before glReadPixels");
+    m_framebuffer->Bind();
+    
     unsigned char* pixels = new unsigned char[m_renderData.viewportWidth * m_renderData.viewportHeight * 4];
     
-    Logger::Debug("Reading pixels from bound framebuffer before unbinding");
+    Logger::Debug("Reading pixels from BOUND framebuffer with rendered content");
     glReadPixels(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
         Logger::Error("OpenGL error after glReadPixels: " + std::to_string(error));
     } else {
-        Logger::Debug("glReadPixels completed successfully from framebuffer");
+        Logger::Debug("glReadPixels completed successfully from BOUND framebuffer");
     }
     
     m_framebuffer->Unbind();

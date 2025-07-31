@@ -47,6 +47,9 @@ namespace GameEngine {
         static Mesh CreateSphere(float radius = 1.0f, int segments = 32);
         static Mesh CreatePlane(float width = 1.0f, float height = 1.0f);
         
+        // File loading
+        static Mesh LoadFromOBJ(const std::string& filepath);
+        
     private:
         void CleanupBuffers();
         

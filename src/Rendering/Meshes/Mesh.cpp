@@ -1,4 +1,5 @@
 #include "Mesh.h"
+#include "../Loaders/OBJLoader.h"
 #include "../../Core/Logging/Logger.h"
 #include "../Core/OpenGLHeaders.h"
 #include <cmath>
@@ -177,6 +178,33 @@ Mesh Mesh::CreateCube(float size) {
 
 Mesh Mesh::CreateSphere(float radius, int /*segments*/) {
     return CreateCube(radius * 2.0f);
+}
+
+Mesh Mesh::CreatePlane(float width, float height) {
+    Mesh mesh;
+    
+    std::vector<Vertex> vertices = {
+        {{-width/2, 0, -height/2}, {0, 1, 0}, {0.8f, 0.8f, 0.8f}}, // Bottom-left
+        {{ width/2, 0, -height/2}, {0, 1, 0}, {0.8f, 0.8f, 0.8f}}, // Bottom-right
+        {{ width/2, 0,  height/2}, {0, 1, 0}, {0.8f, 0.8f, 0.8f}}, // Top-right
+        {{-width/2, 0,  height/2}, {0, 1, 0}, {0.8f, 0.8f, 0.8f}}  // Top-left
+    };
+    
+    std::vector<unsigned int> indices = {
+        0, 1, 2,  // First triangle
+        2, 3, 0   // Second triangle
+    };
+    
+    mesh.SetVertices(vertices);
+    mesh.SetIndices(indices);
+    mesh.Upload();
+    
+    Logger::Debug("Created plane mesh with " + std::to_string(vertices.size()) + " vertices");
+    return mesh;
+}
+
+Mesh Mesh::LoadFromOBJ(const std::string& filepath) {
+    return OBJLoader::LoadFromFile(filepath);
 }
 
 }

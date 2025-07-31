@@ -14,9 +14,13 @@ add_library(Core STATIC
     Memory/MemoryManager.cpp
     Logging/Logger.cpp
     Components/RigidBodyComponent.cpp
+    Components/MeshComponent.cpp
     Systems/CameraSystem.cpp
     Systems/MovementSystem.cpp
     Scenes/TestSceneManager.cpp
+    Scenes/Scene.cpp
+    GameObject/GameObject.cpp
+    GameObject/Prefab.cpp
     Engine.cpp
 )
 

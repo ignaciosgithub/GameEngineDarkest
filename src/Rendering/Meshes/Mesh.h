@@ -37,6 +37,7 @@ namespace GameEngine {
         void Unbind() const;
         void Draw() const;
         unsigned int GetIndexCount() const;
+        bool IsUploaded() const { return m_uploaded; }
         
         const std::vector<Vertex>& GetVertices() const { return m_vertices; }
         const std::vector<unsigned int>& GetIndices() const { return m_indices; }

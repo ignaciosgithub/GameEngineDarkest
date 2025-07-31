@@ -73,8 +73,8 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     CreateDemoScene();
     
     m_testSceneManager->LoadScene(TestSceneType::MultipleLight);
-    m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Deferred);
-    Logger::Info("Loaded MultipleLight test scene with 5x5 cube grid");
+    m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Forward);
+    Logger::Info("Loaded MultipleLight test scene with 5x5 cube grid using Forward rendering");
 
     m_isRunning = true;
     m_lastFrameTime = glfwGetTime();

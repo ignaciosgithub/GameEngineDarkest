@@ -1,7 +1,12 @@
 #include "ForwardRenderPipeline.h"
 #include "../../Core/Logging/Logger.h"
 #include "../../Core/ECS/World.h"
+#include "../../Core/Components/TransformComponent.h"
+#include "../Meshes/Mesh.h"
 #include "../Core/OpenGLHeaders.h"
+#include "../Core/stb_image_write.h"
+#include <string>
+#include <cstring>
 
 namespace GameEngine {
 
@@ -191,6 +196,34 @@ void ForwardRenderPipeline::BeginFrame(const RenderData& renderData) {
 }
 
 void ForwardRenderPipeline::EndFrame() {
+    m_framebuffer->Unbind();
+    
+    static int frameCount = 0;
+    std::string filename = "frames/frame" + std::to_string(frameCount) + ".png";
+    
+    Logger::Info("Saving frame " + std::to_string(frameCount) + " to " + filename);
+    
+    unsigned char* pixels = new unsigned char[m_renderData.viewportWidth * m_renderData.viewportHeight * 4];
+    glReadPixels(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    
+    unsigned char* flippedPixels = new unsigned char[m_renderData.viewportWidth * m_renderData.viewportHeight * 4];
+    for (int y = 0; y < m_renderData.viewportHeight; y++) {
+        std::memcpy(flippedPixels + (m_renderData.viewportHeight - 1 - y) * m_renderData.viewportWidth * 4, 
+                   pixels + y * m_renderData.viewportWidth * 4, 
+                   m_renderData.viewportWidth * 4);
+    }
+    
+    int result = stbi_write_png(filename.c_str(), m_renderData.viewportWidth, m_renderData.viewportHeight, 4, flippedPixels, m_renderData.viewportWidth * 4);
+    if (result) {
+        Logger::Info("Successfully saved frame " + std::to_string(frameCount));
+    } else {
+        Logger::Error("Failed to save frame " + std::to_string(frameCount));
+    }
+    
+    delete[] pixels;
+    delete[] flippedPixels;
+    
+    frameCount++;
 }
 
 std::shared_ptr<Texture> ForwardRenderPipeline::GetFinalTexture() const {
@@ -209,18 +242,46 @@ void ForwardRenderPipeline::Cleanup() {
     Logger::Info("Forward rendering pipeline cleaned up");
 }
 
-void ForwardRenderPipeline::RenderOpaqueObjects(World* /*world*/) {
-    if (!m_forwardShader) {
+void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
+    if (!m_forwardShader || !world) {
         return;
     }
     
     m_forwardShader->Use();
     
-    m_forwardShader->SetVector3("lightPos", Vector3(5.0f, 5.0f, 5.0f));
-    m_forwardShader->SetVector3("lightColor", Vector3(1.0f, 1.0f, 1.0f));
-    m_forwardShader->SetVector3("viewPos", Vector3(0.0f, 0.0f, 3.0f));
+    m_forwardShader->SetMatrix4("view", m_renderData.viewMatrix);
+    m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
-    Logger::Debug("Rendered opaque objects (simplified for demo)");
+    m_forwardShader->SetVector3("lightPos", Vector3(0.0f, 20.0f, 10.0f));
+    m_forwardShader->SetVector3("lightColor", Vector3(2.0f, 2.0f, 2.0f));
+    m_forwardShader->SetVector3("viewPos", Vector3(0.0f, 30.0f, 0.0f));
+    
+    int entitiesRendered = 0;
+    
+    for (const auto& entity : world->GetEntities()) {
+        if (world->HasComponent<TransformComponent>(entity)) {
+            auto* transformComp = world->GetComponent<TransformComponent>(entity);
+            if (transformComp) {
+                Matrix4 modelMatrix = transformComp->transform.GetLocalToWorldMatrix();
+                m_forwardShader->SetMatrix4("model", modelMatrix);
+                
+                static std::shared_ptr<Mesh> cubeMesh = nullptr;
+                if (!cubeMesh) {
+                    auto tempMesh = Mesh::CreateCube();
+                    tempMesh.Upload();
+                    cubeMesh = std::make_shared<Mesh>(std::move(tempMesh));
+                    Logger::Debug("Created and uploaded cube mesh for forward rendering");
+                }
+                
+                if (cubeMesh && !cubeMesh->GetVertices().empty()) {
+                    cubeMesh->Draw();
+                    entitiesRendered++;
+                }
+            }
+        }
+    }
+    
+    Logger::Debug("Forward rendering: Rendered " + std::to_string(entitiesRendered) + " entities");
 }
 
 void ForwardRenderPipeline::RenderTransparentObjects(World* /*world*/) {

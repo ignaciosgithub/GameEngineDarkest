@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GameEngineDarkest - Cube Visibility Investigation Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .status-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .technical-details {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .frame-viewer {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .debug-log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .investigation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .investigation-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .status-completed { border-left: 5px solid #28a745; }
+        .status-pending { border-left: 5px solid #ffc107; }
+        .status-failed { border-left: 5px solid #dc3545; }
+        
+        .frame-display {
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            background: #000;
+            width: 640px;
+            height: 360px;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎮 GameEngineDarkest - Forward Rendering Investigation</h1>
+        <p>Comprehensive analysis of cube visibility issues in forward rendering pipeline</p>
+        <p><strong>Session:</strong> <a href="https://app.devin.ai/sessions/d7ef238a01ed4b84aa3e52c8d5d72d5f" style="color: #ffd700;">Devin Run Link</a></p>
+    </div>
+
+    <div class="status-box">
+        <h2>🔍 Current Status: Investigation In Progress</h2>
+        <p><strong>Issue:</strong> Cubes remain invisible in forward rendering pipeline despite successful OpenGL draw calls</p>
+        <p><strong>Frames Generated:</strong> 113 frames, all completely black (transparent)</p>
+        <p><strong>Debug Status:</strong> Extensive logging shows successful mesh rendering operations</p>
+    </div>
+
+    <div class="frame-viewer">
+        <h2>📺 Current Frame Output</h2>
+        <div class="frame-display">
+            Frame Content: All Black (0,0,0,0 RGBA)<br>
+            Resolution: 1280x720<br>
+            Format: PNG with Alpha Channel
+        </div>
+        <p><em>All 113 generated frames show identical black output despite successful rendering operations</em></p>
+    </div>
+
+    <div class="technical-details">
+        <h2>🔧 Technical Investigation Summary</h2>
+        
+        <div class="investigation-grid">
+            <div class="investigation-item status-completed">
+                <h3>✅ Mesh Generation</h3>
+                <ul>
+                    <li>Cube vertices properly defined with distinct colors</li>
+                    <li>Counter-clockwise winding order confirmed</li>
+                    <li>36 indices for 6 faces, 24 vertices total</li>
+                    <li>Normals correctly calculated</li>
+                </ul>
+            </div>
+
+            <div class="investigation-item status-completed">
+                <h3>✅ OpenGL Operations</h3>
+                <ul>
+                    <li>VAO/VBO/EBO properly created and bound</li>
+                    <li>glDrawElements calls successful (no GL errors)</li>
+                    <li>Shader programs compiled and linked</li>
+                    <li>Vertex attributes properly configured</li>
+                </ul>
+            </div>
+
+            <div class="investigation-item status-completed">
+                <h3>✅ Camera & Matrices</h3>
+                <ul>
+                    <li>Camera positioned at (0, 20, 10)</li>
+                    <li>LookAt matrix targeting origin (0, 0, 0)</li>
+                    <li>60° FOV with proper aspect ratio</li>
+                    <li>Projection matrix calculations verified</li>
+                </ul>
+            </div>
+
+            <div class="investigation-item status-completed">
+                <h3>✅ Lighting System</h3>
+                <ul>
+                    <li>Ambient lighting increased to 0.6</li>
+                    <li>Directional light color boosted to 5.0</li>
+                    <li>Light position and uniforms properly set</li>
+                    <li>Shader receives lighting parameters</li>
+                </ul>
+            </div>
+
+            <div class="investigation-item status-completed">
+                <h3>✅ Viewport & State</h3>
+                <ul>
+                    <li>glViewport(0, 0, 1280, 720) properly called</li>
+                    <li>Depth testing enabled</li>
+                    <li>Backface culling disabled for testing</li>
+                    <li>Framebuffer operations successful</li>
+                </ul>
+            </div>
+
+            <div class="investigation-item status-pending">
+                <h3>⚠️ Remaining Suspects</h3>
+                <ul>
+                    <li><strong>Shader Uniform Binding:</strong> Model/view/projection matrices may not reach GPU</li>
+                    <li><strong>Vertex Attribute Layout:</strong> Position/normal/color stride issues</li>
+                    <li><strong>Framebuffer Reading:</strong> glReadPixels may read wrong buffer</li>
+                    <li><strong>Alpha Blending:</strong> Transparent pixels overwriting content</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="technical-details">
+        <h2>📊 Debug Log Analysis</h2>
+        <div class="debug-log">
+[2025-07-31 14:16:58.960] [DEBUG] Entity position: (0.000000, 0.000000, 0.000000)
+[2025-07-31 14:16:58.960] [DEBUG] Set Matrix4 uniform: model
+[2025-07-31 14:16:58.960] [DEBUG] Mesh::Draw() - Starting draw call
+[2025-07-31 14:16:58.960] [DEBUG] Current shader program: 15
+[2025-07-31 14:16:58.960] [DEBUG] Drawing mesh with 36 indices using glDrawElements
+[2025-07-31 14:16:58.960] [DEBUG] glDrawElements completed successfully
+[2025-07-31 14:16:58.960] [DEBUG] Mesh::Draw() - Draw call completed
+[2025-07-31 14:16:58.961] [DEBUG] Forward rendering: Rendered 36 entities
+[2025-07-31 14:16:58.961] [INFO] Saving frame 113 to frames/frame113.png
+[2025-07-31 14:16:58.961] [DEBUG] Reading pixels from bound framebuffer before unbinding
+[2025-07-31 14:16:58.967] [DEBUG] glReadPixels completed successfully from framebuffer
+        </div>
+        <p><strong>Key Observations:</strong></p>
+        <ul>
+            <li>All OpenGL operations complete without errors</li>
+            <li>36 entities successfully rendered per frame</li>
+            <li>Shader program ID 15 properly bound</li>
+            <li>Matrix uniforms set for each entity</li>
+            <li>Frame capture operations successful</li>
+        </ul>
+    </div>
+
+    <div class="technical-details">
+        <h2>🎯 Next Investigation Steps</h2>
+        <ol>
+            <li><strong>Shader Uniform Verification:</strong> Add debug output to vertex shader to confirm matrix reception</li>
+            <li><strong>Simplified Test Case:</strong> Render single large cube at origin with basic color</li>
+            <li><strong>Framebuffer Analysis:</strong> Verify correct framebuffer is being read for PNG output</li>
+            <li><strong>Vertex Data Validation:</strong> Confirm vertex attributes reach GPU with correct stride</li>
+            <li><strong>Alternative Rendering Test:</strong> Compare with working DeferredRenderPipeline output</li>
+        </ol>
+    </div>
+
+    <div class="technical-details">
+        <h2>📁 Implementation Details</h2>
+        <p><strong>Branch:</strong> <code>devin/1753919928-forward-rendering</code></p>
+        <p><strong>Key Files Modified:</strong></p>
+        <ul>
+            <li><code>src/Rendering/Pipelines/ForwardRenderPipeline.cpp</code> - Main rendering implementation</li>
+            <li><code>src/Core/Components/CameraComponent.h</code> - Camera matrix calculations</li>
+            <li><code>src/Core/Engine.cpp</code> - Scene setup and camera positioning</li>
+            <li><code>src/Rendering/Meshes/Mesh.cpp</code> - Cube geometry and rendering</li>
+        </ul>
+        <p><strong>Commits:</strong> 8 commits with progressive debugging and fixes</p>
+        <p><strong>PR Status:</strong> <a href="https://github.com/ignaciosgithub/GameEngineDarkest/pull/29">#29 - Open for Review</a></p>
+    </div>
+
+    <script>
+        // Add some interactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            const statusBox = document.querySelector('.status-box');
+            statusBox.addEventListener('click', function() {
+                this.style.background = this.style.background === 'rgb(255, 243, 205)' ? '#e8f5e8' : '#fff3cd';
+            });
+        });
+    </script>
+</body>
+</html>

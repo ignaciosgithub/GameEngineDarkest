@@ -3,6 +3,7 @@ add_library(Rendering STATIC
     OpenGL/OpenGLRenderer.cpp
     Shaders/Shader.cpp
     Meshes/Mesh.cpp
+    Loaders/OBJLoader.cpp
     Core/Buffer.cpp
     Core/Texture.cpp
     Core/FrameBuffer.cpp

@@ -138,6 +138,7 @@ namespace GameEngine {
         
         std::string line;
         size_t expectedCount = 0;
+        std::vector<std::pair<uint32_t, uint32_t>> parentChildPairs; // child ID, parent ID
         
         while (std::getline(file, line)) {
             if (line.empty() || line[0] == '#') continue;
@@ -149,21 +150,64 @@ namespace GameEngine {
                 expectedCount = std::stoul(line.substr(17));
             }
             else if (line.find("[GameObject_") == 0) {
+                std::streampos currentPos = file.tellg();
+                
                 GameObject gameObject = DeserializeGameObject(file);
                 if (gameObject.IsValid()) {
                     RegisterGameObject(gameObject);
+                    
+                    std::streampos endPos = file.tellg();
+                    file.seekg(currentPos);
+                    
+                    std::string objLine;
+                    while (std::getline(file, objLine) && !objLine.empty() && objLine[0] != '[') {
+                        if (objLine.find("ParentID: ") == 0) {
+                            uint32_t parentID = std::stoul(objLine.substr(10));
+                            parentChildPairs.emplace_back(gameObject.GetEntity().GetID(), parentID);
+                            break;
+                        }
+                    }
+                    
+                    file.seekg(endPos);
                 }
             }
         }
         
         file.close();
         
+        for (const auto& pair : parentChildPairs) {
+            uint32_t childID = pair.first;
+            uint32_t parentID = pair.second;
+            
+            GameObject* child = nullptr;
+            GameObject* parent = nullptr;
+            
+            for (auto& gameObject : m_gameObjects) {
+                if (gameObject.GetEntity().GetID() == childID) {
+                    child = &gameObject;
+                }
+                if (gameObject.GetEntity().GetID() == parentID) {
+                    parent = &gameObject;
+                }
+            }
+            
+            if (child && parent) {
+                child->SetParent(parent);
+                Logger::Debug("Restored parent-child relationship: Child " + std::to_string(childID) + 
+                             " -> Parent " + std::to_string(parentID));
+            } else {
+                Logger::Warning("Failed to restore parent-child relationship: Child " + std::to_string(childID) + 
+                               " -> Parent " + std::to_string(parentID) + " (GameObject not found)");
+            }
+        }
+        
         if (m_gameObjects.size() != expectedCount) {
             Logger::Warning("Scene loaded with " + std::to_string(m_gameObjects.size()) + 
                            " GameObjects, expected " + std::to_string(expectedCount));
         }
         
-        Logger::Info("Loaded Scene '" + m_name + "' from file: " + filepath);
+        Logger::Info("Loaded Scene '" + m_name + "' from file: " + filepath + 
+                    " with " + std::to_string(parentChildPairs.size()) + " parent-child relationships restored");
         return true;
     }
     
@@ -184,6 +228,51 @@ namespace GameEngine {
             }
         }
         return results;
+    }
+    
+    GameObject* Scene::FindGameObjectByTransform(const Transform* transform) const {
+        if (!transform) return nullptr;
+        
+        for (auto& gameObject : m_gameObjects) {
+            if (gameObject.IsValid()) {
+                auto* objTransform = gameObject.GetTransform();
+                if (objTransform && &objTransform->transform == transform) {
+                    return const_cast<GameObject*>(&gameObject);
+                }
+            }
+        }
+        return nullptr;
+    }
+    
+    std::vector<GameObject*> Scene::FindChildrenOf(const GameObject* parent) const {
+        std::vector<GameObject*> children;
+        if (!parent || !parent->IsValid()) return children;
+        
+        auto* parentTransform = parent->GetTransform();
+        if (!parentTransform) return children;
+        
+        for (auto& gameObject : m_gameObjects) {
+            if (gameObject.IsValid() && &gameObject != parent) {
+                auto* transform = gameObject.GetTransform();
+                if (transform && transform->transform.GetParent() == &parentTransform->transform) {
+                    children.push_back(const_cast<GameObject*>(&gameObject));
+                }
+            }
+        }
+        return children;
+    }
+    
+    std::vector<GameObject*> Scene::GetRootGameObjects() const {
+        std::vector<GameObject*> roots;
+        for (auto& gameObject : m_gameObjects) {
+            if (gameObject.IsValid()) {
+                auto* transform = gameObject.GetTransform();
+                if (transform && !transform->transform.GetParent()) {
+                    roots.push_back(const_cast<GameObject*>(&gameObject));
+                }
+            }
+        }
+        return roots;
     }
     
     void Scene::RegisterGameObject(const GameObject& gameObject) {
@@ -230,6 +319,15 @@ namespace GameEngine {
             file << "LightComponent: " << static_cast<int>(light->light.GetType()) << "," 
                  << light->light.GetIntensity() << ","
                  << light->light.GetColor().x << "," << light->light.GetColor().y << "," << light->light.GetColor().z << "\n";
+        }
+        
+        if (auto* transform = gameObject.GetTransform()) {
+            if (transform->transform.GetParent()) {
+                GameObject* parent = FindGameObjectByTransform(transform->transform.GetParent());
+                if (parent) {
+                    file << "ParentID: " << parent->GetEntity().GetID() << "\n";
+                }
+            }
         }
     }
     
@@ -299,6 +397,9 @@ namespace GameEngine {
                 auto* light = gameObject.AddComponent<LightComponent>(type);
                 light->light.SetIntensity(intensity);
                 light->light.SetColor(color);
+            }
+            else if (line.find("ParentID: ") == 0) {
+                Logger::Debug("Found ParentID entry during deserialization - will restore hierarchy in second pass");
             }
         }
         

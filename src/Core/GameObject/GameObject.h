@@ -40,6 +40,13 @@ namespace GameEngine {
         Entity GetEntity() const { return m_entity; }
         bool IsValid() const { return m_entity.IsValid(); }
         
+        // Hierarchy management
+        void SetParent(GameObject* parent);
+        GameObject* GetParent() const;
+        std::vector<GameObject*> GetChildren() const;
+        void AddChild(GameObject* child);
+        void RemoveChild(GameObject* child);
+        
         // Utility
         void Destroy();
         

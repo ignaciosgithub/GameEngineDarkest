@@ -1,5 +1,8 @@
 #include "Core/Engine.h"
 #include "Core/Logging/Logger.h"
+#include "Core/Scenes/Scene.h"
+#include "Core/GameObject/GameObject.h"
+#include "Core/Math/Vector3.h"
 #include <iostream>
 
 int main() {
@@ -36,6 +39,48 @@ int main() {
         GameEngine::Logger::Info("- Directional sun light for ambient illumination");
         GameEngine::Logger::Info("- Light occlusion system preventing light bleeding through walls");
         GameEngine::Logger::Info("- Shadow mapping for realistic lighting effects");
+        GameEngine::Logger::Info("");
+        GameEngine::Logger::Info("=== GameObject Hierarchy Demo ===");
+        GameEngine::Logger::Info("Testing parent-child relationships and transform inheritance:");
+        
+        auto* world = engine.GetWorld();
+        if (world) {
+            GameEngine::Scene scene(world, "HierarchyTestScene");
+            
+            GameEngine::GameObject parent = scene.CreateGameObject(GameEngine::Vector3(0, 0, 0), "Parent");
+            GameEngine::GameObject child1 = scene.CreateGameObject(GameEngine::Vector3(2, 0, 0), "Child1");
+            GameEngine::GameObject child2 = scene.CreateGameObject(GameEngine::Vector3(-2, 0, 0), "Child2");
+            
+            child1.SetParent(&parent);
+            child2.SetParent(&parent);
+            
+            GameEngine::Logger::Info("Created GameObject hierarchy: Parent with 2 children");
+            GameEngine::Logger::Info("- Parent at (0, 0, 0)");
+            GameEngine::Logger::Info("- Child1 at (2, 0, 0) relative to parent");
+            GameEngine::Logger::Info("- Child2 at (-2, 0, 0) relative to parent");
+            
+            if (auto* parentTransform = parent.GetTransform()) {
+                parentTransform->transform.Rotate(GameEngine::Vector3(0, 1, 0), 45.0f * (3.14159f / 180.0f));
+                GameEngine::Logger::Info("Rotated parent by 45 degrees around Y-axis");
+                GameEngine::Logger::Info("Children should inherit this rotation automatically");
+            }
+            
+            auto rootObjects = scene.GetRootGameObjects();
+            GameEngine::Logger::Info("Found " + std::to_string(rootObjects.size()) + " root GameObjects");
+            
+            auto children = scene.FindChildrenOf(&parent);
+            GameEngine::Logger::Info("Parent has " + std::to_string(children.size()) + " children");
+            
+            if (scene.SaveToFile("hierarchy_test.scene")) {
+                GameEngine::Logger::Info("Saved hierarchy test scene to file");
+            }
+            
+            GameEngine::Logger::Info("GameObject hierarchy demonstration completed successfully");
+        } else {
+            GameEngine::Logger::Error("Could not access World for hierarchy demonstration");
+        }
+        
+        GameEngine::Logger::Info("");
         
         engine.Run();
         engine.Shutdown();

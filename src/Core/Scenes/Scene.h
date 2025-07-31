@@ -40,6 +40,11 @@ namespace GameEngine {
         GameObject* FindGameObjectByName(const std::string& name);
         std::vector<GameObject*> FindGameObjectsByName(const std::string& name);
         
+        // Hierarchy support
+        GameObject* FindGameObjectByTransform(const Transform* transform) const;
+        std::vector<GameObject*> FindChildrenOf(const GameObject* parent) const;
+        std::vector<GameObject*> GetRootGameObjects() const;
+        
     private:
         World* m_world;
         std::string m_name;

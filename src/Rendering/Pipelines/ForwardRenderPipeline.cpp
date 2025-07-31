@@ -265,16 +265,17 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
                 Matrix4 modelMatrix = transformComp->transform.GetLocalToWorldMatrix();
                 m_forwardShader->SetMatrix4("model", modelMatrix);
                 
-                static std::shared_ptr<Mesh> cubeMesh = nullptr;
-                if (!cubeMesh) {
-                    auto tempMesh = Mesh::CreateCube();
-                    tempMesh.Upload();
-                    cubeMesh = std::make_shared<Mesh>(std::move(tempMesh));
-                    Logger::Debug("Created and uploaded cube mesh for forward rendering");
+                static Mesh cubeMesh = Mesh::CreateCube(1.0f);
+                static bool meshUploaded = false;
+                if (!meshUploaded) {
+                    Logger::Debug("ForwardRenderPipeline: Attempting to upload cube mesh...");
+                    cubeMesh.Upload();
+                    meshUploaded = true;
+                    Logger::Debug("ForwardRenderPipeline: Cube mesh upload completed, meshUploaded = true");
                 }
                 
-                if (cubeMesh && !cubeMesh->GetVertices().empty()) {
-                    cubeMesh->Draw();
+                if (!cubeMesh.GetVertices().empty()) {
+                    cubeMesh.Draw();
                     entitiesRendered++;
                 }
             }

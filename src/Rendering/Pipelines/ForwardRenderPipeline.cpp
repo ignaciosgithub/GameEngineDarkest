@@ -145,6 +145,9 @@ void ForwardRenderPipeline::Render(World* world) {
     
     m_framebuffer->Bind();
     
+    glViewport(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight);
+    Logger::Debug("ForwardRenderPipeline: Set viewport to " + std::to_string(m_renderData.viewportWidth) + "x" + std::to_string(m_renderData.viewportHeight));
+    
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     

@@ -263,8 +263,16 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     m_forwardShader->Use();
     
     Logger::Debug("ForwardRenderPipeline: Setting view matrix");
+    Logger::Debug("View matrix: [" + 
+        std::to_string(m_renderData.viewMatrix.m[0]) + ", " + std::to_string(m_renderData.viewMatrix.m[1]) + ", " + std::to_string(m_renderData.viewMatrix.m[2]) + ", " + std::to_string(m_renderData.viewMatrix.m[3]) + "]");
+    Logger::Debug("             [" + 
+        std::to_string(m_renderData.viewMatrix.m[4]) + ", " + std::to_string(m_renderData.viewMatrix.m[5]) + ", " + std::to_string(m_renderData.viewMatrix.m[6]) + ", " + std::to_string(m_renderData.viewMatrix.m[7]) + "]");
     m_forwardShader->SetMatrix4("view", m_renderData.viewMatrix);
     Logger::Debug("ForwardRenderPipeline: Setting projection matrix");
+    Logger::Debug("Projection matrix: [" + 
+        std::to_string(m_renderData.projectionMatrix.m[0]) + ", " + std::to_string(m_renderData.projectionMatrix.m[1]) + ", " + std::to_string(m_renderData.projectionMatrix.m[2]) + ", " + std::to_string(m_renderData.projectionMatrix.m[3]) + "]");
+    Logger::Debug("                   [" + 
+        std::to_string(m_renderData.projectionMatrix.m[4]) + ", " + std::to_string(m_renderData.projectionMatrix.m[5]) + ", " + std::to_string(m_renderData.projectionMatrix.m[6]) + ", " + std::to_string(m_renderData.projectionMatrix.m[7]) + "]");
     m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
     m_forwardShader->SetVector3("lightPos", Vector3(0.0f, 20.0f, 10.0f));
@@ -278,6 +286,8 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
             auto* transformComp = world->GetComponent<TransformComponent>(entity);
             if (transformComp) {
                 Matrix4 modelMatrix = transformComp->transform.GetLocalToWorldMatrix();
+                Vector3 position = transformComp->transform.GetPosition();
+                Logger::Debug("Entity position: (" + std::to_string(position.x) + ", " + std::to_string(position.y) + ", " + std::to_string(position.z) + ")");
                 m_forwardShader->SetMatrix4("model", modelMatrix);
                 
                 static Mesh cubeMesh = Mesh::CreateCube(1.0f);

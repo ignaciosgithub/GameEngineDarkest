@@ -61,15 +61,47 @@ void Mesh::Draw() const {
         return;
     }
     
+    Logger::Debug("Mesh::Draw() - Starting draw call");
+    
     Bind();
     
-    if (m_indexBuffer && !m_indices.empty()) {
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(m_indices.size()), GL_UNSIGNED_INT, 0);
-        Logger::Debug("Drawing mesh with " + std::to_string(m_indices.size()) + " indices");
-    } else if (!m_vertices.empty()) {
-        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_vertices.size()));
-        Logger::Debug("Drawing mesh with " + std::to_string(m_vertices.size()) + " vertices");
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) {
+        Logger::Error("OpenGL error after VAO bind: " + std::to_string(error));
     }
+    
+    GLint currentProgram;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
+    Logger::Debug("Current shader program: " + std::to_string(currentProgram));
+    
+    if (currentProgram == 0) {
+        Logger::Error("No shader program bound during mesh draw!");
+        return;
+    }
+    
+    if (m_indexBuffer && !m_indices.empty()) {
+        Logger::Debug("Drawing mesh with " + std::to_string(m_indices.size()) + " indices using glDrawElements");
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(m_indices.size()), GL_UNSIGNED_INT, 0);
+        
+        error = glGetError();
+        if (error != GL_NO_ERROR) {
+            Logger::Error("OpenGL error after glDrawElements: " + std::to_string(error));
+        } else {
+            Logger::Debug("glDrawElements completed successfully");
+        }
+    } else if (!m_vertices.empty()) {
+        Logger::Debug("Drawing mesh with " + std::to_string(m_vertices.size()) + " vertices using glDrawArrays");
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_vertices.size()));
+        
+        error = glGetError();
+        if (error != GL_NO_ERROR) {
+            Logger::Error("OpenGL error after glDrawArrays: " + std::to_string(error));
+        } else {
+            Logger::Debug("glDrawArrays completed successfully");
+        }
+    }
+    
+    Logger::Debug("Mesh::Draw() - Draw call completed");
 }
 
 void Mesh::Unbind() const {

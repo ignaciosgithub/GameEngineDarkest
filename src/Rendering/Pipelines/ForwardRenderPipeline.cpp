@@ -1,7 +1,12 @@
 #include "ForwardRenderPipeline.h"
 #include "../../Core/Logging/Logger.h"
 #include "../../Core/ECS/World.h"
+#include "../../Core/Components/TransformComponent.h"
+#include "../Meshes/Mesh.h"
 #include "../Core/OpenGLHeaders.h"
+#include "../Core/stb_image_write.h"
+#include <string>
+#include <cstring>
 
 namespace GameEngine {
 
@@ -75,7 +80,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform vec3 viewPos;
         
         void main() {
-            vec3 ambient = 0.15 * lightColor;
+            vec3 ambient = 1.5 * lightColor;
             
             vec3 norm = normalize(Normal);
             vec3 lightDir = normalize(lightPos - FragPos);
@@ -108,7 +113,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform float alpha;
         
         void main() {
-            vec3 ambient = 0.15 * lightColor;
+            vec3 ambient = 0.6 * lightColor;
             
             vec3 norm = normalize(Normal);
             vec3 lightDir = normalize(lightPos - FragPos);
@@ -140,10 +145,14 @@ void ForwardRenderPipeline::Render(World* world) {
     
     m_framebuffer->Bind();
     
+    glViewport(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight);
+    Logger::Debug("ForwardRenderPipeline: Set viewport to " + std::to_string(m_renderData.viewportWidth) + "x" + std::to_string(m_renderData.viewportHeight));
+    
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     glEnable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);  // Disable backface culling to test if normals/winding are the issue
     
     SetupLighting();
     
@@ -191,6 +200,43 @@ void ForwardRenderPipeline::BeginFrame(const RenderData& renderData) {
 }
 
 void ForwardRenderPipeline::EndFrame() {
+    static int frameCount = 0;
+    std::string filename = "frames/frame" + std::to_string(frameCount) + ".png";
+    
+    Logger::Info("Saving frame " + std::to_string(frameCount) + " to " + filename);
+    
+    unsigned char* pixels = new unsigned char[m_renderData.viewportWidth * m_renderData.viewportHeight * 4];
+    
+    Logger::Debug("Reading pixels from bound framebuffer before unbinding");
+    glReadPixels(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) {
+        Logger::Error("OpenGL error after glReadPixels: " + std::to_string(error));
+    } else {
+        Logger::Debug("glReadPixels completed successfully from framebuffer");
+    }
+    
+    m_framebuffer->Unbind();
+    
+    unsigned char* flippedPixels = new unsigned char[m_renderData.viewportWidth * m_renderData.viewportHeight * 4];
+    for (int y = 0; y < m_renderData.viewportHeight; y++) {
+        std::memcpy(flippedPixels + (m_renderData.viewportHeight - 1 - y) * m_renderData.viewportWidth * 4, 
+                   pixels + y * m_renderData.viewportWidth * 4, 
+                   m_renderData.viewportWidth * 4);
+    }
+    
+    int result = stbi_write_png(filename.c_str(), m_renderData.viewportWidth, m_renderData.viewportHeight, 4, flippedPixels, m_renderData.viewportWidth * 4);
+    if (result) {
+        Logger::Info("Successfully saved frame " + std::to_string(frameCount));
+    } else {
+        Logger::Error("Failed to save frame " + std::to_string(frameCount));
+    }
+    
+    delete[] pixels;
+    delete[] flippedPixels;
+    
+    frameCount++;
 }
 
 std::shared_ptr<Texture> ForwardRenderPipeline::GetFinalTexture() const {
@@ -209,18 +255,59 @@ void ForwardRenderPipeline::Cleanup() {
     Logger::Info("Forward rendering pipeline cleaned up");
 }
 
-void ForwardRenderPipeline::RenderOpaqueObjects(World* /*world*/) {
-    if (!m_forwardShader) {
+void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
+    if (!m_forwardShader || !world) {
         return;
     }
     
     m_forwardShader->Use();
     
-    m_forwardShader->SetVector3("lightPos", Vector3(5.0f, 5.0f, 5.0f));
-    m_forwardShader->SetVector3("lightColor", Vector3(1.0f, 1.0f, 1.0f));
-    m_forwardShader->SetVector3("viewPos", Vector3(0.0f, 0.0f, 3.0f));
+    Logger::Debug("ForwardRenderPipeline: Setting view matrix");
+    Logger::Debug("View matrix: [" + 
+        std::to_string(m_renderData.viewMatrix.m[0]) + ", " + std::to_string(m_renderData.viewMatrix.m[1]) + ", " + std::to_string(m_renderData.viewMatrix.m[2]) + ", " + std::to_string(m_renderData.viewMatrix.m[3]) + "]");
+    Logger::Debug("             [" + 
+        std::to_string(m_renderData.viewMatrix.m[4]) + ", " + std::to_string(m_renderData.viewMatrix.m[5]) + ", " + std::to_string(m_renderData.viewMatrix.m[6]) + ", " + std::to_string(m_renderData.viewMatrix.m[7]) + "]");
+    m_forwardShader->SetMatrix4("view", m_renderData.viewMatrix);
+    Logger::Debug("ForwardRenderPipeline: Setting projection matrix");
+    Logger::Debug("Projection matrix: [" + 
+        std::to_string(m_renderData.projectionMatrix.m[0]) + ", " + std::to_string(m_renderData.projectionMatrix.m[1]) + ", " + std::to_string(m_renderData.projectionMatrix.m[2]) + ", " + std::to_string(m_renderData.projectionMatrix.m[3]) + "]");
+    Logger::Debug("                   [" + 
+        std::to_string(m_renderData.projectionMatrix.m[4]) + ", " + std::to_string(m_renderData.projectionMatrix.m[5]) + ", " + std::to_string(m_renderData.projectionMatrix.m[6]) + ", " + std::to_string(m_renderData.projectionMatrix.m[7]) + "]");
+    m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
-    Logger::Debug("Rendered opaque objects (simplified for demo)");
+    m_forwardShader->SetVector3("lightPos", Vector3(0.0f, 20.0f, 10.0f));
+    m_forwardShader->SetVector3("lightColor", Vector3(15.0f, 15.0f, 15.0f));
+    m_forwardShader->SetVector3("viewPos", Vector3(0.0f, 30.0f, 0.0f));
+    
+    int entitiesRendered = 0;
+    
+    for (const auto& entity : world->GetEntities()) {
+        if (world->HasComponent<TransformComponent>(entity)) {
+            auto* transformComp = world->GetComponent<TransformComponent>(entity);
+            if (transformComp) {
+                Matrix4 modelMatrix = transformComp->transform.GetLocalToWorldMatrix();
+                Vector3 position = transformComp->transform.GetPosition();
+                Logger::Debug("Entity position: (" + std::to_string(position.x) + ", " + std::to_string(position.y) + ", " + std::to_string(position.z) + ")");
+                m_forwardShader->SetMatrix4("model", modelMatrix);
+                
+                static Mesh cubeMesh = Mesh::CreateCube(1.0f);
+                static bool meshUploaded = false;
+                if (!meshUploaded) {
+                    Logger::Debug("ForwardRenderPipeline: Attempting to upload cube mesh...");
+                    cubeMesh.Upload();
+                    meshUploaded = true;
+                    Logger::Debug("ForwardRenderPipeline: Cube mesh upload completed, meshUploaded = true");
+                }
+                
+                if (!cubeMesh.GetVertices().empty()) {
+                    cubeMesh.Draw();
+                    entitiesRendered++;
+                }
+            }
+        }
+    }
+    
+    Logger::Debug("Forward rendering: Rendered " + std::to_string(entitiesRendered) + " entities");
 }
 
 void ForwardRenderPipeline::RenderTransparentObjects(World* /*world*/) {

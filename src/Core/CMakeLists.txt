@@ -11,16 +11,20 @@ add_library(Core STATIC
     Math/Transform.cpp
     Platform/Window.cpp
     Platform/Input.cpp
+    Platform/InputThread.cpp
     Memory/MemoryManager.cpp
     Logging/Logger.cpp
     Components/RigidBodyComponent.cpp
     Components/MeshComponent.cpp
+    Components/AudioComponent.cpp
     Systems/CameraSystem.cpp
     Systems/MovementSystem.cpp
     Scenes/TestSceneManager.cpp
     Scenes/Scene.cpp
     GameObject/GameObject.cpp
     GameObject/Prefab.cpp
+    Time/Timer.cpp
+    Editor/PlayModeManager.cpp
     Engine.cpp
 )
 
@@ -31,6 +35,8 @@ target_include_directories(Core PUBLIC
 )
 
 target_link_libraries(Core PUBLIC
+    UI
+    Audio
     ${GLFW_LIBRARIES}
     ${GLM_LIBRARIES}
     OpenGL::GL

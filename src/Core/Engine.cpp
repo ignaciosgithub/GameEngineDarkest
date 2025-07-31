@@ -4,6 +4,8 @@
 #include "Platform/Window.h"
 #include "Platform/Input.h"
 #include "Logging/Logger.h"
+#include "Time/Timer.h"
+#include "Editor/PlayModeManager.h"
 #include "Components/TransformComponent.h"
 #include "Components/CameraComponent.h"
 #include "Components/MovementComponent.h"
@@ -15,7 +17,7 @@
 #include "../Rendering/RenderManager.h"
 #include "../Rendering/Meshes/Mesh.h"
 #include "../Physics/PhysicsWorld.h"
-// #include "../UI/EngineUI.h"  // Temporarily disabled
+#include "../UI/EngineUI.h"
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -50,6 +52,7 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     m_world = std::make_unique<World>();
 
     m_inputManager = std::make_unique<InputManager>();
+    m_inputManager->Initialize();
     Logger::Info("Input manager initialized");
 
     m_renderer = Renderer::Create();
@@ -67,8 +70,17 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
 
     m_physicsWorld = std::make_unique<PhysicsWorld>();
 
-    // m_engineUI = std::make_unique<EngineUI>();  // Temporarily disabled
-    Logger::Info("Engine UI disabled for demo");
+    m_engineUI = std::make_unique<EngineUI>();
+    if (!m_engineUI->Initialize(m_window->GetGLFWWindow())) {
+        Logger::Error("Failed to initialize Engine UI");
+        return false;
+    }
+    Logger::Info("Engine UI initialized successfully");
+
+    m_playModeManager = std::make_unique<PlayModeManager>();
+    m_playModeManager->Initialize(m_world.get(), m_window.get());
+    m_engineUI->SetPlayModeManager(m_playModeManager.get());
+    Logger::Info("Play Mode Manager initialized successfully");
 
     m_world->AddSystem<CameraSystem>();
     m_world->AddSystem<MovementSystem>(m_inputManager.get(), m_window.get());
@@ -82,8 +94,10 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Forward);
     Logger::Info("Loaded MultipleLight test scene with 5x5 cube grid using Forward rendering");
 
+    Timer::Initialize();
+    Logger::Info("Timer system initialized");
+
     m_isRunning = true;
-    m_lastFrameTime = glfwGetTime();
 
     Logger::Info("Game Engine initialized successfully");
     return true;
@@ -93,9 +107,8 @@ void Engine::Run() {
     Logger::Info("Starting main loop...");
     
     while (m_isRunning && !m_window->ShouldClose()) {
-        double currentTime = glfwGetTime();
-        float deltaTime = static_cast<float>(currentTime - m_lastFrameTime);
-        m_lastFrameTime = currentTime;
+        Timer::Update();
+        float deltaTime = Timer::GetDeltaTime();
 
         m_window->PollEvents();
         
@@ -119,9 +132,13 @@ void Engine::Update(float deltaTime) {
         m_physicsWorld->Update(deltaTime);
     }
 
-    // if (m_engineUI) {
-    //     m_engineUI->Update(m_world.get(), deltaTime);
-    // }
+    if (m_playModeManager) {
+        m_playModeManager->Update(deltaTime);
+    }
+
+    if (m_engineUI) {
+        m_engineUI->Update(m_world.get(), deltaTime);
+    }
 
     if (m_inputManager && m_inputManager->IsKeyPressed(KeyCode::Escape)) {
         m_isRunning = false;
@@ -186,9 +203,9 @@ void Engine::Render() {
     m_renderManager->Render(m_world.get());
     m_renderManager->EndFrame();
 
-    // if (m_engineUI) {
-    //     m_engineUI->Render();
-    // }
+    if (m_engineUI) {
+        m_engineUI->Render();
+    }
 }
 
 void Engine::CreateDemoScene() {
@@ -242,7 +259,7 @@ void Engine::CreateDemoScene() {
 void Engine::Shutdown() {
     Logger::Info("Shutting down Game Engine...");
     
-    // m_engineUI.reset();  // Temporarily disabled
+    m_engineUI.reset();
     if (m_testSceneManager) {
         m_testSceneManager.reset();
     }

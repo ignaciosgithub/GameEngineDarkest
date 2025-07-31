@@ -11,7 +11,8 @@ namespace GameEngine {
     class InputManager;
     class PhysicsWorld;
     class TestSceneManager;
-    // class EngineUI;  // Temporarily disabled
+    class EngineUI;
+    class PlayModeManager;
 
     class Engine {
     public:
@@ -29,7 +30,8 @@ namespace GameEngine {
         InputManager* GetInputManager() const { return m_inputManager.get(); }
         PhysicsWorld* GetPhysicsWorld() const { return m_physicsWorld.get(); }
         TestSceneManager* GetTestSceneManager() const { return m_testSceneManager.get(); }
-        // EngineUI* GetEngineUI() const { return m_engineUI.get(); }  // Temporarily disabled
+        EngineUI* GetEngineUI() const { return m_engineUI.get(); }
+        PlayModeManager* GetPlayModeManager() const { return m_playModeManager.get(); }
 
         bool IsRunning() const { return m_isRunning; }
         void Stop() { m_isRunning = false; }
@@ -46,9 +48,9 @@ namespace GameEngine {
         std::unique_ptr<InputManager> m_inputManager;
         std::unique_ptr<PhysicsWorld> m_physicsWorld;
         std::unique_ptr<TestSceneManager> m_testSceneManager;
-        // std::unique_ptr<EngineUI> m_engineUI;  // Temporarily disabled
+        std::unique_ptr<EngineUI> m_engineUI;
+        std::unique_ptr<PlayModeManager> m_playModeManager;
 
         bool m_isRunning = false;
-        double m_lastFrameTime = 0.0;
     };
 }

@@ -38,11 +38,22 @@ else()
     find_package(glm REQUIRED)
     find_package(GTest REQUIRED)
     
+    # ImGui for Linux - use as submodule or system package
+    find_path(IMGUI_INCLUDE_DIR imgui.h PATHS /usr/include/imgui /usr/local/include/imgui)
+    if(NOT IMGUI_INCLUDE_DIR)
+        message(STATUS "ImGui not found in system, using fallback")
+        set(IMGUI_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/imgui")
+    endif()
+    
     # Set variables for compatibility
     set(GLFW_LIBRARIES glfw)
     set(GLEW_LIBRARIES ${GLEW_LIBRARIES})
     set(GLM_LIBRARIES glm::glm)
     set(GTEST_LIBRARIES ${GTEST_LIBRARIES})
+    
+    # Create ImGui target for Linux
+    add_library(imgui INTERFACE)
+    target_include_directories(imgui INTERFACE ${IMGUI_INCLUDE_DIR})
 endif()
 
 # Compiler-specific options
@@ -53,10 +64,13 @@ else()
 endif()
 
 # Engine modules
+add_subdirectory(src/Audio)
+add_subdirectory(src/Animation)
 add_subdirectory(src/Core)
 add_subdirectory(src/Rendering)
 add_subdirectory(src/Physics)
-# add_subdirectory(src/UI)  # Temporarily disabled - missing imgui headers
+add_subdirectory(src/Networking)
+add_subdirectory(src/UI)
 
 # Demo application
 add_subdirectory(demo)
@@ -64,10 +78,13 @@ add_subdirectory(demo)
 # Create main engine library
 add_library(GameEngine INTERFACE)
 target_link_libraries(GameEngine INTERFACE
+    Audio
+    Animation
     Core
     Rendering
     Physics
-    # UI  # Temporarily disabled
+    Networking
+    UI
 )
 
 # Export targets (commented out for demo build)

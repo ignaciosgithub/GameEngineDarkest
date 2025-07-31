@@ -3,6 +3,7 @@
 #include "../ECS/Component.h"
 #include "../Math/Matrix4.h"
 #include "../Math/Transform.h"
+#include "../Logging/Logger.h"
 
 namespace GameEngine {
     class CameraComponent : public Component<CameraComponent> {
@@ -16,30 +17,25 @@ namespace GameEngine {
         float farPlane = 1000.0f;
         
         Matrix4 GetProjectionMatrix(float aspectRatio) const {
-            return Matrix4::Perspective(fieldOfView * 3.14159f / 180.0f, aspectRatio, nearPlane, farPlane);
+            float fovRadians = fieldOfView * 3.14159f / 180.0f;
+            Logger::Debug("Camera: Creating projection matrix - FOV=" + std::to_string(fieldOfView) + "°, aspect=" + std::to_string(aspectRatio) + ", near=" + std::to_string(nearPlane) + ", far=" + std::to_string(farPlane));
+            return Matrix4::Perspective(fovRadians, aspectRatio, nearPlane, farPlane);
         }
         
         Matrix4 GetViewMatrix(const Transform& transform) const {
             Vector3 position = transform.GetPosition();
-            Vector3 forward = transform.GetForward();
-            Vector3 up = transform.GetUp();
             
-            // Safety check: ensure forward vector is not zero
-            if (forward.LengthSquared() < 0.0001f) {
-                forward = Vector3::Forward; // Default forward direction
-            }
+            // Look directly at the center of the cube grid (cubes are positioned around origin at y=0)
+            Vector3 target = Vector3(0.0f, 0.0f, 0.0f);  // Center of cube grid
+            Vector3 up = Vector3::Up;  // World up vector
             
-            // Safety check: ensure up vector is not zero
-            if (up.LengthSquared() < 0.0001f) {
-                up = Vector3::Up; // Default up direction
-            }
+            Logger::Debug("Camera position: (" + std::to_string(position.x) + ", " + std::to_string(position.y) + ", " + std::to_string(position.z) + ")");
+            Logger::Debug("Camera target: (" + std::to_string(target.x) + ", " + std::to_string(target.y) + ", " + std::to_string(target.z) + ")");
+            Logger::Debug("Camera up: (" + std::to_string(up.x) + ", " + std::to_string(up.y) + ", " + std::to_string(up.z) + ")");
             
-            Vector3 target = position + forward;
-            
-            // Safety check: ensure camera is not looking at itself
-            if ((target - position).LengthSquared() < 0.0001f) {
-                target = position + Vector3::Forward;
-            }
+            // Calculate direction vector for verification
+            Vector3 direction = (target - position).Normalized();
+            Logger::Debug("Camera direction: (" + std::to_string(direction.x) + ", " + std::to_string(direction.y) + ", " + std::to_string(direction.z) + ")");
             
             return Matrix4::LookAt(position, target, up);
         }

@@ -197,15 +197,24 @@ void ForwardRenderPipeline::BeginFrame(const RenderData& renderData) {
 }
 
 void ForwardRenderPipeline::EndFrame() {
-    m_framebuffer->Unbind();
-    
     static int frameCount = 0;
     std::string filename = "frames/frame" + std::to_string(frameCount) + ".png";
     
     Logger::Info("Saving frame " + std::to_string(frameCount) + " to " + filename);
     
     unsigned char* pixels = new unsigned char[m_renderData.viewportWidth * m_renderData.viewportHeight * 4];
+    
+    Logger::Debug("Reading pixels from bound framebuffer before unbinding");
     glReadPixels(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) {
+        Logger::Error("OpenGL error after glReadPixels: " + std::to_string(error));
+    } else {
+        Logger::Debug("glReadPixels completed successfully from framebuffer");
+    }
+    
+    m_framebuffer->Unbind();
     
     unsigned char* flippedPixels = new unsigned char[m_renderData.viewportWidth * m_renderData.viewportHeight * 4];
     for (int y = 0; y < m_renderData.viewportHeight; y++) {
@@ -250,7 +259,9 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     
     m_forwardShader->Use();
     
+    Logger::Debug("ForwardRenderPipeline: Setting view matrix");
     m_forwardShader->SetMatrix4("view", m_renderData.viewMatrix);
+    Logger::Debug("ForwardRenderPipeline: Setting projection matrix");
     m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
     m_forwardShader->SetVector3("lightPos", Vector3(0.0f, 20.0f, 10.0f));

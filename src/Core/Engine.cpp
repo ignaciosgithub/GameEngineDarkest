@@ -28,10 +28,16 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     Logger::Initialize("engine.log", LogLevel::Debug);
     Logger::Info("Initializing Game Engine...");
 
+    glfwSetErrorCallback([](int error, const char* description) {
+        Logger::Error("GLFW Error " + std::to_string(error) + ": " + std::string(description));
+    });
+    
     if (!glfwInit()) {
         Logger::Error("Failed to initialize GLFW");
         return false;
     }
+    
+    Logger::Info("GLFW initialized successfully");
 
     m_window = std::make_unique<Window>();
     if (!m_window->Create(title, 1280, 720)) {
@@ -189,15 +195,13 @@ void Engine::CreateDemoScene() {
     Logger::Info("Creating demo scene...");
 
     Entity cameraEntity = m_world->CreateEntity();
-    auto* cameraTransform = m_world->AddComponent<TransformComponent>(cameraEntity, Vector3(0, 30, 0));
+    m_world->AddComponent<TransformComponent>(cameraEntity, Vector3(0, 20, 10));
     
-    Quaternion lookAtRotation = Quaternion::FromAxisAngle(Vector3::Right, -1.57f);
-    cameraTransform->transform.SetRotation(lookAtRotation);
     
-    m_world->AddComponent<CameraComponent>(cameraEntity, 45.0f);
+    m_world->AddComponent<CameraComponent>(cameraEntity, 60.0f);  // Wider FOV to see more cubes
     m_world->AddComponent<MovementComponent>(cameraEntity, 5.0f, 2.0f);
 
-    Logger::Info("Created camera entity: " + std::to_string(cameraEntity.GetID()));
+    Logger::Info("Created camera entity at position (0, 20, 10) using LookAt to view cube grid: " + std::to_string(cameraEntity.GetID()));
 
     for (int i = 0; i < 3; ++i) {
         Entity physicsEntity = m_world->CreateEntity();

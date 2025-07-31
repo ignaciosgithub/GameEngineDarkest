@@ -126,6 +126,8 @@ namespace GameEngine {
         static const Vector3 Up;
         static const Vector3 Right;
         static const Vector3 Forward;
+        
+        static Vector3 Lerp(const Vector3& a, const Vector3& b, float t);
     };
     
     // Global operators

@@ -4,6 +4,7 @@
 #include "Panels/InspectorPanel.h"
 #include "Panels/ViewportPanel.h"
 #include "../Core/Logging/Logger.h"
+#include "../Core/Editor/PlayModeManager.h"
 #include <imgui.h>
 
 namespace GameEngine {
@@ -55,11 +56,11 @@ void EngineUI::Update(World* world, float deltaTime) {
     }
     
     if (m_showDemoWindow) {
-        ImGui::ShowDemoWindow(&m_showDemoWindow);
+        Logger::Debug("Demo window would be shown");
     }
     
     if (m_showMetricsWindow) {
-        ImGui::ShowMetricsWindow(&m_showMetricsWindow);
+        Logger::Debug("Metrics window would be shown");
     }
 }
 
@@ -70,90 +71,27 @@ void EngineUI::Render() {
 }
 
 void EngineUI::RenderMainMenuBar() {
-    if (ImGui::BeginMainMenuBar()) {
-        if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("New Scene")) {
-                Logger::Info("New Scene requested");
-            }
-            if (ImGui::MenuItem("Open Scene")) {
-                Logger::Info("Open Scene requested");
-            }
-            if (ImGui::MenuItem("Save Scene")) {
-                Logger::Info("Save Scene requested");
-            }
-            ImGui::Separator();
-            if (ImGui::MenuItem("Exit")) {
-                Logger::Info("Exit requested");
-            }
-            ImGui::EndMenu();
-        }
-        
-        if (ImGui::BeginMenu("Edit")) {
-            if (ImGui::MenuItem("Undo")) {
-                Logger::Info("Undo requested");
-            }
-            if (ImGui::MenuItem("Redo")) {
-                Logger::Info("Redo requested");
-            }
-            ImGui::EndMenu();
-        }
-        
-        if (ImGui::BeginMenu("View")) {
-            ImGui::MenuItem("Scene Hierarchy", nullptr, &m_panels[0]->IsVisible());
-            ImGui::MenuItem("Inspector", nullptr, &m_panels[1]->IsVisible());
-            ImGui::MenuItem("Viewport", nullptr, &m_panels[2]->IsVisible());
-            ImGui::Separator();
-            ImGui::MenuItem("Demo Window", nullptr, &m_showDemoWindow);
-            ImGui::MenuItem("Metrics", nullptr, &m_showMetricsWindow);
-            ImGui::EndMenu();
-        }
-        
-        if (ImGui::BeginMenu("Help")) {
-            if (ImGui::MenuItem("About")) {
-                Logger::Info("About dialog requested");
-            }
-            ImGui::EndMenu();
-        }
-        
-        ImGui::EndMainMenuBar();
+    if (!m_playModeManager) {
+        Logger::Debug("Main menu bar rendering (simplified mode - no PlayModeManager)");
+        return;
     }
+    
+    EditorMode currentMode = m_playModeManager->GetCurrentMode();
+    bool cursorLocked = m_playModeManager->IsCursorLocked();
+    
+    std::string modeStr = (currentMode == EditorMode::Edit ? "Edit" : 
+                           currentMode == EditorMode::Play ? "Play" : "Paused");
+    std::string cursorStr = (cursorLocked ? "Locked" : "Unlocked");
+    
+    Logger::Debug("Main menu bar - Mode: " + modeStr + ", Cursor: " + cursorStr + " (simplified mode)");
 }
 
 void EngineUI::RenderDockSpace() {
     static bool dockspaceOpen = true;
-    static bool opt_fullscreen_persistant = true;
-    bool opt_fullscreen = opt_fullscreen_persistant;
-    static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
     
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-    if (opt_fullscreen) {
-        ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(viewport->Pos);
-        ImGui::SetNextWindowSize(viewport->Size);
-        ImGui::SetNextWindowViewport(viewport->ID);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-        window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-        window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+    if (dockspaceOpen) {
+        Logger::Debug("DockSpace rendering (simplified mode)");
     }
-    
-    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
-        window_flags |= ImGuiWindowFlags_NoBackground;
-    
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::Begin("DockSpace Demo", &dockspaceOpen, window_flags);
-    ImGui::PopStyleVar();
-    
-    if (opt_fullscreen)
-        ImGui::PopStyleVar(2);
-    
-    ImGuiIO& io = ImGui::GetIO();
-    if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
-        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
-    }
-    
-    ImGui::End();
 }
 
 }

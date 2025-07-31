@@ -3,23 +3,28 @@
 #include <memory>
 #include <vector>
 
+struct GLFWwindow;
+
 namespace GameEngine {
     class World;
     class ImGuiRenderer;
     class UIPanel;
+    class PlayModeManager;
+    enum class EditorMode;
     
     class EngineUI {
     public:
         EngineUI();
         ~EngineUI();
         
-        bool Initialize(struct GLFWwindow* window);
+        bool Initialize(GLFWwindow* window);
         void Shutdown();
         
         void Update(World* world, float deltaTime);
         void Render();
         
         void SetWorld(World* world) { m_world = world; }
+        void SetPlayModeManager(PlayModeManager* playModeManager) { m_playModeManager = playModeManager; }
         
     private:
         void RenderMainMenuBar();
@@ -29,6 +34,7 @@ namespace GameEngine {
         std::vector<std::unique_ptr<UIPanel>> m_panels;
         
         World* m_world = nullptr;
+        PlayModeManager* m_playModeManager = nullptr;
         bool m_showDemoWindow = false;
         bool m_showMetricsWindow = false;
     };

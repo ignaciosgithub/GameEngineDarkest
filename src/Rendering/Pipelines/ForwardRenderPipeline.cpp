@@ -80,7 +80,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform vec3 viewPos;
         
         void main() {
-            vec3 ambient = 0.15 * lightColor;
+            vec3 ambient = 0.6 * lightColor;
             
             vec3 norm = normalize(Normal);
             vec3 lightDir = normalize(lightPos - FragPos);
@@ -113,7 +113,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform float alpha;
         
         void main() {
-            vec3 ambient = 0.15 * lightColor;
+            vec3 ambient = 0.6 * lightColor;
             
             vec3 norm = normalize(Normal);
             vec3 lightDir = normalize(lightPos - FragPos);
@@ -253,7 +253,7 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
     m_forwardShader->SetVector3("lightPos", Vector3(0.0f, 20.0f, 10.0f));
-    m_forwardShader->SetVector3("lightColor", Vector3(2.0f, 2.0f, 2.0f));
+    m_forwardShader->SetVector3("lightColor", Vector3(5.0f, 5.0f, 5.0f));
     m_forwardShader->SetVector3("viewPos", Vector3(0.0f, 30.0f, 0.0f));
     
     int entitiesRendered = 0;

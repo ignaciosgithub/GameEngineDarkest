@@ -31,6 +31,7 @@ bool EngineUI::Initialize(GLFWwindow* window) {
     m_panels.push_back(std::make_unique<ProjectPanel>());
     m_panels.push_back(std::make_unique<ConsolePanel>());
     
+    ResetPanelVisibility();
     Logger::Info("Engine UI initialized successfully");
     return true;
 }
@@ -118,6 +119,31 @@ void EngineUI::RenderMainMenuBar() {
             ImGui::EndMenu();
         }
         
+        if (ImGui::BeginMenu("Window")) {
+            for (auto& panel : m_panels) {
+                if (auto* hierarchy = dynamic_cast<SceneHierarchyPanel*>(panel.get())) {
+                    ImGui::MenuItem("Scene Hierarchy", nullptr, &hierarchy->IsVisible());
+                }
+                if (auto* inspector = dynamic_cast<InspectorPanel*>(panel.get())) {
+                    ImGui::MenuItem("Inspector", nullptr, &inspector->IsVisible());
+                }
+                if (auto* viewport = dynamic_cast<ViewportPanel*>(panel.get())) {
+                    ImGui::MenuItem("Viewport", nullptr, &viewport->IsVisible());
+                }
+                if (auto* project = dynamic_cast<ProjectPanel*>(panel.get())) {
+                    ImGui::MenuItem("Project", nullptr, &project->IsVisible());
+                }
+                if (auto* console = dynamic_cast<ConsolePanel*>(panel.get())) {
+                    ImGui::MenuItem("Console", nullptr, &console->IsVisible());
+                }
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Reset Panel Layout")) {
+                ResetPanelVisibility();
+            }
+            ImGui::EndMenu();
+        }
+        
         if (m_playModeManager) {
             ImGui::Separator();
             
@@ -156,11 +182,34 @@ void EngineUI::RenderMainMenuBar() {
 }
 
 void EngineUI::RenderDockSpace() {
+#ifdef IMGUI_HAS_DOCK
     static bool dockspaceOpen = true;
     
     if (dockspaceOpen) {
-        Logger::Debug("DockSpace rendering (simplified mode)");
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(viewport->Pos);
+        ImGui::SetNextWindowSize(viewport->Size);
+        ImGui::SetNextWindowViewport(viewport->ID);
+        
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+        window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+        window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+        
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        
+        ImGui::Begin("DockSpace", &dockspaceOpen, window_flags);
+        ImGui::PopStyleVar(3);
+        
+        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
+        
+        ImGui::End();
     }
+#else
+    Logger::Debug("DockSpace not available - using fallback mode");
+#endif
 }
 
 ViewportPanel* EngineUI::GetViewportPanel() const {
@@ -184,6 +233,13 @@ void EngineUI::SaveCurrentScene(const std::string& sceneName) {
 
 void EngineUI::SaveSceneAs(const std::string& sceneName) {
     Logger::Info("Save Scene As requested: " + sceneName);
+}
+
+void EngineUI::ResetPanelVisibility() {
+    for (auto& panel : m_panels) {
+        panel->IsVisible() = true;
+    }
+    Logger::Info("All UI panels visibility reset to visible");
 }
 
 }

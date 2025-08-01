@@ -55,7 +55,7 @@ void MovementSystem::UpdateMovement(World* world, float deltaTime) {
     }
 }
 
-void MovementSystem::UpdateMouseLook(World* world, float deltaTime) {
+void MovementSystem::UpdateMouseLook(World* world, float /*deltaTime*/) {
     if (!m_inputManager || !m_window) return;
     
     if (!m_inputManager->IsMouseButtonPressed(MouseButton::Right)) {

@@ -26,6 +26,8 @@ add_library(Core STATIC
     Time/Timer.cpp
     Editor/PlayModeManager.cpp
     Physics/RayCaster.cpp
+    Project/ProjectManager.cpp
+    Scripting/ScriptComponent.cpp
     Engine.cpp
 )
 

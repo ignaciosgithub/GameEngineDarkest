@@ -55,6 +55,25 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     m_inputManager->Initialize();
     Logger::Info("Input manager initialized");
 
+    m_window->SetKeyCallback([this](int key, int scancode, int action, int mods) {
+        if (m_inputManager) {
+            m_inputManager->OnKeyEventThreaded(key, scancode, action, mods);
+        }
+    });
+    
+    m_window->SetMouseButtonCallback([this](int button, int action, int mods) {
+        if (m_inputManager) {
+            m_inputManager->OnMouseButtonEventThreaded(button, action, mods);
+        }
+    });
+    
+    m_window->SetMouseMoveCallback([this](double xpos, double ypos) {
+        if (m_inputManager) {
+            m_inputManager->OnMouseMoveEventThreaded(xpos, ypos);
+        }
+    });
+    Logger::Info("Window callbacks connected to input manager");
+
     m_renderer = Renderer::Create();
     if (!m_renderer || !m_renderer->Initialize()) {
         Logger::Error("Failed to initialize renderer");

@@ -33,10 +33,13 @@ private:
     void RenderSpecialEffects(World* world);
     void SetupLighting();
     void SortTransparentObjects(World* world);
+    void CompositePass();
+    void RenderFullscreenQuad();
 
     std::shared_ptr<Shader> m_forwardShader;
     std::shared_ptr<Shader> m_transparentShader;
     std::shared_ptr<Shader> m_effectsShader;
+    std::shared_ptr<Shader> m_compositeShader;
     
     std::shared_ptr<FrameBuffer> m_framebuffer;
     std::shared_ptr<Texture> m_colorTexture;

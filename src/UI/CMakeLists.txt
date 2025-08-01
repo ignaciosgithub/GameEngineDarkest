@@ -14,7 +14,17 @@ target_include_directories(UI PUBLIC
 target_link_libraries(UI PUBLIC
     Core
     Rendering
-    imgui
 )
+
+# Platform-specific ImGui linking
+if(WIN32)
+    if(TARGET imgui::imgui)
+        target_link_libraries(UI PUBLIC imgui::imgui)
+    else()
+        target_link_libraries(UI PUBLIC imgui)
+    endif()
+else()
+    target_link_libraries(UI PUBLIC imgui)
+endif()
 
 target_compile_features(UI PUBLIC cxx_std_20)

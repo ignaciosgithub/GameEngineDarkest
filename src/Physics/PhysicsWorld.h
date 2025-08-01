@@ -45,6 +45,10 @@ namespace GameEngine {
         void SetUseSpatialPartitioning(bool use) { m_useSpatialPartitioning = use; }
         bool GetUseSpatialPartitioning() const { return m_useSpatialPartitioning; }
         
+        // Physics timestep settings
+        void SetMaxPhysicsStepsPerFrame(int maxSteps) { m_maxPhysicsStepsPerFrame = maxSteps; }
+        int GetMaxPhysicsStepsPerFrame() const { return m_maxPhysicsStepsPerFrame; }
+        
         // 2D Physics integration
         PhysicsWorld2D* GetPhysicsWorld2D() const { return m_physicsWorld2D.get(); }
         void SetEnable2DPhysics(bool enable) { m_enable2DPhysics = enable; }
@@ -61,6 +65,9 @@ namespace GameEngine {
         // 2D Physics integration
         std::unique_ptr<PhysicsWorld2D> m_physicsWorld2D;
         bool m_enable2DPhysics = true;
+        
+        // Physics timestep settings
+        int m_maxPhysicsStepsPerFrame = 5; // Prevent spiral of death
         
         bool m_initialized = false;
     };

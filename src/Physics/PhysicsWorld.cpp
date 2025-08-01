@@ -61,9 +61,20 @@ void PhysicsWorld::Update(float deltaTime) {
     
     accumulator += deltaTime;
     
-    while (accumulator >= fixedDeltaTime) {
+    int stepCount = 0;
+    while (accumulator >= fixedDeltaTime && stepCount < m_maxPhysicsStepsPerFrame) {
         FixedUpdate(fixedDeltaTime);
         accumulator -= fixedDeltaTime;
+        stepCount++;
+    }
+    
+    if (stepCount >= m_maxPhysicsStepsPerFrame) {
+        Logger::Warning("Physics accumulator hit max steps limit (" + std::to_string(m_maxPhysicsStepsPerFrame) + ") with deltaTime: " + std::to_string(deltaTime));
+        accumulator = 0.0f;
+    }
+    
+    if (stepCount > 1) {
+        Logger::Debug("Physics processed " + std::to_string(stepCount) + " steps in single frame");
     }
 }
 

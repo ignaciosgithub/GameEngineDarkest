@@ -4,6 +4,8 @@ add_library(UI STATIC
     Panels/SceneHierarchyPanel.cpp
     Panels/InspectorPanel.cpp
     Panels/ViewportPanel.cpp
+    Panels/ProjectPanel.cpp
+    Panels/ConsolePanel.cpp
 )
 
 target_include_directories(UI PUBLIC

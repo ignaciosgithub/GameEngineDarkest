@@ -3,6 +3,8 @@
 #include "Panels/SceneHierarchyPanel.h"
 #include "Panels/InspectorPanel.h"
 #include "Panels/ViewportPanel.h"
+#include "Panels/ProjectPanel.h"
+#include "Panels/ConsolePanel.h"
 #include "../Core/Logging/Logger.h"
 #include "../Core/Editor/PlayModeManager.h"
 #include <imgui.h>
@@ -25,6 +27,8 @@ bool EngineUI::Initialize(GLFWwindow* window) {
     m_panels.push_back(std::make_unique<SceneHierarchyPanel>());
     m_panels.push_back(std::make_unique<InspectorPanel>());
     m_panels.push_back(std::make_unique<ViewportPanel>());
+    m_panels.push_back(std::make_unique<ProjectPanel>());
+    m_panels.push_back(std::make_unique<ConsolePanel>());
     
     Logger::Info("Engine UI initialized successfully");
     return true;
@@ -71,19 +75,52 @@ void EngineUI::Render() {
 }
 
 void EngineUI::RenderMainMenuBar() {
-    if (!m_playModeManager) {
-        Logger::Debug("Main menu bar rendering (simplified mode - no PlayModeManager)");
-        return;
+    if (ImGui::BeginMainMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("New Scene")) {
+                Logger::Info("New Scene requested");
+            }
+            if (ImGui::MenuItem("Save Scene")) {
+                Logger::Info("Save Scene requested");
+            }
+            ImGui::EndMenu();
+        }
+        
+        if (m_playModeManager) {
+            ImGui::Separator();
+            
+            EditorMode currentMode = m_playModeManager->GetCurrentMode();
+            
+            if (currentMode == EditorMode::Edit) {
+                if (ImGui::Button("▶ Play")) {
+                    m_playModeManager->SwitchToPlayMode();
+                }
+            } else {
+                if (ImGui::Button("⏹ Stop")) {
+                    m_playModeManager->SwitchToEditMode();
+                }
+            }
+            
+            ImGui::SameLine();
+            
+            if (currentMode == EditorMode::Play) {
+                if (ImGui::Button("⏸ Pause")) {
+                    m_playModeManager->TogglePause();
+                }
+            } else if (currentMode == EditorMode::Paused) {
+                if (ImGui::Button("▶ Resume")) {
+                    m_playModeManager->TogglePause();
+                }
+            }
+            
+            ImGui::SameLine();
+            std::string modeText = (currentMode == EditorMode::Edit ? "Edit Mode" : 
+                                  currentMode == EditorMode::Play ? "Play Mode" : "Paused");
+            ImGui::Text("%s", modeText.c_str());
+        }
+        
+        ImGui::EndMainMenuBar();
     }
-    
-    EditorMode currentMode = m_playModeManager->GetCurrentMode();
-    bool cursorLocked = m_playModeManager->IsCursorLocked();
-    
-    std::string modeStr = (currentMode == EditorMode::Edit ? "Edit" : 
-                           currentMode == EditorMode::Play ? "Play" : "Paused");
-    std::string cursorStr = (cursorLocked ? "Locked" : "Unlocked");
-    
-    Logger::Debug("Main menu bar - Mode: " + modeStr + ", Cursor: " + cursorStr + " (simplified mode)");
 }
 
 void EngineUI::RenderDockSpace() {

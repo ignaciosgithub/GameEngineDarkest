@@ -58,6 +58,10 @@ void MovementSystem::UpdateMovement(World* world, float deltaTime) {
 void MovementSystem::UpdateMouseLook(World* world, float deltaTime) {
     if (!m_inputManager || !m_window) return;
     
+    if (!m_inputManager->IsMouseButtonPressed(MouseButton::Right)) {
+        return;
+    }
+    
     Vector3 mousePos = m_inputManager->GetMousePosition();
     
     for (const auto& entity : world->GetEntities()) {
@@ -73,7 +77,7 @@ void MovementSystem::UpdateMouseLook(World* world, float deltaTime) {
             Vector3 mouseDelta = mousePos - movement->lastMousePos;
             movement->lastMousePos = mousePos;
             
-            mouseDelta *= movement->mouseSensitivity * deltaTime;
+            mouseDelta *= movement->mouseSensitivity * 0.01f;
             
             movement->yaw += mouseDelta.x;
             movement->pitch -= mouseDelta.y; // Invert Y axis

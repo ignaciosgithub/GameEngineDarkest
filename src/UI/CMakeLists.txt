@@ -16,6 +16,7 @@ target_include_directories(UI PUBLIC
 target_link_libraries(UI PUBLIC
     Core
     Rendering
+    ${NFD_LIBRARIES}
 )
 
 # Platform-specific ImGui linking

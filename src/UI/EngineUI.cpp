@@ -56,8 +56,22 @@ void EngineUI::Update(World* world, float deltaTime) {
     RenderDockSpace();
     RenderMainMenuBar();
     
+    SceneHierarchyPanel* hierarchyPanel = nullptr;
+    InspectorPanel* inspectorPanel = nullptr;
+    
     for (auto& panel : m_panels) {
+        if (auto* hierarchy = dynamic_cast<SceneHierarchyPanel*>(panel.get())) {
+            hierarchyPanel = hierarchy;
+        }
+        if (auto* inspector = dynamic_cast<InspectorPanel*>(panel.get())) {
+            inspectorPanel = inspector;
+        }
         panel->Update(world, deltaTime);
+    }
+    
+    if (hierarchyPanel && inspectorPanel) {
+        Entity selectedEntity = hierarchyPanel->GetSelectedEntity();
+        inspectorPanel->SetSelectedEntity(selectedEntity);
     }
     
     if (m_showDemoWindow) {

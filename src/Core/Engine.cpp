@@ -18,6 +18,7 @@
 #include "../Rendering/Meshes/Mesh.h"
 #include "../Physics/PhysicsWorld.h"
 #include "../UI/EngineUI.h"
+#include <cmath>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -233,6 +234,13 @@ void Engine::CreateDemoScene() {
     Entity cameraEntity = m_world->CreateEntity();
     m_world->AddComponent<TransformComponent>(cameraEntity, Vector3(0, 20, 10));
     
+    auto* cameraTransform = m_world->GetComponent<TransformComponent>(cameraEntity);
+    if (cameraTransform) {
+        Vector3 direction = (Vector3(0, 0, 0) - Vector3(0, 20, 10)).Normalized();
+        float pitch = std::asin(-direction.y);  // Look down angle
+        float yaw = std::atan2(direction.x, direction.z);  // Horizontal angle
+        cameraTransform->transform.SetRotation(Quaternion::FromEulerAngles(pitch, yaw, 0.0f));
+    }
     
     m_world->AddComponent<CameraComponent>(cameraEntity, 60.0f);  // Wider FOV to see more cubes
     m_world->AddComponent<MovementComponent>(cameraEntity, 5.0f, 2.0f);

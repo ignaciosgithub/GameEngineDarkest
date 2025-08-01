@@ -40,6 +40,14 @@ namespace GameEngine {
             Vector3 forward = transform.GetForward();
             Vector3 up = transform.GetUp();
             
+            // Safety check for zero-length vectors
+            if (forward.LengthSquared() < 0.0001f) {
+                forward = Vector3(0.0f, 0.0f, -1.0f);  // Default forward
+            }
+            if (up.LengthSquared() < 0.0001f) {
+                up = Vector3(0.0f, 1.0f, 0.0f);  // Default up
+            }
+            
             Logger::Debug("Camera position: (" + std::to_string(position.x) + ", " + std::to_string(position.y) + ", " + std::to_string(position.z) + ")");
             Logger::Debug("Camera forward: (" + std::to_string(forward.x) + ", " + std::to_string(forward.y) + ", " + std::to_string(forward.z) + ")");
             Logger::Debug("Camera up: (" + std::to_string(up.x) + ", " + std::to_string(up.y) + ", " + std::to_string(up.z) + ")");

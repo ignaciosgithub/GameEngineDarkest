@@ -22,7 +22,7 @@ void ViewportPanel::Update(World* /*world*/, float /*deltaTime*/) {
         if (m_sceneFramebuffer) {
             auto colorTexture = m_sceneFramebuffer->GetColorTexture(0);
             if (colorTexture) {
-                ImGui::Image((void*)(intptr_t)colorTexture->GetID(), 
+                ImGui::Image((ImTextureID)(intptr_t)colorTexture->GetID(), 
                             ImVec2(m_viewportSize.x, m_viewportSize.y), 
                             ImVec2(0, 1), ImVec2(1, 0));
             } else {

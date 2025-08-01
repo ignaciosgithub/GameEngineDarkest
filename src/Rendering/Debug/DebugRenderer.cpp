@@ -1,6 +1,6 @@
 #include "DebugRenderer.h"
 #include "../../Core/Logging/Logger.h"
-#include <GL/glew.h>
+#include "../Core/OpenGLHeaders.h"
 #include <vector>
 #include <cmath>
 

@@ -4,6 +4,8 @@
 #include "../ECS/Entity.h"
 #include "../Components/TransformComponent.h"
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace GameEngine {
     class GameObject {

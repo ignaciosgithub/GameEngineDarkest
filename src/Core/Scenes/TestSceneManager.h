@@ -5,6 +5,7 @@
 #include "../../Rendering/Lighting/Light.h"
 #include "../../Rendering/Materials/Material.h"
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace GameEngine {

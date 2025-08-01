@@ -149,6 +149,10 @@ std::shared_ptr<Texture> RaytracingPipeline::GetFinalTexture() const {
     return m_colorTexture;
 }
 
+std::shared_ptr<FrameBuffer> RaytracingPipeline::GetFramebuffer() const {
+    return m_framebuffer;
+}
+
 void RaytracingPipeline::Cleanup() {
     if (m_triangleSSBO != 0) {
         Logger::Debug("Cleaning up triangle SSBO (simplified)");

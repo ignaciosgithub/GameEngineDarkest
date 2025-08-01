@@ -26,6 +26,8 @@ namespace GameEngine {
         void SetWorld(World* world) { m_world = world; }
         void SetPlayModeManager(PlayModeManager* playModeManager) { m_playModeManager = playModeManager; }
         
+        class ViewportPanel* GetViewportPanel() const;
+        
     private:
         void RenderMainMenuBar();
         void RenderDockSpace();

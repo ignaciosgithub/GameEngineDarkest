@@ -21,6 +21,7 @@ namespace GameEngine {
         void Resize(int width, int height) override;
         
         std::shared_ptr<Texture> GetFinalTexture() const override;
+        std::shared_ptr<FrameBuffer> GetFramebuffer() const override;
 
     private:
         std::unique_ptr<FrameBuffer> m_gBuffer;

@@ -321,6 +321,10 @@ std::shared_ptr<Texture> ForwardRenderPipeline::GetFinalTexture() const {
     return m_colorTexture;
 }
 
+std::shared_ptr<FrameBuffer> ForwardRenderPipeline::GetFramebuffer() const {
+    return m_framebuffer;
+}
+
 void ForwardRenderPipeline::Cleanup() {
     m_forwardShader.reset();
     m_transparentShader.reset();

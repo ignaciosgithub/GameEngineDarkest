@@ -18,6 +18,7 @@
 #include "../Rendering/Meshes/Mesh.h"
 #include "../Physics/PhysicsWorld.h"
 #include "../UI/EngineUI.h"
+#include "../UI/Panels/ViewportPanel.h"
 #include <cmath>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -224,6 +225,13 @@ void Engine::Render() {
     m_renderManager->EndFrame();
 
     if (m_engineUI) {
+        ViewportPanel* viewportPanel = m_engineUI->GetViewportPanel();
+        if (viewportPanel && m_renderManager) {
+            auto currentPipeline = m_renderManager->GetCurrentPipeline();
+            if (currentPipeline) {
+                viewportPanel->SetFramebuffer(currentPipeline->GetFramebuffer());
+            }
+        }
         m_engineUI->Render();
     }
 }

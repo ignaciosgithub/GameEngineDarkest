@@ -29,6 +29,7 @@ namespace GameEngine {
         virtual void Resize(int width, int height) = 0;
         
         virtual std::shared_ptr<Texture> GetFinalTexture() const = 0;
+        virtual std::shared_ptr<FrameBuffer> GetFramebuffer() const = 0;
 
     protected:
         int m_width = 0;

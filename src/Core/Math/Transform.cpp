@@ -144,7 +144,7 @@ void Transform::UpdateMatrices() const {
     Matrix4 rotation = QuaternionToMatrix(m_rotation);
     Matrix4 scale = Matrix4::Scale(m_scale);
     
-    m_localToWorld = translation * rotation * scale;
+    m_localToWorld = scale * rotation * translation;
     
     if (m_parent) {
         m_localToWorld = m_parent->GetLocalToWorldMatrix() * m_localToWorld;

@@ -1,6 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <vector>
+#include "../Math/Vector3.h"
+#include "../Math/Quaternion.h"
 
 namespace GameEngine {
     class World;
@@ -43,9 +46,27 @@ namespace GameEngine {
         World* m_world = nullptr;
         Window* m_window = nullptr;
         
+        struct EntityState {
+            uint32_t entityId;
+            bool hasTransform = false;
+            bool hasMovement = false;
+            
+            // Transform data
+            Vector3 position;
+            Quaternion rotation;
+            Vector3 scale;
+            
+            // Movement data
+            float movementSpeed;
+            float mouseSensitivity;
+            Vector3 velocity;
+            float pitch;
+            float yaw;
+        };
+        
         struct SceneState {
-            // Store entity states for restoration
             bool isValid = false;
+            std::vector<EntityState> entities;
         } m_savedSceneState;
         
         bool m_initialized = false;

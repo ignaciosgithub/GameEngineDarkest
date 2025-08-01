@@ -64,9 +64,10 @@ else()
     set(OPENAL_LIBRARIES ${OPENAL_LIBRARIES})
     set(ASSIMP_LIBRARIES assimp)
     
-    # Create ImGui target for Linux
+    # Create ImGui target for Linux - link system libraries
     add_library(imgui INTERFACE)
     target_include_directories(imgui INTERFACE ${IMGUI_INCLUDE_DIR})
+    target_link_libraries(imgui INTERFACE -limgui -lstb)
 endif()
 
 # Compiler-specific options
@@ -87,6 +88,9 @@ add_subdirectory(src/UI)
 
 # Demo application
 add_subdirectory(demo)
+
+# Editor application
+add_subdirectory(editor)
 
 # Create main engine library
 add_library(GameEngine INTERFACE)

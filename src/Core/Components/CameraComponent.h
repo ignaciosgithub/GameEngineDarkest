@@ -37,19 +37,14 @@ namespace GameEngine {
         
         Matrix4 GetViewMatrix(const Transform& transform) const {
             Vector3 position = transform.GetPosition();
-            
-            // Look directly at the center of the cube grid (cubes are positioned around origin at y=0)
-            Vector3 target = Vector3(0.0f, 0.0f, 0.0f);  // Center of cube grid
-            Vector3 up = Vector3::Up;  // World up vector
+            Vector3 forward = transform.GetForward();
+            Vector3 up = transform.GetUp();
             
             Logger::Debug("Camera position: (" + std::to_string(position.x) + ", " + std::to_string(position.y) + ", " + std::to_string(position.z) + ")");
-            Logger::Debug("Camera target: (" + std::to_string(target.x) + ", " + std::to_string(target.y) + ", " + std::to_string(target.z) + ")");
+            Logger::Debug("Camera forward: (" + std::to_string(forward.x) + ", " + std::to_string(forward.y) + ", " + std::to_string(forward.z) + ")");
             Logger::Debug("Camera up: (" + std::to_string(up.x) + ", " + std::to_string(up.y) + ", " + std::to_string(up.z) + ")");
             
-            // Calculate direction vector for verification
-            Vector3 direction = (target - position).Normalized();
-            Logger::Debug("Camera direction: (" + std::to_string(direction.x) + ", " + std::to_string(direction.y) + ", " + std::to_string(direction.z) + ")");
-            
+            Vector3 target = position + forward;
             return Matrix4::LookAt(position, target, up);
         }
     };

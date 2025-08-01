@@ -3,6 +3,8 @@
 #include "../Platform/Window.h"
 #include "../Logging/Logger.h"
 #include "../Time/Timer.h"
+#include "../Components/TransformComponent.h"
+#include "../Components/MovementComponent.h"
 #include <GLFW/glfw3.h>
 
 namespace GameEngine {
@@ -146,8 +148,35 @@ namespace GameEngine {
         }
         
         m_savedSceneState.isValid = true;
+        m_savedSceneState.entities.clear();
         
-        Logger::Debug("Scene state saved");
+        const auto& entities = m_world->GetEntities();
+        for (const auto& entity : entities) {
+            EntityState entityState;
+            entityState.entityId = entity.GetID();
+            
+            auto* transform = m_world->GetComponent<TransformComponent>(entity);
+            if (transform) {
+                entityState.hasTransform = true;
+                entityState.position = transform->transform.GetPosition();
+                entityState.rotation = transform->transform.GetRotation();
+                entityState.scale = transform->transform.GetScale();
+            }
+            
+            auto* movement = m_world->GetComponent<MovementComponent>(entity);
+            if (movement) {
+                entityState.hasMovement = true;
+                entityState.movementSpeed = movement->movementSpeed;
+                entityState.mouseSensitivity = movement->mouseSensitivity;
+                entityState.velocity = movement->velocity;
+                entityState.pitch = movement->pitch;
+                entityState.yaw = movement->yaw;
+            }
+            
+            m_savedSceneState.entities.push_back(entityState);
+        }
+        
+        Logger::Debug("Scene state saved with " + std::to_string(m_savedSceneState.entities.size()) + " entities");
     }
     
     void PlayModeManager::RestoreSceneState() {
@@ -161,9 +190,35 @@ namespace GameEngine {
             return;
         }
         
+        for (const auto& entityState : m_savedSceneState.entities) {
+            Entity entity = Entity(entityState.entityId);
+            
+            if (m_world->IsEntityValid(entity)) {
+                if (entityState.hasTransform) {
+                    auto* transform = m_world->GetComponent<TransformComponent>(entity);
+                    if (transform) {
+                        transform->transform.SetPosition(entityState.position);
+                        transform->transform.SetRotation(entityState.rotation);
+                        transform->transform.SetScale(entityState.scale);
+                    }
+                }
+                
+                if (entityState.hasMovement) {
+                    auto* movement = m_world->GetComponent<MovementComponent>(entity);
+                    if (movement) {
+                        movement->movementSpeed = entityState.movementSpeed;
+                        movement->mouseSensitivity = entityState.mouseSensitivity;
+                        movement->velocity = entityState.velocity;
+                        movement->pitch = entityState.pitch;
+                        movement->yaw = entityState.yaw;
+                    }
+                }
+            }
+        }
+        
         Timer::Reset();
         
-        Logger::Debug("Scene state restored");
+        Logger::Debug("Scene state restored with " + std::to_string(m_savedSceneState.entities.size()) + " entities");
     }
     
     void PlayModeManager::SetCursorMode(bool locked) {

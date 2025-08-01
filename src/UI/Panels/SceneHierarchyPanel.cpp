@@ -13,16 +13,22 @@ SceneHierarchyPanel::~SceneHierarchyPanel() = default;
 void SceneHierarchyPanel::Update(World* world, float /*deltaTime*/) {
     if (!m_visible || !world) return;
     
-    const auto& entities = world->GetEntities();
-    Logger::Debug("Scene Hierarchy panel showing " + std::to_string(entities.size()) + " entities (flat mode - hierarchy display requires Scene reference)");
-    
-    if (!entities.empty() && !m_selectedEntity.IsValid()) {
-        m_selectedEntity = entities[0];
+    if (ImGui::Begin("Scene Hierarchy", &m_visible)) {
+        const auto& entities = world->GetEntities();
+        
+        for (const auto& entity : entities) {
+            DrawEntityNode(world, entity);
+        }
+        
+        if (ImGui::BeginPopupContextWindow()) {
+            if (ImGui::MenuItem("Create Empty Entity")) {
+                Entity newEntity = world->CreateEntity();
+                world->AddComponent<TransformComponent>(newEntity);
+            }
+            ImGui::EndPopup();
+        }
     }
-    
-    for (const auto& entity : entities) {
-        DrawEntityNode(world, entity);
-    }
+    ImGui::End();
 }
 
 void SceneHierarchyPanel::DrawEntityNode(World* world, Entity entity) {
@@ -30,10 +36,19 @@ void SceneHierarchyPanel::DrawEntityNode(World* world, Entity entity) {
     
     std::string label = "Entity " + std::to_string(entity.GetID());
     
-    Logger::Debug("Drawing entity node: " + label + " (flat mode)");
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+    if (m_selectedEntity == entity) {
+        flags |= ImGuiTreeNodeFlags_Selected;
+    }
     
-    if (entity.GetID() == 1) {
+    bool opened = ImGui::TreeNodeEx((void*)(uint64_t)entity.GetID(), flags, "%s", label.c_str());
+    
+    if (ImGui::IsItemClicked()) {
         m_selectedEntity = entity;
+    }
+    
+    if (opened) {
+        ImGui::TreePop();
     }
 }
 

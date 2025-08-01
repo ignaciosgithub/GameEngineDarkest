@@ -3,6 +3,10 @@
 #include "../../Core/Components/TransformComponent.h"
 #include "../../Core/Components/CameraComponent.h"
 #include "../../Core/Components/MovementComponent.h"
+#include "../../Core/Components/MeshComponent.h"
+#include "../../Core/Components/RigidBodyComponent.h"
+#include "../../Core/Components/AudioComponent.h"
+#include "../../Rendering/Lighting/Light.h"
 #include "../../Core/Logging/Logger.h"
 #include <imgui.h>
 
@@ -21,6 +25,10 @@ void InspectorPanel::Update(World* world, float /*deltaTime*/) {
             ImGui::Separator();
             
             DrawTransformComponent(world, m_selectedEntity);
+            DrawMeshComponent(world, m_selectedEntity);
+            DrawRigidBodyComponent(world, m_selectedEntity);
+            DrawAudioComponent(world, m_selectedEntity);
+            DrawLightComponent(world, m_selectedEntity);
             DrawCameraComponent(world, m_selectedEntity);
             DrawMovementComponent(world, m_selectedEntity);
         } else {
@@ -83,6 +91,223 @@ void InspectorPanel::DrawMovementComponent(World* world, Entity entity) {
         ImGui::Text("Velocity: (%.2f, %.2f, %.2f)", 
                    movement->velocity.x, movement->velocity.y, movement->velocity.z);
         ImGui::Text("Pitch: %.2f, Yaw: %.2f", movement->pitch, movement->yaw);
+    }
+}
+
+void InspectorPanel::DrawMeshComponent(World* world, Entity entity) {
+    auto* mesh = world->GetComponent<MeshComponent>(entity);
+    if (!mesh) return;
+    
+    if (ImGui::CollapsingHeader("Mesh Component")) {
+        bool visible = mesh->IsVisible();
+        if (ImGui::Checkbox("Visible", &visible)) {
+            mesh->SetVisible(visible);
+        }
+        
+        ImGui::Text("Mesh Type: %s", mesh->GetMeshType().c_str());
+        
+        Vector3 color = mesh->GetColor();
+        float colorArray[3] = {color.x, color.y, color.z};
+        if (ImGui::ColorEdit3("Color", colorArray)) {
+            mesh->SetColor(Vector3(colorArray[0], colorArray[1], colorArray[2]));
+        }
+        
+        float metallic = mesh->GetMetallic();
+        if (ImGui::SliderFloat("Metallic", &metallic, 0.0f, 1.0f)) {
+            mesh->SetMetallic(metallic);
+        }
+        
+        float roughness = mesh->GetRoughness();
+        if (ImGui::SliderFloat("Roughness", &roughness, 0.0f, 1.0f)) {
+            mesh->SetRoughness(roughness);
+        }
+        
+        if (ImGui::Button("Load OBJ...")) {
+            ImGui::OpenPopup("Load OBJ");
+        }
+        
+        if (ImGui::BeginPopup("Load OBJ")) {
+            static char objPath[256] = "";
+            ImGui::InputText("OBJ Path", objPath, sizeof(objPath));
+            if (ImGui::Button("Load") && strlen(objPath) > 0) {
+                mesh->LoadMeshFromOBJ(objPath);
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+    }
+}
+
+void InspectorPanel::DrawRigidBodyComponent(World* world, Entity entity) {
+    auto* rigidBody = world->GetComponent<RigidBodyComponent>(entity);
+    if (!rigidBody) return;
+    
+    if (ImGui::CollapsingHeader("RigidBody Component")) {
+        ImGui::Text("RigidBody: %s", rigidBody->GetRigidBody() ? "Active" : "Inactive");
+        
+        if (ImGui::Button("Add RigidBody") && !rigidBody->GetRigidBody()) {
+            Logger::Info("RigidBody initialization requested");
+        }
+        
+        if (ImGui::Button("Remove RigidBody") && rigidBody->GetRigidBody()) {
+            Logger::Info("RigidBody removal requested");
+        }
+    }
+}
+
+void InspectorPanel::DrawAudioComponent(World* world, Entity entity) {
+    auto* audio = world->GetComponent<AudioComponent>(entity);
+    if (!audio) return;
+    
+    if (ImGui::CollapsingHeader("Audio Component")) {
+        float volume = audio->GetVolume();
+        if (ImGui::SliderFloat("Volume", &volume, 0.0f, 1.0f)) {
+            audio->SetVolume(volume);
+        }
+        
+        float pitch = audio->GetPitch();
+        if (ImGui::SliderFloat("Pitch", &pitch, 0.1f, 3.0f)) {
+            audio->SetPitch(pitch);
+        }
+        
+        bool looping = audio->IsLooping();
+        if (ImGui::Checkbox("Looping", &looping)) {
+            audio->SetLooping(looping);
+        }
+        
+        bool playOnAwake = audio->GetPlayOnAwake();
+        if (ImGui::Checkbox("Play On Awake", &playOnAwake)) {
+            audio->SetPlayOnAwake(playOnAwake);
+        }
+        
+        bool spatial = audio->IsSpatial();
+        if (ImGui::Checkbox("3D Spatial", &spatial)) {
+            audio->SetSpatial(spatial);
+        }
+        
+        if (spatial) {
+            float minDistance = audio->GetMinDistance();
+            if (ImGui::DragFloat("Min Distance", &minDistance, 0.1f, 0.0f, 1000.0f)) {
+                audio->SetMinDistance(minDistance);
+            }
+            
+            float maxDistance = audio->GetMaxDistance();
+            if (ImGui::DragFloat("Max Distance", &maxDistance, 1.0f, minDistance, 1000.0f)) {
+                audio->SetMaxDistance(maxDistance);
+            }
+            
+            float rolloff = audio->GetRolloffFactor();
+            if (ImGui::SliderFloat("Rolloff Factor", &rolloff, 0.0f, 10.0f)) {
+                audio->SetRolloffFactor(rolloff);
+            }
+        }
+        
+        ImGui::Separator();
+        
+        if (ImGui::Button("Play")) {
+            audio->Play();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Pause")) {
+            audio->Pause();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Stop")) {
+            audio->Stop();
+        }
+        
+        ImGui::Text("State: %s", 
+                   audio->IsPlaying() ? "Playing" : 
+                   audio->IsPaused() ? "Paused" : "Stopped");
+    }
+}
+
+void InspectorPanel::DrawLightComponent(World* world, Entity entity) {
+    auto* lightComp = world->GetComponent<LightComponent>(entity);
+    if (!lightComp) return;
+    
+    if (ImGui::CollapsingHeader("Light Component")) {
+        Light& light = lightComp->light;
+        
+        const char* lightTypes[] = {"Directional", "Point", "Spot"};
+        int currentType = static_cast<int>(light.GetType());
+        if (ImGui::Combo("Light Type", &currentType, lightTypes, 3)) {
+            light.SetType(static_cast<LightType>(currentType));
+        }
+        
+        Vector3 color = light.GetColor();
+        float colorArray[3] = {color.x, color.y, color.z};
+        if (ImGui::ColorEdit3("Color", colorArray)) {
+            light.SetColor(Vector3(colorArray[0], colorArray[1], colorArray[2]));
+        }
+        
+        float intensity = light.GetIntensity();
+        if (ImGui::DragFloat("Intensity", &intensity, 0.1f, 0.0f, 100.0f)) {
+            light.SetIntensity(intensity);
+        }
+        
+        if (light.GetType() == LightType::Point || light.GetType() == LightType::Spot) {
+            float range = light.GetRange();
+            if (ImGui::DragFloat("Range", &range, 0.5f, 0.1f, 1000.0f)) {
+                light.SetRange(range);
+            }
+        }
+        
+        if (light.GetType() == LightType::Spot) {
+            float innerAngle = light.GetInnerConeAngle();
+            float outerAngle = light.GetOuterConeAngle();
+            
+            if (ImGui::DragFloat("Inner Cone Angle", &innerAngle, 1.0f, 0.0f, 90.0f)) {
+                light.SetSpotAngles(innerAngle, outerAngle);
+            }
+            
+            if (ImGui::DragFloat("Outer Cone Angle", &outerAngle, 1.0f, innerAngle, 90.0f)) {
+                light.SetSpotAngles(innerAngle, outerAngle);
+            }
+        }
+        
+        if (light.GetType() == LightType::Directional) {
+            Vector3 direction = light.GetDirection();
+            float dirArray[3] = {direction.x, direction.y, direction.z};
+            if (ImGui::DragFloat3("Direction", dirArray, 0.01f, -1.0f, 1.0f)) {
+                light.SetDirection(Vector3(dirArray[0], dirArray[1], dirArray[2]));
+            }
+        }
+        
+        ImGui::Separator();
+        ImGui::Text("Shadow Settings");
+        
+        bool castShadows = light.GetCastShadows();
+        if (ImGui::Checkbox("Cast Shadows", &castShadows)) {
+            light.SetCastShadows(castShadows);
+        }
+        
+        if (castShadows) {
+            float shadowBias = light.GetShadowBias();
+            if (ImGui::DragFloat("Shadow Bias", &shadowBias, 0.0001f, 0.0f, 0.1f, "%.4f")) {
+                light.SetShadowBias(shadowBias);
+            }
+            
+            int shadowMapSize = light.GetShadowMapSize();
+            const char* shadowSizes[] = {"512", "1024", "2048", "4096"};
+            int sizeIndex = 0;
+            if (shadowMapSize == 512) sizeIndex = 0;
+            else if (shadowMapSize == 1024) sizeIndex = 1;
+            else if (shadowMapSize == 2048) sizeIndex = 2;
+            else if (shadowMapSize == 4096) sizeIndex = 3;
+            
+            if (ImGui::Combo("Shadow Map Size", &sizeIndex, shadowSizes, 4)) {
+                int newSize = 512;
+                if (sizeIndex == 1) newSize = 1024;
+                else if (sizeIndex == 2) newSize = 2048;
+                else if (sizeIndex == 3) newSize = 4096;
+                light.SetShadowMapSize(newSize);
+            }
+        }
     }
 }
 

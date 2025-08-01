@@ -7,6 +7,7 @@
 #include "Panels/ConsolePanel.h"
 #include "../Core/Logging/Logger.h"
 #include "../Core/Editor/PlayModeManager.h"
+#include "../Core/Scenes/Scene.h"
 #include <imgui.h>
 
 namespace GameEngine {
@@ -78,11 +79,28 @@ void EngineUI::RenderMainMenuBar() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New Scene")) {
-                Logger::Info("New Scene requested");
+                CreateNewScene();
             }
+            
+            ImGui::Separator();
+            
+            static char sceneName[256] = "Untitled Scene";
+            ImGui::InputText("Scene Name", sceneName, sizeof(sceneName));
+            
             if (ImGui::MenuItem("Save Scene")) {
-                Logger::Info("Save Scene requested");
+                SaveCurrentScene(std::string(sceneName));
             }
+            
+            if (ImGui::MenuItem("Save Scene As...")) {
+                SaveSceneAs(std::string(sceneName));
+            }
+            
+            ImGui::Separator();
+            
+            if (ImGui::MenuItem("Import Asset...")) {
+                Logger::Info("Import Asset requested");
+            }
+            
             ImGui::EndMenu();
         }
         
@@ -138,6 +156,20 @@ ViewportPanel* EngineUI::GetViewportPanel() const {
         }
     }
     return nullptr;
+}
+
+void EngineUI::CreateNewScene() {
+    Logger::Info("Creating new scene");
+}
+
+void EngineUI::SaveCurrentScene(const std::string& sceneName) {
+    Logger::Info("Saving current scene: " + sceneName);
+    std::string filepath = "Scenes/" + sceneName + ".scene";
+    Logger::Info("Scene would be saved to: " + filepath);
+}
+
+void EngineUI::SaveSceneAs(const std::string& sceneName) {
+    Logger::Info("Save Scene As requested: " + sceneName);
 }
 
 }

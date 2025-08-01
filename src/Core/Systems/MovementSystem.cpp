@@ -4,14 +4,15 @@
 #include "../Components/TransformComponent.h"
 #include "../Platform/Input.h"
 #include "../Platform/Window.h"
+#include "../Editor/PlayModeManager.h"
 #include "../Logging/Logger.h"
 #include <GLFW/glfw3.h>
 #include <cmath>
 
 namespace GameEngine {
 
-MovementSystem::MovementSystem(InputManager* inputManager, Window* window)
-    : m_inputManager(inputManager), m_window(window) {
+MovementSystem::MovementSystem(InputManager* inputManager, Window* window, PlayModeManager* playModeManager)
+    : m_inputManager(inputManager), m_window(window), m_playModeManager(playModeManager) {
 }
 
 void MovementSystem::OnInitialize(World* /*world*/) {
@@ -19,6 +20,10 @@ void MovementSystem::OnInitialize(World* /*world*/) {
 }
 
 void MovementSystem::OnUpdate(World* world, float deltaTime) {
+    if (m_playModeManager && m_playModeManager->GetCurrentMode() != EditorMode::Edit) {
+        return;
+    }
+    
     UpdateMovement(world, deltaTime);
     UpdateMouseLook(world, deltaTime);
 }

@@ -31,6 +31,9 @@ namespace GameEngine {
     private:
         void RenderMainMenuBar();
         void RenderDockSpace();
+        void CreateNewScene();
+        void SaveCurrentScene(const std::string& sceneName);
+        void SaveSceneAs(const std::string& sceneName);
         
         std::unique_ptr<ImGuiRenderer> m_imguiRenderer;
         std::vector<std::unique_ptr<UIPanel>> m_panels;

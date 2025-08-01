@@ -34,6 +34,12 @@ namespace GameEngine {
         void AddScene(const std::string& scenePath);
         void RemoveScene(const std::string& scenePath);
         
+        // Asset management
+        std::vector<std::string> GetAssetList() const;
+        bool ImportAsset(const std::string& sourcePath, const std::string& destinationPath);
+        bool DeleteAsset(const std::string& assetPath);
+        std::string GetAssetsDirectory() const;
+        
     private:
         ProjectManager() = default;
         bool LoadProjectSettings();

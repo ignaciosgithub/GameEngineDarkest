@@ -8,6 +8,7 @@
 #include "../Core/Logging/Logger.h"
 #include "../Core/Editor/PlayModeManager.h"
 #include "../Core/Scenes/Scene.h"
+#include "../Core/Project/ProjectManager.h"
 #include <imgui.h>
 
 namespace GameEngine {
@@ -95,6 +96,12 @@ void EngineUI::RenderMainMenuBar() {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New Scene")) {
                 CreateNewScene();
+            }
+            
+            ImGui::Separator();
+            
+            if (ImGui::MenuItem("Save Project", "Ctrl+S")) {
+                SaveProject();
             }
             
             ImGui::Separator();
@@ -233,6 +240,18 @@ void EngineUI::SaveCurrentScene(const std::string& sceneName) {
 
 void EngineUI::SaveSceneAs(const std::string& sceneName) {
     Logger::Info("Save Scene As requested: " + sceneName);
+}
+
+void EngineUI::SaveProject() {
+    if (ProjectManager::Instance().IsProjectLoaded()) {
+        if (ProjectManager::Instance().SaveProject()) {
+            Logger::Info("Project saved successfully");
+        } else {
+            Logger::Error("Failed to save project");
+        }
+    } else {
+        Logger::Warning("No project loaded to save");
+    }
 }
 
 void EngineUI::ResetPanelVisibility() {

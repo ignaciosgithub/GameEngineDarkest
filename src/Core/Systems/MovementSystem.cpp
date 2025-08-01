@@ -20,10 +20,6 @@ void MovementSystem::OnInitialize(World* /*world*/) {
 }
 
 void MovementSystem::OnUpdate(World* world, float deltaTime) {
-    if (m_playModeManager && m_playModeManager->GetCurrentMode() != EditorMode::Edit) {
-        return;
-    }
-    
     UpdateMovement(world, deltaTime);
     UpdateMouseLook(world, deltaTime);
 }

@@ -35,6 +35,7 @@ namespace GameEngine {
         void CreateNewScene();
         void SaveCurrentScene(const std::string& sceneName);
         void SaveSceneAs(const std::string& sceneName);
+        void SaveProject();
         void ResetPanelVisibility();
         
         std::unique_ptr<ImGuiRenderer> m_imguiRenderer;

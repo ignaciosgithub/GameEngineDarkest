@@ -26,6 +26,7 @@ if(WIN32)
     find_package(GTest CONFIG REQUIRED)
     find_package(OpenAL CONFIG)
     find_package(assimp CONFIG)
+    find_package(nfd CONFIG REQUIRED)
     
     # Set variables for compatibility
     set(GLFW_LIBRARIES glfw)
@@ -34,6 +35,7 @@ if(WIN32)
     set(GTEST_LIBRARIES GTest::gtest GTest::gtest_main)
     set(OPENAL_LIBRARIES OpenAL::OpenAL)
     set(ASSIMP_LIBRARIES assimp::assimp)
+    set(NFD_LIBRARIES nfd::nfd)
     
     # Create ImGui alias for Windows compatibility
     if(TARGET imgui::imgui)
@@ -48,6 +50,7 @@ else()
     find_package(GTest REQUIRED)
     pkg_check_modules(OPENAL openal)
     find_package(assimp)
+    find_package(nfd CONFIG QUIET)
     
     # ImGui for Linux - use as submodule or system package
     find_path(IMGUI_INCLUDE_DIR imgui.h PATHS /usr/include/imgui /usr/local/include/imgui)
@@ -63,6 +66,12 @@ else()
     set(GTEST_LIBRARIES ${GTEST_LIBRARIES})
     set(OPENAL_LIBRARIES ${OPENAL_LIBRARIES})
     set(ASSIMP_LIBRARIES assimp)
+    if(nfd_FOUND)
+        set(NFD_LIBRARIES nfd::nfd)
+    else()
+        set(NFD_LIBRARIES "")
+        message(STATUS "nativefiledialog-extended not found, file browser functionality will be disabled")
+    endif()
     
     # Create ImGui target for Linux - link system libraries
     add_library(imgui INTERFACE)

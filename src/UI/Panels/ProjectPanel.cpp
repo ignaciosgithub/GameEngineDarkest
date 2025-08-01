@@ -3,6 +3,9 @@
 #include "../../Core/Project/ProjectManager.h"
 #include <imgui.h>
 #include <filesystem>
+#ifdef NFD_AVAILABLE
+#include <nfd.h>
+#endif
 
 namespace GameEngine {
 
@@ -100,7 +103,24 @@ void ProjectPanel::RenderAssetImportDialog() {
         ImGui::InputText("Source Path", m_importSourcePath, sizeof(m_importSourcePath));
         ImGui::SameLine();
         if (ImGui::Button("Browse...")) {
-            Logger::Info("File browser requested");
+#ifdef NFD_AVAILABLE
+            nfdchar_t *outPath;
+            nfdfilteritem_t filterItem[1] = { { "All Files", "*" } };
+            nfdresult_t result = NFD_OpenDialog(&outPath, filterItem, 1, NULL);
+            
+            if (result == NFD_OKAY) {
+                strncpy(m_importSourcePath, outPath, sizeof(m_importSourcePath) - 1);
+                m_importSourcePath[sizeof(m_importSourcePath) - 1] = '\0';
+                Logger::Info("Selected file: " + std::string(outPath));
+                NFD_FreePath(outPath);
+            } else if (result == NFD_CANCEL) {
+                Logger::Info("File dialog cancelled");
+            } else {
+                Logger::Error("File dialog error: " + std::string(NFD_GetError()));
+            }
+#else
+            Logger::Info("File browser not available - nativefiledialog-extended not found during build");
+#endif
         }
         
         ImGui::InputText("Destination", m_importDestinationPath, sizeof(m_importDestinationPath));

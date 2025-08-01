@@ -26,7 +26,9 @@ void SceneHierarchyPanel::Update(World* world, float /*deltaTime*/) {
             if (ImGui::MenuItem("Create Empty GameObject")) {
                 Entity newEntity = world->CreateEntity();
                 world->AddComponent<TransformComponent>(newEntity);
+                m_selectedEntity = newEntity;
                 Logger::Info("Created Empty GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
+                Logger::Info("GameObject selected - use Inspector panel to modify properties");
             }
             if (ImGui::MenuItem("Create Cube")) {
                 Entity newEntity = world->CreateEntity();
@@ -35,13 +37,17 @@ void SceneHierarchyPanel::Update(World* world, float /*deltaTime*/) {
                 if (meshComp) {
                     meshComp->SetColor(Vector3(0.8f, 0.8f, 0.8f));
                 }
+                m_selectedEntity = newEntity;
                 Logger::Info("Created Cube GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
+                Logger::Info("Cube selected - use Inspector panel to modify position, rotation, and scale");
             }
             if (ImGui::MenuItem("Create Light")) {
                 Entity newEntity = world->CreateEntity();
                 world->AddComponent<TransformComponent>(newEntity);
                 world->AddComponent<LightComponent>(newEntity, LightType::Point);
+                m_selectedEntity = newEntity;
                 Logger::Info("Created Light GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
+                Logger::Info("Light selected - use Inspector panel to modify properties");
             }
             ImGui::EndPopup();
         }

@@ -5,10 +5,24 @@
 #include <string>
 #include <algorithm>
 #include <unordered_map>
+#include <filesystem>
 
 namespace GameEngine {
     Mesh OBJLoader::LoadFromFile(const std::string& filepath) {
         Logger::Info("Loading OBJ file: " + filepath);
+        
+        if (!std::filesystem::exists(filepath)) {
+            Logger::Error("OBJ file does not exist: " + filepath);
+            Logger::Error("Current working directory: " + std::filesystem::current_path().string());
+            return Mesh(); // Return empty mesh
+        }
+        
+        try {
+            auto fileSize = std::filesystem::file_size(filepath);
+            Logger::Debug("OBJ file size: " + std::to_string(fileSize) + " bytes");
+        } catch (const std::exception& e) {
+            Logger::Warning("Could not get file size for: " + filepath + " - " + e.what());
+        }
         
         OBJData data;
         if (!ParseOBJFile(filepath, data)) {
@@ -28,9 +42,10 @@ namespace GameEngine {
     }
     
     bool OBJLoader::ParseOBJFile(const std::string& filepath, OBJData& data) {
-        std::ifstream file(filepath);
+        std::ifstream file(filepath, std::ios::in);
         if (!file.is_open()) {
             Logger::Error("Cannot open OBJ file: " + filepath);
+            Logger::Error("Current working directory or file permissions may be incorrect");
             return false;
         }
         
@@ -203,7 +218,7 @@ namespace GameEngine {
         if (str.empty()) return false;
         
         try {
-            std::stof(str);
+            (void)std::stof(str);
             return true;
         }
         catch (const std::exception&) {

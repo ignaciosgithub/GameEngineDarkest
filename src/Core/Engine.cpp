@@ -104,7 +104,7 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     Logger::Info("Play Mode Manager initialized successfully");
 
     m_world->AddSystem<CameraSystem>();
-    m_world->AddSystem<MovementSystem>(m_inputManager.get(), m_window.get());
+    m_world->AddSystem<MovementSystem>(m_inputManager.get(), m_window.get(), m_playModeManager.get());
 
     m_testSceneManager = std::make_unique<TestSceneManager>(m_world.get(), m_renderManager.get());
     Logger::Info("Test scene manager initialized");

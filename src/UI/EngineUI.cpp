@@ -94,4 +94,13 @@ void EngineUI::RenderDockSpace() {
     }
 }
 
+ViewportPanel* EngineUI::GetViewportPanel() const {
+    for (const auto& panel : m_panels) {
+        if (auto* viewportPanel = dynamic_cast<ViewportPanel*>(panel.get())) {
+            return viewportPanel;
+        }
+    }
+    return nullptr;
+}
+
 }

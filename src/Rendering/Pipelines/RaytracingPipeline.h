@@ -81,6 +81,7 @@ public:
     void Resize(int width, int height) override;
     
     std::shared_ptr<Texture> GetFinalTexture() const override;
+    std::shared_ptr<FrameBuffer> GetFramebuffer() const override;
 
     void AddSphere(const Sphere& sphere);
     void AddTriangle(const Triangle& triangle);

@@ -16,6 +16,8 @@ namespace GameEngine {
         bool IsViewportFocused() const { return m_viewportFocused; }
         bool IsViewportHovered() const { return m_viewportHovered; }
         
+        void SetFramebuffer(std::shared_ptr<FrameBuffer> framebuffer) { m_sceneFramebuffer = framebuffer; }
+        
     private:
         bool m_viewportFocused = false;
         bool m_viewportHovered = false;

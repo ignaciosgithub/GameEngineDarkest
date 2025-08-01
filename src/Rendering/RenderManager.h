@@ -22,7 +22,8 @@ namespace GameEngine {
         void Shutdown();
 
         void SetPipeline(RenderPipelineType type);
-        RenderPipelineType GetCurrentPipeline() const { return m_currentPipelineType; }
+        RenderPipelineType GetCurrentPipelineType() const { return m_currentPipelineType; }
+        RenderPipeline* GetCurrentPipeline() const { return m_currentPipeline; }
 
         void BeginFrame(const RenderData& renderData);
         void Render(World* world);

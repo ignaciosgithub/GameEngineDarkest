@@ -125,6 +125,10 @@ std::shared_ptr<Texture> DeferredRenderPipeline::GetFinalTexture() const {
     return m_lightingBuffer ? m_lightingBuffer->GetColorTexture(0) : nullptr;
 }
 
+std::shared_ptr<FrameBuffer> DeferredRenderPipeline::GetFramebuffer() const {
+    return std::shared_ptr<FrameBuffer>(m_lightingBuffer.get(), [](FrameBuffer*){});
+}
+
 void DeferredRenderPipeline::CreateGBuffer() {
     m_gBuffer = std::make_unique<FrameBuffer>(m_width, m_height);
     

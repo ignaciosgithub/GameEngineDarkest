@@ -21,6 +21,7 @@ public:
     void Resize(int width, int height) override;
     
     std::shared_ptr<Texture> GetFinalTexture() const override;
+    std::shared_ptr<FrameBuffer> GetFramebuffer() const override;
 
     void SetTransparencyEnabled(bool enabled) { m_transparencyEnabled = enabled; }
     bool IsTransparencyEnabled() const { return m_transparencyEnabled; }

@@ -133,6 +133,7 @@ namespace GameEngine {
             vertex.position = Vector3::Zero;
             vertex.normal = Vector3(0.0f, 1.0f, 0.0f); // Default normal
             vertex.color = Vector3(1.0f, 1.0f, 1.0f);   // Default white color
+            vertex.texCoords = Vector3::Zero; // Default UV coordinates
             
             if (!indices[0].empty()) {
                 int posIndex = std::stoi(indices[0]) - 1; // OBJ indices are 1-based
@@ -144,7 +145,7 @@ namespace GameEngine {
             if (indices.size() > 1 && !indices[1].empty()) {
                 int texIndex = std::stoi(indices[1]) - 1;
                 if (texIndex >= 0 && texIndex < static_cast<int>(data.texCoords.size())) {
-                    vertex.color = Vector3(data.texCoords[texIndex].x, data.texCoords[texIndex].y, 1.0f);
+                    vertex.texCoords = data.texCoords[texIndex];
                 }
             }
             
@@ -163,7 +164,7 @@ namespace GameEngine {
             data.vertices.push_back(faceVertexData[i]);
             data.vertices.push_back(faceVertexData[i + 1]);
             
-            unsigned int baseIndex = static_cast<unsigned int>(data.indices.size());
+            unsigned int baseIndex = static_cast<unsigned int>(data.vertices.size() - 3);
             data.indices.push_back(baseIndex);
             data.indices.push_back(baseIndex + 1);
             data.indices.push_back(baseIndex + 2);

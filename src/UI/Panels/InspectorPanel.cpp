@@ -15,47 +15,75 @@ InspectorPanel::~InspectorPanel() = default;
 void InspectorPanel::Update(World* world, float /*deltaTime*/) {
     if (!m_visible || !world) return;
     
-    if (m_selectedEntity.IsValid() && world->IsEntityValid(m_selectedEntity)) {
-        Logger::Debug("Inspector showing entity ID: " + std::to_string(m_selectedEntity.GetID()) + " (simplified mode)");
-        
-        DrawTransformComponent(world, m_selectedEntity);
-        DrawCameraComponent(world, m_selectedEntity);
-        DrawMovementComponent(world, m_selectedEntity);
-    } else {
-        Logger::Debug("Inspector: No entity selected (simplified mode)");
+    if (ImGui::Begin("Inspector", &m_visible)) {
+        if (m_selectedEntity.IsValid() && world->IsEntityValid(m_selectedEntity)) {
+            ImGui::Text("Entity ID: %d", m_selectedEntity.GetID());
+            ImGui::Separator();
+            
+            DrawTransformComponent(world, m_selectedEntity);
+            DrawCameraComponent(world, m_selectedEntity);
+            DrawMovementComponent(world, m_selectedEntity);
+        } else {
+            ImGui::Text("No entity selected");
+        }
     }
+    ImGui::End();
 }
 
 void InspectorPanel::DrawTransformComponent(World* world, Entity entity) {
     auto* transform = world->GetComponent<TransformComponent>(entity);
     if (!transform) return;
     
-    Vector3 position = transform->transform.GetPosition();
-    Vector3 rotation = transform->transform.GetRotation().ToEulerAngles();
-    Vector3 scale = transform->transform.GetScale();
-    
-    (void)rotation;
-    (void)scale;
-    
-    Logger::Debug("Transform Component - Pos: (" + std::to_string(position.x) + ", " + 
-                  std::to_string(position.y) + ", " + std::to_string(position.z) + ") (simplified mode)");
+    if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
+        Vector3 position = transform->transform.GetPosition();
+        Vector3 rotation = transform->transform.GetRotation().ToEulerAngles();
+        Vector3 scale = transform->transform.GetScale();
+        
+        if (ImGui::DragFloat3("Position", &position.x, 0.1f)) {
+            transform->transform.SetPosition(position);
+        }
+        if (ImGui::DragFloat3("Rotation", &rotation.x, 1.0f)) {
+            transform->transform.SetRotation(Quaternion::FromEulerAngles(rotation.x, rotation.y, rotation.z));
+        }
+        if (ImGui::DragFloat3("Scale", &scale.x, 0.1f)) {
+            transform->transform.SetScale(scale);
+        }
+    }
 }
 
 void InspectorPanel::DrawCameraComponent(World* world, Entity entity) {
     auto* camera = world->GetComponent<CameraComponent>(entity);
     if (!camera) return;
     
-    Logger::Debug("Camera Component - FOV: " + std::to_string(camera->fieldOfView) + 
-                  ", Near: " + std::to_string(camera->nearPlane) + 
-                  ", Far: " + std::to_string(camera->farPlane) + " (simplified mode)");
+    if (ImGui::CollapsingHeader("Camera")) {
+        float fov = camera->fieldOfView;
+        float nearPlane = camera->nearPlane;
+        float farPlane = camera->farPlane;
+        
+        if (ImGui::SliderFloat("Field of View", &fov, 10.0f, 170.0f)) {
+            camera->SetFOV(fov);
+        }
+        if (ImGui::DragFloat("Near Plane", &nearPlane, 0.01f, 0.01f, 100.0f)) {
+            camera->nearPlane = nearPlane;
+        }
+        if (ImGui::DragFloat("Far Plane", &farPlane, 1.0f, 1.0f, 10000.0f)) {
+            camera->farPlane = farPlane;
+        }
+    }
 }
 
 void InspectorPanel::DrawMovementComponent(World* world, Entity entity) {
     auto* movement = world->GetComponent<MovementComponent>(entity);
     if (!movement) return;
     
-    Logger::Debug("Movement Component - Speed: " + std::to_string(movement->movementSpeed) + 
-                  ", Sensitivity: " + std::to_string(movement->mouseSensitivity) + " (simplified mode)");
+    if (ImGui::CollapsingHeader("Movement")) {
+        ImGui::DragFloat("Movement Speed", &movement->movementSpeed, 0.1f, 0.0f, 100.0f);
+        ImGui::DragFloat("Mouse Sensitivity", &movement->mouseSensitivity, 0.1f, 0.1f, 10.0f);
+        
+        ImGui::Text("Velocity: (%.2f, %.2f, %.2f)", 
+                   movement->velocity.x, movement->velocity.y, movement->velocity.z);
+        ImGui::Text("Pitch: %.2f, Yaw: %.2f", movement->pitch, movement->yaw);
+    }
 }
 
 }

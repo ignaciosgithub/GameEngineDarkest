@@ -11,7 +11,7 @@ namespace GameEngine {
             : movementSpeed(speed), mouseSensitivity(sensitivity) {}
         
         float movementSpeed = 5.0f;
-        float mouseSensitivity = 2.0f;
+        float mouseSensitivity = 0.5f;
         
         Vector3 velocity = Vector3::Zero;
         

@@ -2,6 +2,7 @@
 #include "../Core/Logging/Logger.h"
 #include <fstream>
 #include <cstring>
+#include <algorithm>
 
 namespace GameEngine {
     
@@ -132,7 +133,7 @@ namespace GameEngine {
         }
         
         int bytesPerSample = m_bitsPerSample / 8;
-        int totalSamples = m_data.size() / (m_channels * bytesPerSample);
+        int totalSamples = static_cast<int>(m_data.size()) / (m_channels * bytesPerSample);
         m_duration = static_cast<float>(totalSamples) / static_cast<float>(m_sampleRate);
     }
 }

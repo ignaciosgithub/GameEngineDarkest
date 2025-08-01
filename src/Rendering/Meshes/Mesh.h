@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <memory>
+#include <string>
 #include "../../Core/Math/Vector3.h"
 #include "../Core/Buffer.h"
 

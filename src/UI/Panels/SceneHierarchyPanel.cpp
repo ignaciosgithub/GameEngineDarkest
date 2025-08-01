@@ -30,16 +30,44 @@ void SceneHierarchyPanel::Update(World* world, float /*deltaTime*/) {
                 Logger::Info("Created Empty GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
                 Logger::Info("GameObject selected - use Inspector panel to modify properties");
             }
-            if (ImGui::MenuItem("Create Cube")) {
-                Entity newEntity = world->CreateEntity();
-                world->AddComponent<TransformComponent>(newEntity);
-                auto* meshComp = world->AddComponent<MeshComponent>(newEntity, "cube");
-                if (meshComp) {
-                    meshComp->SetColor(Vector3(0.8f, 0.8f, 0.8f));
+            if (ImGui::BeginMenu("Create Primitive")) {
+                if (ImGui::MenuItem("Cube")) {
+                    Entity newEntity = world->CreateEntity();
+                    world->AddComponent<TransformComponent>(newEntity);
+                    auto* meshComp = world->AddComponent<MeshComponent>(newEntity, "cube");
+                    if (meshComp) {
+                        meshComp->SetColor(Vector3(0.8f, 0.8f, 0.8f));
+                    }
+                    m_selectedEntity = newEntity;
+                    Logger::Info("Created Cube GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
+                    Logger::Info("Cube selected - use Inspector panel to modify position, rotation, and scale");
                 }
-                m_selectedEntity = newEntity;
-                Logger::Info("Created Cube GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
-                Logger::Info("Cube selected - use Inspector panel to modify position, rotation, and scale");
+                
+                if (ImGui::MenuItem("Sphere")) {
+                    Entity newEntity = world->CreateEntity();
+                    world->AddComponent<TransformComponent>(newEntity);
+                    auto* meshComp = world->AddComponent<MeshComponent>(newEntity, "sphere");
+                    if (meshComp) {
+                        meshComp->SetColor(Vector3(0.8f, 0.8f, 0.8f));
+                    }
+                    m_selectedEntity = newEntity;
+                    Logger::Info("Created Sphere GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
+                    Logger::Info("Sphere selected - use Inspector panel to modify position, rotation, and scale");
+                }
+                
+                if (ImGui::MenuItem("Plane")) {
+                    Entity newEntity = world->CreateEntity();
+                    world->AddComponent<TransformComponent>(newEntity);
+                    auto* meshComp = world->AddComponent<MeshComponent>(newEntity, "plane");
+                    if (meshComp) {
+                        meshComp->SetColor(Vector3(0.8f, 0.8f, 0.8f));
+                    }
+                    m_selectedEntity = newEntity;
+                    Logger::Info("Created Plane GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
+                    Logger::Info("Plane selected - use Inspector panel to modify position, rotation, and scale");
+                }
+                
+                ImGui::EndMenu();
             }
             if (ImGui::MenuItem("Create Light")) {
                 Entity newEntity = world->CreateEntity();

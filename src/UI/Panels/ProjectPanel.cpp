@@ -81,8 +81,13 @@ void ProjectPanel::RenderFileItem(const std::string& filename, const std::string
 
 void ProjectPanel::OpenAssetImportDialog() {
     m_showImportDialog = true;
+#ifdef _WIN32
+    strcpy_s(m_importSourcePath, sizeof(m_importSourcePath), "");
+    strcpy_s(m_importDestinationPath, sizeof(m_importDestinationPath), "");
+#else
     strcpy(m_importSourcePath, "");
     strcpy(m_importDestinationPath, "");
+#endif
 }
 
 void ProjectPanel::RenderAssetImportDialog() {

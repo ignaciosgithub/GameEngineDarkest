@@ -136,16 +136,19 @@ float Light::GetAttenuationAtDistance(float distance) const {
         return 0.0f;
     }
     
-    float constant = 1.0f;
-    float linear = 2.0f / m_data.range;
-    float quadratic = 1.0f / (m_data.range * m_data.range);
-    
-    float attenuation = 1.0f / (constant + linear * distance + quadratic * distance * distance);
-    
-    if (m_type == LightType::Spot) {
+    if (m_type == LightType::Point || m_type == LightType::Spot) {
+        float minDistance = 0.01f;
+        float effectiveDistance = std::max(distance, minDistance);
+        
+        float inverseSquareAttenuation = 1.0f / (effectiveDistance * effectiveDistance);
+        
+        float rangeFactor = 1.0f - (distance / m_data.range);
+        rangeFactor = std::max(0.0f, rangeFactor);
+        
+        return inverseSquareAttenuation * rangeFactor;
     }
     
-    return attenuation;
+    return 1.0f;
 }
 
 bool Light::IsInRange(const Vector3& point) const {

@@ -159,14 +159,12 @@ float LightManager::CalculateLightContribution(const Light* light, const Vector3
     
     if (light->GetType() == LightType::Point || light->GetType() == LightType::Spot) {
         float distance = (targetPoint - light->GetPosition()).Length();
-        float range = light->GetRange();
         
-        if (distance >= range) {
-            return 0.0f; // Outside light range
+        baseContribution = light->GetAttenuationAtDistance(distance);
+        
+        if (baseContribution <= 0.0f) {
+            return 0.0f; // Outside light range or no contribution
         }
-        
-        baseContribution = 1.0f - (distance * distance) / (range * range);
-        baseContribution = std::max(0.0f, baseContribution);
     }
     
     float occlusionFactor = m_lightOcclusion.CalculateShadowAttenuation(light, targetPoint, world);

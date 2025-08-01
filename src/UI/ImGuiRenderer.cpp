@@ -1,8 +1,8 @@
 #include "ImGuiRenderer.h"
 #include "../Core/Logging/Logger.h"
 #include <imgui.h>
-// #include <imgui_impl_glfw.h>
-// #include <imgui_impl_opengl3.h>
+#include <imgui/backends/imgui_impl_glfw.h>
+#include <imgui/backends/imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
 
 namespace GameEngine {
@@ -31,6 +31,10 @@ bool ImGuiRenderer::Initialize(GLFWwindow* window) {
     
     ImGui::StyleColorsDark();
     
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    
+    ImGui_ImplOpenGL3_Init("#version 330");
+    
     m_initialized = true;
     Logger::Info("ImGui Renderer initialized successfully");
     return true;
@@ -38,6 +42,8 @@ bool ImGuiRenderer::Initialize(GLFWwindow* window) {
 
 void ImGuiRenderer::Shutdown() {
     if (m_initialized) {
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
         
         m_initialized = false;
@@ -48,6 +54,8 @@ void ImGuiRenderer::Shutdown() {
 void ImGuiRenderer::BeginFrame() {
     if (!m_initialized) return;
     
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 }
 
@@ -58,7 +66,10 @@ void ImGuiRenderer::EndFrame() {
 }
 
 void ImGuiRenderer::Render() {
-    EndFrame();
+    if (!m_initialized) return;
+    
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 }

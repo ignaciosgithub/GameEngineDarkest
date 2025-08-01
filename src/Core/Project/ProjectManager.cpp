@@ -204,6 +204,91 @@ bool ProjectManager::SaveProjectSettings() {
     return true;
 }
 
+std::vector<std::string> ProjectManager::GetAssetList() const {
+    std::vector<std::string> assets;
+    
+    if (!m_projectLoaded) {
+        Logger::Warning("No project loaded");
+        return assets;
+    }
+    
+    std::string assetsDir = m_projectPath + "/" + m_settings.assetsPath;
+    
+    if (!std::filesystem::exists(assetsDir)) {
+        return assets;
+    }
+    
+    try {
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(assetsDir)) {
+            if (entry.is_regular_file()) {
+                std::string relativePath = std::filesystem::relative(entry.path(), assetsDir).string();
+                assets.push_back(relativePath);
+            }
+        }
+    } catch (const std::exception& e) {
+        Logger::Error("Failed to scan assets directory: " + std::string(e.what()));
+    }
+    
+    return assets;
+}
+
+bool ProjectManager::ImportAsset(const std::string& sourcePath, const std::string& destinationPath) {
+    if (!m_projectLoaded) {
+        Logger::Warning("No project loaded");
+        return false;
+    }
+    
+    try {
+        std::filesystem::path source(sourcePath);
+        std::filesystem::path destination(m_projectPath + "/" + m_settings.assetsPath + "/" + destinationPath);
+        
+        if (!std::filesystem::exists(source)) {
+            Logger::Error("Source file does not exist: " + sourcePath);
+            return false;
+        }
+        
+        std::filesystem::create_directories(destination.parent_path());
+        std::filesystem::copy_file(source, destination, std::filesystem::copy_options::overwrite_existing);
+        
+        Logger::Info("Asset imported: " + destinationPath);
+        return true;
+    } catch (const std::exception& e) {
+        Logger::Error("Failed to import asset: " + std::string(e.what()));
+        return false;
+    }
+}
+
+bool ProjectManager::DeleteAsset(const std::string& assetPath) {
+    if (!m_projectLoaded) {
+        Logger::Warning("No project loaded");
+        return false;
+    }
+    
+    try {
+        std::filesystem::path fullPath(m_projectPath + "/" + m_settings.assetsPath + "/" + assetPath);
+        
+        if (!std::filesystem::exists(fullPath)) {
+            Logger::Error("Asset does not exist: " + assetPath);
+            return false;
+        }
+        
+        std::filesystem::remove(fullPath);
+        Logger::Info("Asset deleted: " + assetPath);
+        return true;
+    } catch (const std::exception& e) {
+        Logger::Error("Failed to delete asset: " + std::string(e.what()));
+        return false;
+    }
+}
+
+std::string ProjectManager::GetAssetsDirectory() const {
+    if (!m_projectLoaded) {
+        return "";
+    }
+    
+    return m_projectPath + "/" + m_settings.assetsPath;
+}
+
 void ProjectManager::CreateProjectStructure() {
     std::filesystem::create_directories(m_projectPath);
     std::filesystem::create_directories(m_projectPath + "/" + m_settings.assetsPath);

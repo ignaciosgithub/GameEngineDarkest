@@ -17,6 +17,10 @@ namespace GameEngine {
         void DrawTransformComponent(World* world, Entity entity);
         void DrawCameraComponent(World* world, Entity entity);
         void DrawMovementComponent(World* world, Entity entity);
+        void DrawMeshComponent(World* world, Entity entity);
+        void DrawRigidBodyComponent(World* world, Entity entity);
+        void DrawAudioComponent(World* world, Entity entity);
+        void DrawLightComponent(World* world, Entity entity);
         
         Entity m_selectedEntity;
     };

@@ -15,6 +15,7 @@ add_library(Rendering STATIC
     Lighting/Light.cpp
     Lighting/LightManager.cpp
     Lighting/LightOcclusion.cpp
+    Debug/DebugRenderer.cpp
     RenderManager.cpp
 )
 

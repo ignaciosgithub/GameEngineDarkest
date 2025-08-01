@@ -1,6 +1,8 @@
 #include "SceneHierarchyPanel.h"
 #include "../../Core/ECS/World.h"
 #include "../../Core/Components/TransformComponent.h"
+#include "../../Core/Components/MeshComponent.h"
+#include "../../Rendering/Lighting/Light.h"
 #include "../../Core/Logging/Logger.h"
 #include <imgui.h>
 
@@ -21,9 +23,25 @@ void SceneHierarchyPanel::Update(World* world, float /*deltaTime*/) {
         }
         
         if (ImGui::BeginPopupContextWindow()) {
-            if (ImGui::MenuItem("Create Empty Entity")) {
+            if (ImGui::MenuItem("Create Empty GameObject")) {
                 Entity newEntity = world->CreateEntity();
                 world->AddComponent<TransformComponent>(newEntity);
+                Logger::Info("Created Empty GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
+            }
+            if (ImGui::MenuItem("Create Cube")) {
+                Entity newEntity = world->CreateEntity();
+                world->AddComponent<TransformComponent>(newEntity);
+                auto* meshComp = world->AddComponent<MeshComponent>(newEntity, "cube");
+                if (meshComp) {
+                    meshComp->SetColor(Vector3(0.8f, 0.8f, 0.8f));
+                }
+                Logger::Info("Created Cube GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
+            }
+            if (ImGui::MenuItem("Create Light")) {
+                Entity newEntity = world->CreateEntity();
+                world->AddComponent<TransformComponent>(newEntity);
+                world->AddComponent<LightComponent>(newEntity, LightType::Point);
+                Logger::Info("Created Light GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
             }
             ImGui::EndPopup();
         }
@@ -45,6 +63,20 @@ void SceneHierarchyPanel::DrawEntityNode(World* world, Entity entity) {
     
     if (ImGui::IsItemClicked()) {
         m_selectedEntity = entity;
+    }
+    
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+        m_selectedEntity = entity;
+        ImGui::OpenPopup("EntityContextMenu");
+    }
+    
+    if (ImGui::BeginPopup("EntityContextMenu")) {
+        if (ImGui::MenuItem("Delete Entity")) {
+            world->DestroyEntity(m_selectedEntity);
+            m_selectedEntity = Entity(); // Clear selection
+            Logger::Info("Deleted Entity ID: " + std::to_string(entity.GetID()));
+        }
+        ImGui::EndPopup();
     }
     
     if (opened) {

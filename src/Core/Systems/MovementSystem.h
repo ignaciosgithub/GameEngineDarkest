@@ -5,10 +5,12 @@
 namespace GameEngine {
     class InputManager;
     class Window;
+    class PlayModeManager;
+    enum class EditorMode;
     
     class MovementSystem : public System<MovementSystem> {
     public:
-        MovementSystem(InputManager* inputManager, Window* window);
+        MovementSystem(InputManager* inputManager, Window* window, PlayModeManager* playModeManager);
         
         void OnUpdate(World* world, float deltaTime) override;
         void OnInitialize(World* world) override;
@@ -19,5 +21,6 @@ namespace GameEngine {
         
         InputManager* m_inputManager;
         Window* m_window;
+        PlayModeManager* m_playModeManager;
     };
 }

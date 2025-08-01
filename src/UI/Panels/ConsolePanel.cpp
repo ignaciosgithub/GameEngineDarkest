@@ -68,7 +68,15 @@ void ConsolePanel::AddLogEntry(const std::string& message, const std::string& le
     auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);
     std::stringstream ss;
+    
+#ifdef _WIN32
+    struct tm timeinfo;
+    localtime_s(&timeinfo, &time_t);
+    ss << std::put_time(&timeinfo, "%H:%M:%S");
+#else
     ss << std::put_time(std::localtime(&time_t), "%H:%M:%S");
+#endif
+    
     entry.timestamp = ss.str();
     
     m_logEntries.push_back(entry);

@@ -11,10 +11,11 @@ namespace GameEngine {
         Vector3 position;
         Vector3 normal;
         Vector3 color; // Using Vector3 for RGB color data
+        Vector3 texCoords; // UV texture coordinates (using Vector3 for consistency, z component unused)
         
         Vertex() = default;
-        Vertex(const Vector3& pos, const Vector3& norm = Vector3::Up, const Vector3& col = Vector3::Zero)
-            : position(pos), normal(norm), color(col) {}
+        Vertex(const Vector3& pos, const Vector3& norm = Vector3::Up, const Vector3& col = Vector3::Zero, const Vector3& tex = Vector3::Zero)
+            : position(pos), normal(norm), color(col), texCoords(tex) {}
     };
     
     class Mesh {

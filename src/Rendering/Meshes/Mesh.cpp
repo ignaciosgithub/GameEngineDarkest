@@ -37,7 +37,7 @@ void Mesh::Upload() {
     
     m_vertexBuffer->SetData(m_vertices.data(), m_vertices.size() * sizeof(Vertex));
     
-    std::vector<unsigned int> layout = {3, 3, 3};
+    std::vector<unsigned int> layout = {3, 3, 3, 3};
     m_vertexArray->AddVertexBuffer(*m_vertexBuffer, layout);
     
     if (!m_indices.empty()) {
@@ -129,35 +129,35 @@ Mesh Mesh::CreateCube(float size) {
     float halfSize = size * 0.5f;
     
     std::vector<Vertex> vertices = {
-        Vertex(Vector3(-halfSize, -halfSize,  halfSize), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f)),
-        Vertex(Vector3( halfSize, -halfSize,  halfSize), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f)),
-        Vertex(Vector3( halfSize,  halfSize,  halfSize), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f)),
-        Vertex(Vector3(-halfSize,  halfSize,  halfSize), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f)),
+        Vertex(Vector3(-halfSize, -halfSize,  halfSize), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f)),
+        Vertex(Vector3( halfSize, -halfSize,  halfSize), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f), Vector3(1.0f, 0.0f, 0.0f)),
+        Vertex(Vector3( halfSize,  halfSize,  halfSize), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f), Vector3(1.0f, 1.0f, 0.0f)),
+        Vertex(Vector3(-halfSize,  halfSize,  halfSize), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f)),
         
-        Vertex(Vector3(-halfSize, -halfSize, -halfSize), Vector3(0.0f, 0.0f, -1.0f), Vector3(0.0f, 1.0f, 0.0f)),
-        Vertex(Vector3( halfSize, -halfSize, -halfSize), Vector3(0.0f, 0.0f, -1.0f), Vector3(0.0f, 1.0f, 0.0f)),
-        Vertex(Vector3( halfSize,  halfSize, -halfSize), Vector3(0.0f, 0.0f, -1.0f), Vector3(0.0f, 1.0f, 0.0f)),
-        Vertex(Vector3(-halfSize,  halfSize, -halfSize), Vector3(0.0f, 0.0f, -1.0f), Vector3(0.0f, 1.0f, 0.0f)),
+        Vertex(Vector3(-halfSize, -halfSize, -halfSize), Vector3(0.0f, 0.0f, -1.0f), Vector3(0.0f, 1.0f, 0.0f), Vector3(1.0f, 0.0f, 0.0f)),
+        Vertex(Vector3( halfSize, -halfSize, -halfSize), Vector3(0.0f, 0.0f, -1.0f), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f)),
+        Vertex(Vector3( halfSize,  halfSize, -halfSize), Vector3(0.0f, 0.0f, -1.0f), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f)),
+        Vertex(Vector3(-halfSize,  halfSize, -halfSize), Vector3(0.0f, 0.0f, -1.0f), Vector3(0.0f, 1.0f, 0.0f), Vector3(1.0f, 1.0f, 0.0f)),
         
-        Vertex(Vector3(-halfSize, -halfSize, -halfSize), Vector3(-1.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f)),
-        Vertex(Vector3(-halfSize, -halfSize,  halfSize), Vector3(-1.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f)),
-        Vertex(Vector3(-halfSize,  halfSize,  halfSize), Vector3(-1.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f)),
-        Vertex(Vector3(-halfSize,  halfSize, -halfSize), Vector3(-1.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f)),
+        Vertex(Vector3(-halfSize, -halfSize, -halfSize), Vector3(-1.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f), Vector3(0.0f, 0.0f, 0.0f)),
+        Vertex(Vector3(-halfSize, -halfSize,  halfSize), Vector3(-1.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f)),
+        Vertex(Vector3(-halfSize,  halfSize,  halfSize), Vector3(-1.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f, 1.0f, 0.0f)),
+        Vertex(Vector3(-halfSize,  halfSize, -halfSize), Vector3(-1.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f), Vector3(0.0f, 1.0f, 0.0f)),
         
-        Vertex(Vector3( halfSize, -halfSize, -halfSize), Vector3(1.0f, 0.0f, 0.0f), Vector3(1.0f, 1.0f, 0.0f)),
-        Vertex(Vector3( halfSize, -halfSize,  halfSize), Vector3(1.0f, 0.0f, 0.0f), Vector3(1.0f, 1.0f, 0.0f)),
-        Vertex(Vector3( halfSize,  halfSize,  halfSize), Vector3(1.0f, 0.0f, 0.0f), Vector3(1.0f, 1.0f, 0.0f)),
-        Vertex(Vector3( halfSize,  halfSize, -halfSize), Vector3(1.0f, 0.0f, 0.0f), Vector3(1.0f, 1.0f, 0.0f)),
+        Vertex(Vector3( halfSize, -halfSize, -halfSize), Vector3(1.0f, 0.0f, 0.0f), Vector3(1.0f, 1.0f, 0.0f), Vector3(1.0f, 0.0f, 0.0f)),
+        Vertex(Vector3( halfSize, -halfSize,  halfSize), Vector3(1.0f, 0.0f, 0.0f), Vector3(1.0f, 1.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f)),
+        Vertex(Vector3( halfSize,  halfSize,  halfSize), Vector3(1.0f, 0.0f, 0.0f), Vector3(1.0f, 1.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f)),
+        Vertex(Vector3( halfSize,  halfSize, -halfSize), Vector3(1.0f, 0.0f, 0.0f), Vector3(1.0f, 1.0f, 0.0f), Vector3(1.0f, 1.0f, 0.0f)),
         
-        Vertex(Vector3(-halfSize, -halfSize, -halfSize), Vector3(0.0f, -1.0f, 0.0f), Vector3(1.0f, 0.0f, 1.0f)),
-        Vertex(Vector3( halfSize, -halfSize, -halfSize), Vector3(0.0f, -1.0f, 0.0f), Vector3(1.0f, 0.0f, 1.0f)),
-        Vertex(Vector3( halfSize, -halfSize,  halfSize), Vector3(0.0f, -1.0f, 0.0f), Vector3(1.0f, 0.0f, 1.0f)),
-        Vertex(Vector3(-halfSize, -halfSize,  halfSize), Vector3(0.0f, -1.0f, 0.0f), Vector3(1.0f, 0.0f, 1.0f)),
+        Vertex(Vector3(-halfSize, -halfSize, -halfSize), Vector3(0.0f, -1.0f, 0.0f), Vector3(1.0f, 0.0f, 1.0f), Vector3(0.0f, 1.0f, 0.0f)),
+        Vertex(Vector3( halfSize, -halfSize, -halfSize), Vector3(0.0f, -1.0f, 0.0f), Vector3(1.0f, 0.0f, 1.0f), Vector3(1.0f, 1.0f, 0.0f)),
+        Vertex(Vector3( halfSize, -halfSize,  halfSize), Vector3(0.0f, -1.0f, 0.0f), Vector3(1.0f, 0.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f)),
+        Vertex(Vector3(-halfSize, -halfSize,  halfSize), Vector3(0.0f, -1.0f, 0.0f), Vector3(1.0f, 0.0f, 1.0f), Vector3(0.0f, 0.0f, 0.0f)),
         
-        Vertex(Vector3(-halfSize,  halfSize, -halfSize), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 1.0f, 1.0f)),
-        Vertex(Vector3( halfSize,  halfSize, -halfSize), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 1.0f, 1.0f)),
-        Vertex(Vector3( halfSize,  halfSize,  halfSize), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 1.0f, 1.0f)),
-        Vertex(Vector3(-halfSize,  halfSize,  halfSize), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 1.0f, 1.0f))
+        Vertex(Vector3(-halfSize,  halfSize, -halfSize), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 1.0f, 1.0f), Vector3(0.0f, 0.0f, 0.0f)),
+        Vertex(Vector3( halfSize,  halfSize, -halfSize), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 1.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f)),
+        Vertex(Vector3( halfSize,  halfSize,  halfSize), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 1.0f, 1.0f), Vector3(1.0f, 1.0f, 0.0f)),
+        Vertex(Vector3(-halfSize,  halfSize,  halfSize), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 1.0f, 1.0f), Vector3(0.0f, 1.0f, 0.0f))
     };
     
     std::vector<unsigned int> indices = {
@@ -184,10 +184,10 @@ Mesh Mesh::CreatePlane(float width, float height) {
     Mesh mesh;
     
     std::vector<Vertex> vertices = {
-        {{-width/2, 0, -height/2}, {0, 1, 0}, {0.8f, 0.8f, 0.8f}}, // Bottom-left
-        {{ width/2, 0, -height/2}, {0, 1, 0}, {0.8f, 0.8f, 0.8f}}, // Bottom-right
-        {{ width/2, 0,  height/2}, {0, 1, 0}, {0.8f, 0.8f, 0.8f}}, // Top-right
-        {{-width/2, 0,  height/2}, {0, 1, 0}, {0.8f, 0.8f, 0.8f}}  // Top-left
+        {{-width/2, 0, -height/2}, {0, 1, 0}, {0.8f, 0.8f, 0.8f}, {0.0f, 0.0f, 0.0f}}, // Bottom-left
+        {{ width/2, 0, -height/2}, {0, 1, 0}, {0.8f, 0.8f, 0.8f}, {1.0f, 0.0f, 0.0f}}, // Bottom-right
+        {{ width/2, 0,  height/2}, {0, 1, 0}, {0.8f, 0.8f, 0.8f}, {1.0f, 1.0f, 0.0f}}, // Top-right
+        {{-width/2, 0,  height/2}, {0, 1, 0}, {0.8f, 0.8f, 0.8f}, {0.0f, 1.0f, 0.0f}}  // Top-left
     };
     
     std::vector<unsigned int> indices = {

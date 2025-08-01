@@ -10,11 +10,11 @@ namespace GameEngine {
     class CameraComponent : public Component<CameraComponent> {
     public:
         CameraComponent() = default;
-        CameraComponent(float fov, float nearPlane = 0.1f, float farPlane = 1000.0f)
+        CameraComponent(float fov, float nearPlane = 1.0f, float farPlane = 1000.0f)
             : fieldOfView(fov), nearPlane(nearPlane), farPlane(farPlane) {}
         
         float fieldOfView = 45.0f;
-        float nearPlane = 0.1f;
+        float nearPlane = 1.0f;
         float farPlane = 1000.0f;
         
         void SetFOV(float fov) {

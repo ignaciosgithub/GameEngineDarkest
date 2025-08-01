@@ -34,6 +34,11 @@ if(WIN32)
     set(GTEST_LIBRARIES GTest::gtest GTest::gtest_main)
     set(OPENAL_LIBRARIES OpenAL::OpenAL)
     set(ASSIMP_LIBRARIES assimp::assimp)
+    
+    # Create ImGui alias for Windows compatibility
+    if(TARGET imgui::imgui)
+        add_library(imgui ALIAS imgui::imgui)
+    endif()
 else()
     # Linux: Use system packages
     find_package(PkgConfig REQUIRED)

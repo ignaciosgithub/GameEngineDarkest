@@ -248,7 +248,7 @@ void ForwardRenderPipeline::Render(World* world) {
     
     RenderSpecialEffects(world);
     
-    m_framebuffer->Unbind();
+    CompositePass();
     
     Logger::Debug("Forward rendering pass completed");
 }
@@ -325,6 +325,7 @@ void ForwardRenderPipeline::Cleanup() {
     m_forwardShader.reset();
     m_transparentShader.reset();
     m_effectsShader.reset();
+    m_compositeShader.reset();
     m_framebuffer.reset();
     m_colorTexture.reset();
     m_depthTexture.reset();
@@ -455,6 +456,84 @@ void ForwardRenderPipeline::SetupLighting() {
 
 void ForwardRenderPipeline::SortTransparentObjects(World* /*world*/) {
     Logger::Debug("Sorted transparent objects by depth (simplified)");
+}
+
+void ForwardRenderPipeline::CompositePass() {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    glDisable(GL_DEPTH_TEST);
+    
+    if (!m_compositeShader) {
+        m_compositeShader = std::make_shared<Shader>();
+        std::string vertexSource = R"(
+            #version 330 core
+            layout (location = 0) in vec2 aPos;
+            layout (location = 1) in vec2 aTexCoord;
+            
+            out vec2 TexCoord;
+            
+            void main() {
+                TexCoord = aTexCoord;
+                gl_Position = vec4(aPos, 0.0, 1.0);
+            }
+        )";
+        
+        std::string fragmentSource = R"(
+            #version 330 core
+            out vec4 FragColor;
+            
+            in vec2 TexCoord;
+            uniform sampler2D finalTexture;
+            
+            void main() {
+                FragColor = texture(finalTexture, TexCoord);
+            }
+        )";
+        
+        m_compositeShader->LoadFromSource(vertexSource, fragmentSource);
+    }
+    
+    m_compositeShader->Use();
+    
+    auto finalTexture = m_framebuffer->GetColorTexture(0);
+    if (finalTexture) {
+        finalTexture->Bind(0);
+        m_compositeShader->SetInt("finalTexture", 0);
+    }
+    
+    RenderFullscreenQuad();
+    
+    glEnable(GL_DEPTH_TEST);
+}
+
+void ForwardRenderPipeline::RenderFullscreenQuad() {
+    static unsigned int quadVAO = 0;
+    static unsigned int quadVBO = 0;
+    
+    if (quadVAO == 0) {
+        float quadVertices[] = {
+            -1.0f,  1.0f, 0.0f, 1.0f,
+            -1.0f, -1.0f, 0.0f, 0.0f,
+             1.0f,  1.0f, 1.0f, 1.0f,
+             1.0f, -1.0f, 1.0f, 0.0f,
+        };
+        
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    }
+    
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
 }
 
 }

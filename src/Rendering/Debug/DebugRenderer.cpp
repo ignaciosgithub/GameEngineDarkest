@@ -66,12 +66,12 @@ void DebugRenderer::RenderWireSphere(const Vector3& center, float radius, const 
     const int rings = 8;
     
     for (int ring = 0; ring <= rings; ++ring) {
-        float phi = static_cast<float>(ring) * M_PI / rings;
+        float phi = static_cast<float>(ring) * static_cast<float>(M_PI) / rings;
         float y = radius * cos(phi);
         float ringRadius = radius * sin(phi);
         
         for (int segment = 0; segment <= segments; ++segment) {
-            float theta = static_cast<float>(segment) * 2.0f * M_PI / segments;
+            float theta = static_cast<float>(segment) * 2.0f * static_cast<float>(M_PI) / segments;
             float x = ringRadius * cos(theta);
             float z = ringRadius * sin(theta);
             
@@ -104,7 +104,7 @@ void DebugRenderer::RenderWireCone(const Vector3& position, const Vector3& direc
     std::vector<unsigned int> indices;
     
     const int segments = 16;
-    float angleRad = angle * M_PI / 180.0f;
+    float angleRad = angle * static_cast<float>(M_PI) / 180.0f;
     float coneRadius = range * tan(angleRad);
     
     vertices.push_back(position);
@@ -116,7 +116,7 @@ void DebugRenderer::RenderWireCone(const Vector3& position, const Vector3& direc
     Vector3 baseCenter = position + forward * range;
     
     for (int i = 0; i <= segments; ++i) {
-        float theta = static_cast<float>(i) * 2.0f * M_PI / segments;
+        float theta = static_cast<float>(i) * 2.0f * static_cast<float>(M_PI) / segments;
         float x = coneRadius * cos(theta);
         float y = coneRadius * sin(theta);
         
@@ -180,6 +180,7 @@ void DebugRenderer::SetupWireframeShader() {
 }
 
 void DebugRenderer::RenderWireframeMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned int>& indices, const Vector3& color) {
+    (void)color; // Suppress unused parameter warning
     
     Logger::Debug("Rendering wireframe mesh with " + std::to_string(vertices.size()) + 
                  " vertices and " + std::to_string(indices.size()) + " indices");

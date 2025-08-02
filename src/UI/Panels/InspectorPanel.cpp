@@ -31,8 +31,67 @@ void InspectorPanel::Update(World* world, float /*deltaTime*/) {
             DrawLightComponent(world, m_selectedEntity);
             DrawCameraComponent(world, m_selectedEntity);
             DrawMovementComponent(world, m_selectedEntity);
+            
+            ImGui::Separator();
+            if (ImGui::Button("Add Component")) {
+                ImGui::OpenPopup("Add Component");
+            }
         } else {
             ImGui::Text("No entity selected");
+        }
+        
+        if (ImGui::BeginPopupModal("Add Component", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Select a component to add:");
+            ImGui::Separator();
+            
+            if (!world->HasComponent<CameraComponent>(m_selectedEntity)) {
+                if (ImGui::Button("Camera Component")) {
+                    AddCameraComponent(world, m_selectedEntity);
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            
+            if (!world->HasComponent<MovementComponent>(m_selectedEntity)) {
+                if (ImGui::Button("Movement Component")) {
+                    AddMovementComponent(world, m_selectedEntity);
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            
+            if (!world->HasComponent<MeshComponent>(m_selectedEntity)) {
+                if (ImGui::Button("Mesh Component")) {
+                    AddMeshComponent(world, m_selectedEntity);
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            
+            if (!world->HasComponent<RigidBodyComponent>(m_selectedEntity)) {
+                if (ImGui::Button("RigidBody Component")) {
+                    AddRigidBodyComponent(world, m_selectedEntity);
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            
+            if (!world->HasComponent<AudioComponent>(m_selectedEntity)) {
+                if (ImGui::Button("Audio Component")) {
+                    AddAudioComponent(world, m_selectedEntity);
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            
+            if (!world->HasComponent<LightComponent>(m_selectedEntity)) {
+                if (ImGui::Button("Light Component")) {
+                    AddLightComponent(world, m_selectedEntity);
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            
+            ImGui::Separator();
+            if (ImGui::Button("Cancel")) {
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::EndPopup();
         }
     }
     ImGui::End();
@@ -308,6 +367,48 @@ void InspectorPanel::DrawLightComponent(World* world, Entity entity) {
                 light.SetShadowMapSize(newSize);
             }
         }
+    }
+}
+
+void InspectorPanel::AddCameraComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && !world->HasComponent<CameraComponent>(entity)) {
+        world->AddComponent<CameraComponent>(entity, 60.0f);
+        Logger::Info("Added CameraComponent to entity: " + std::to_string(entity.GetID()));
+    }
+}
+
+void InspectorPanel::AddMovementComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && !world->HasComponent<MovementComponent>(entity)) {
+        world->AddComponent<MovementComponent>(entity, 5.0f, 2.0f);
+        Logger::Info("Added MovementComponent to entity: " + std::to_string(entity.GetID()));
+    }
+}
+
+void InspectorPanel::AddMeshComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && !world->HasComponent<MeshComponent>(entity)) {
+        world->AddComponent<MeshComponent>(entity, "cube");
+        Logger::Info("Added MeshComponent to entity: " + std::to_string(entity.GetID()));
+    }
+}
+
+void InspectorPanel::AddRigidBodyComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && !world->HasComponent<RigidBodyComponent>(entity)) {
+        world->AddComponent<RigidBodyComponent>(entity);
+        Logger::Info("Added RigidBodyComponent to entity: " + std::to_string(entity.GetID()));
+    }
+}
+
+void InspectorPanel::AddAudioComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && !world->HasComponent<AudioComponent>(entity)) {
+        world->AddComponent<AudioComponent>(entity);
+        Logger::Info("Added AudioComponent to entity: " + std::to_string(entity.GetID()));
+    }
+}
+
+void InspectorPanel::AddLightComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && !world->HasComponent<LightComponent>(entity)) {
+        world->AddComponent<LightComponent>(entity, LightType::Point);
+        Logger::Info("Added LightComponent to entity: " + std::to_string(entity.GetID()));
     }
 }
 

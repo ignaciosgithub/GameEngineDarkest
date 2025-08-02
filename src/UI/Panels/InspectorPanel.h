@@ -22,6 +22,14 @@ namespace GameEngine {
         void DrawAudioComponent(World* world, Entity entity);
         void DrawLightComponent(World* world, Entity entity);
         
+        // Component addition methods
+        void AddCameraComponent(World* world, Entity entity);
+        void AddMovementComponent(World* world, Entity entity);
+        void AddMeshComponent(World* world, Entity entity);
+        void AddRigidBodyComponent(World* world, Entity entity);
+        void AddAudioComponent(World* world, Entity entity);
+        void AddLightComponent(World* world, Entity entity);
+        
         Entity m_selectedEntity;
     };
 }

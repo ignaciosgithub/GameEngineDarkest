@@ -3,12 +3,15 @@
 #include "Entity.h"
 #include "Component.h"
 #include "System.h"
+#include "../Components/RigidBodyComponent.h"
 #include <unordered_map>
 #include <vector>
 #include <memory>
 #include <typeindex>
 
 namespace GameEngine {
+    class PhysicsWorld;
+    
     class World {
     public:
         World();
@@ -43,12 +46,16 @@ namespace GameEngine {
         
         const std::vector<Entity>& GetEntities() const { return m_entities; }
         
+        void SetPhysicsWorld(PhysicsWorld* physicsWorld) { m_physicsWorld = physicsWorld; }
+        PhysicsWorld* GetPhysicsWorld() const { return m_physicsWorld; }
+        
     private:
         EntityID m_nextEntityID = 1;
         std::vector<Entity> m_entities;
         std::unordered_map<EntityID, std::unordered_map<ComponentTypeID, std::unique_ptr<IComponent>>> m_components;
         std::vector<std::unique_ptr<ISystem>> m_systems;
         std::unordered_map<std::type_index, ISystem*> m_systemMap;
+        PhysicsWorld* m_physicsWorld = nullptr;
     };
     
     // Template implementations
@@ -60,6 +67,23 @@ namespace GameEngine {
         T* componentPtr = component.get();
         
         m_components[entity.GetID()][GetComponentTypeID<T>()] = std::move(component);
+        return componentPtr;
+    }
+    
+    // Specialization for RigidBodyComponent to pass PhysicsWorld
+    template<>
+    inline RigidBodyComponent* World::AddComponent<RigidBodyComponent>(Entity entity) {
+        if (!IsEntityValid(entity)) return nullptr;
+        
+        std::unique_ptr<RigidBodyComponent> component;
+        if (m_physicsWorld) {
+            component = std::make_unique<RigidBodyComponent>(m_physicsWorld);
+        } else {
+            component = std::make_unique<RigidBodyComponent>();
+        }
+        
+        RigidBodyComponent* componentPtr = component.get();
+        m_components[entity.GetID()][GetComponentTypeID<RigidBodyComponent>()] = std::move(component);
         return componentPtr;
     }
     

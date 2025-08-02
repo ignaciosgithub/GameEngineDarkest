@@ -93,6 +93,7 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     Logger::Info("Render manager initialized with multiple pipelines");
 
     m_physicsWorld = std::make_unique<PhysicsWorld>();
+    m_world->SetPhysicsWorld(m_physicsWorld.get());
 
     m_engineUI = std::make_unique<EngineUI>();
     if (!m_engineUI->Initialize(m_window->GetGLFWWindow())) {

@@ -5,10 +5,14 @@
 #include "Panels/ViewportPanel.h"
 #include "Panels/ProjectPanel.h"
 #include "Panels/ConsolePanel.h"
+#include "Panels/WorldSettingsPanel.h"
 #include "../Core/Logging/Logger.h"
 #include "../Core/Editor/PlayModeManager.h"
 #include "../Core/Scenes/Scene.h"
 #include "../Core/Project/ProjectManager.h"
+#include "../Core/Components/TransformComponent.h"
+#include "../Core/Components/MeshComponent.h"
+#include "../Rendering/Loaders/OBJLoader.h"
 #include <imgui.h>
 
 namespace GameEngine {
@@ -31,6 +35,7 @@ bool EngineUI::Initialize(GLFWwindow* window) {
     m_panels.push_back(std::make_unique<ViewportPanel>());
     m_panels.push_back(std::make_unique<ProjectPanel>());
     m_panels.push_back(std::make_unique<ConsolePanel>());
+    m_panels.push_back(std::make_unique<WorldSettingsPanel>());
     
     ResetPanelVisibility();
     Logger::Info("Engine UI initialized successfully");
@@ -67,6 +72,9 @@ void EngineUI::Update(World* world, float deltaTime) {
         }
         if (auto* inspector = dynamic_cast<InspectorPanel*>(panel.get())) {
             inspectorPanel = inspector;
+        }
+        if (auto* worldSettings = dynamic_cast<WorldSettingsPanel*>(panel.get())) {
+            worldSettings->SetPhysicsWorld(m_physicsWorld);
         }
         panel->Update(world, deltaTime);
     }
@@ -123,6 +131,10 @@ void EngineUI::RenderMainMenuBar() {
                 Logger::Info("Import Asset requested");
             }
             
+            if (ImGui::MenuItem("Import OBJ...")) {
+                ImGui::OpenPopup("Import OBJ File");
+            }
+            
             ImGui::EndMenu();
         }
         
@@ -142,6 +154,9 @@ void EngineUI::RenderMainMenuBar() {
                 }
                 if (auto* console = dynamic_cast<ConsolePanel*>(panel.get())) {
                     ImGui::MenuItem("Console", nullptr, &console->IsVisible());
+                }
+                if (auto* worldSettings = dynamic_cast<WorldSettingsPanel*>(panel.get())) {
+                    ImGui::MenuItem("World Settings", nullptr, &worldSettings->IsVisible());
                 }
             }
             ImGui::Separator();
@@ -185,6 +200,32 @@ void EngineUI::RenderMainMenuBar() {
         }
         
         ImGui::EndMainMenuBar();
+    }
+    
+    if (ImGui::BeginPopupModal("Import OBJ File", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        static char objFilePath[512] = "";
+        ImGui::Text("Select OBJ file to import:");
+        ImGui::InputText("File Path", objFilePath, sizeof(objFilePath));
+        
+        if (ImGui::Button("Browse...")) {
+            Logger::Info("File browser would open here");
+        }
+        
+        ImGui::Separator();
+        
+        if (ImGui::Button("Import") && strlen(objFilePath) > 0) {
+            ImportOBJFile(objFilePath);
+            ImGui::CloseCurrentPopup();
+            memset(objFilePath, 0, sizeof(objFilePath)); // Clear the path
+        }
+        
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            ImGui::CloseCurrentPopup();
+            memset(objFilePath, 0, sizeof(objFilePath)); // Clear the path
+        }
+        
+        ImGui::EndPopup();
     }
 }
 
@@ -259,6 +300,33 @@ void EngineUI::ResetPanelVisibility() {
         panel->IsVisible() = true;
     }
     Logger::Info("All UI panels visibility reset to visible");
+}
+
+void EngineUI::ImportOBJFile(const std::string& filePath) {
+    if (!m_world) {
+        Logger::Error("Cannot import OBJ: World not available");
+        return;
+    }
+    
+    Logger::Info("Importing OBJ file: " + filePath);
+    
+    Entity newEntity = m_world->CreateEntity();
+    
+    m_world->AddComponent<TransformComponent>(newEntity, Vector3(0, 0, 0));
+    
+    auto* meshComponent = m_world->AddComponent<MeshComponent>(newEntity, "imported_obj");
+    if (meshComponent) {
+        meshComponent->LoadMeshFromOBJ(filePath);
+        if (meshComponent->HasMesh()) {
+            Logger::Info("Successfully imported OBJ file as entity: " + std::to_string(newEntity.GetID()));
+        } else {
+            Logger::Error("Failed to load OBJ file: " + filePath);
+            m_world->DestroyEntity(newEntity);
+        }
+    } else {
+        Logger::Error("Failed to add MeshComponent to imported entity");
+        m_world->DestroyEntity(newEntity);
+    }
 }
 
 }

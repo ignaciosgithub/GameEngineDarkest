@@ -10,6 +10,7 @@
 #include "Components/CameraComponent.h"
 #include "Components/MovementComponent.h"
 #include "Components/RigidBodyComponent.h"
+#include "Components/MeshComponent.h"
 #include "Systems/CameraSystem.h"
 #include "Systems/MovementSystem.h"
 #include "Scenes/TestSceneManager.h"
@@ -103,6 +104,7 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     m_playModeManager = std::make_unique<PlayModeManager>();
     m_playModeManager->Initialize(m_world.get(), m_window.get());
     m_engineUI->SetPlayModeManager(m_playModeManager.get());
+    m_engineUI->SetPhysicsWorld(m_physicsWorld.get());
     Logger::Info("Play Mode Manager initialized successfully");
 
     m_world->AddSystem<CameraSystem>();
@@ -268,6 +270,7 @@ void Engine::CreateDemoScene() {
     if (cubeTransform) {
         cubeTransform->transform.SetRotation(Quaternion::FromEulerAngles(0.3f, 0.5f, 0.2f));
     }
+    m_world->AddComponent<MeshComponent>(cubeEntity, "cube");
     Logger::Info("Created cube entity at origin with rotation: " + std::to_string(cubeEntity.GetID()));
 
     Entity lightEntity = m_world->CreateEntity();

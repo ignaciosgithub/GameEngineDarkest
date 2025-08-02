@@ -6,6 +6,7 @@ add_library(UI STATIC
     Panels/ViewportPanel.cpp
     Panels/ProjectPanel.cpp
     Panels/ConsolePanel.cpp
+    Panels/WorldSettingsPanel.cpp
 )
 
 target_include_directories(UI PUBLIC

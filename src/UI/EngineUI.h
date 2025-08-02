@@ -11,6 +11,7 @@ namespace GameEngine {
     class ImGuiRenderer;
     class UIPanel;
     class PlayModeManager;
+    class PhysicsWorld;
     enum class EditorMode;
     
     class EngineUI {
@@ -26,6 +27,7 @@ namespace GameEngine {
         
         void SetWorld(World* world) { m_world = world; }
         void SetPlayModeManager(PlayModeManager* playModeManager) { m_playModeManager = playModeManager; }
+        void SetPhysicsWorld(PhysicsWorld* physicsWorld) { m_physicsWorld = physicsWorld; }
         
         class ViewportPanel* GetViewportPanel() const;
         
@@ -37,12 +39,14 @@ namespace GameEngine {
         void SaveSceneAs(const std::string& sceneName);
         void SaveProject();
         void ResetPanelVisibility();
+        void ImportOBJFile(const std::string& filePath);
         
         std::unique_ptr<ImGuiRenderer> m_imguiRenderer;
         std::vector<std::unique_ptr<UIPanel>> m_panels;
         
         World* m_world = nullptr;
         PlayModeManager* m_playModeManager = nullptr;
+        PhysicsWorld* m_physicsWorld = nullptr;
         bool m_showDemoWindow = false;
         bool m_showMetricsWindow = false;
     };

@@ -13,9 +13,11 @@
 #include "Systems/CameraSystem.h"
 #include "Systems/MovementSystem.h"
 #include "Scenes/TestSceneManager.h"
+#include "Scripting/External/ExternalScriptManager.h"
 #include "../Rendering/Renderer.h"
 #include "../Rendering/RenderManager.h"
 #include "../Rendering/Meshes/Mesh.h"
+#include "../Rendering/Lighting/Light.h"
 #include "../Physics/PhysicsWorld.h"
 #include "../UI/EngineUI.h"
 #include "../UI/Panels/ViewportPanel.h"
@@ -109,11 +111,14 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     m_testSceneManager = std::make_unique<TestSceneManager>(m_world.get(), m_renderManager.get());
     Logger::Info("Test scene manager initialized");
 
+    ExternalScriptManager::Instance().Initialize();
+    Logger::Info("External script manager initialized");
+
     CreateDemoScene();
     
-    m_testSceneManager->LoadScene(TestSceneType::MultipleLight);
-    m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Forward);
-    Logger::Info("Loaded MultipleLight test scene with 5x5 cube grid using Forward rendering");
+    // m_testSceneManager->LoadScene(TestSceneType::MultipleLight);
+    // m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Forward);
+    // Logger::Info("Loaded MultipleLight test scene with 5x5 cube grid using Forward rendering");
 
     Timer::Initialize();
     Logger::Info("Timer system initialized");
@@ -156,6 +161,9 @@ void Engine::Update(float deltaTime) {
     if (m_playModeManager) {
         m_playModeManager->Update(deltaTime);
     }
+
+    ExternalScriptManager::Instance().CheckForScriptChanges();
+    ExternalScriptManager::Instance().ExecuteUpdateScripts(m_world.get(), deltaTime);
 
     if (m_engineUI) {
         m_engineUI->Update(m_world.get(), deltaTime);
@@ -237,62 +245,47 @@ void Engine::Render() {
 }
 
 void Engine::CreateDemoScene() {
-    Logger::Info("Creating demo scene...");
+    Logger::Info("Creating simplified default scene...");
 
     Entity cameraEntity = m_world->CreateEntity();
-    m_world->AddComponent<TransformComponent>(cameraEntity, Vector3(0, 20, 10));
+    m_world->AddComponent<TransformComponent>(cameraEntity, Vector3(0, 5, 10));
     
     auto* cameraTransform = m_world->GetComponent<TransformComponent>(cameraEntity);
     if (cameraTransform) {
-        Vector3 direction = (Vector3(0, 0, 0) - Vector3(0, 20, 10)).Normalized();
-        float pitch = std::asin(-direction.y);  // Look down angle
-        float yaw = std::atan2(direction.x, direction.z);  // Horizontal angle
+        Vector3 direction = (Vector3(0, 0, 0) - Vector3(0, 5, 10)).Normalized();
+        float pitch = std::asin(-direction.y);
+        float yaw = std::atan2(direction.x, direction.z);
         cameraTransform->transform.SetRotation(Quaternion::FromEulerAngles(pitch, yaw, 0.0f));
     }
     
-    m_world->AddComponent<CameraComponent>(cameraEntity, 60.0f);  // Wider FOV to see more cubes
+    m_world->AddComponent<CameraComponent>(cameraEntity, 60.0f);
     m_world->AddComponent<MovementComponent>(cameraEntity, 5.0f, 2.0f);
+    Logger::Info("Created camera entity at position (0, 5, 10): " + std::to_string(cameraEntity.GetID()));
 
-    Logger::Info("Created camera entity at position (0, 20, 10) using LookAt to view cube grid: " + std::to_string(cameraEntity.GetID()));
-
-    for (int i = 0; i < 3; ++i) {
-        Entity physicsEntity = m_world->CreateEntity();
-        m_world->AddComponent<TransformComponent>(physicsEntity, Vector3(i * 2.0f, 10.0f, 0.0f));
-
-        auto* rigidBodyComp = m_world->AddComponent<RigidBodyComponent>(physicsEntity);
-        if (rigidBodyComp) {
-            RigidBody* rigidBody = rigidBodyComp->GetRigidBody();
-            rigidBody->SetPosition(Vector3(i * 2.0f, 10.0f, 0.0f));
-            rigidBody->SetColliderType(ColliderType::Box);
-            rigidBody->SetColliderSize(Vector3(1.0f, 1.0f, 1.0f));
-            rigidBody->SetMass(1.0f);
-
-            m_physicsWorld->AddRigidBody(rigidBody);
-        }
-
-        Logger::Info("Created physics entity: " + std::to_string(physicsEntity.GetID()));
+    Entity cubeEntity = m_world->CreateEntity();
+    m_world->AddComponent<TransformComponent>(cubeEntity, Vector3(0, 0, 0));
+    auto* cubeTransform = m_world->GetComponent<TransformComponent>(cubeEntity);
+    if (cubeTransform) {
+        cubeTransform->transform.SetRotation(Quaternion::FromEulerAngles(0.3f, 0.5f, 0.2f));
     }
+    Logger::Info("Created cube entity at origin with rotation: " + std::to_string(cubeEntity.GetID()));
 
-    Entity groundEntity = m_world->CreateEntity();
-    m_world->AddComponent<TransformComponent>(groundEntity, Vector3(0, -1, 0));
+    Entity lightEntity = m_world->CreateEntity();
+    m_world->AddComponent<TransformComponent>(lightEntity, Vector3(0, 3, 0));
+    auto* lightComp = m_world->AddComponent<LightComponent>(lightEntity, LightType::Point);
+    lightComp->light.SetPosition(Vector3(0, 3, 0));
+    lightComp->light.SetColor(Vector3(1.0f, 1.0f, 1.0f));
+    lightComp->light.SetIntensity(2.0f);
+    lightComp->light.SetRange(10.0f);
+    Logger::Info("Created point light at position (0, 3, 0): " + std::to_string(lightEntity.GetID()));
 
-    auto* groundRigidBodyComp = m_world->AddComponent<RigidBodyComponent>(groundEntity);
-    if (groundRigidBodyComp) {
-        RigidBody* groundRigidBody = groundRigidBodyComp->GetRigidBody();
-        groundRigidBody->SetPosition(Vector3(0, -1, 0));
-        groundRigidBody->SetColliderType(ColliderType::Box);
-        groundRigidBody->SetColliderSize(Vector3(20.0f, 1.0f, 20.0f));
-        groundRigidBody->SetBodyType(RigidBodyType::Static);
-
-        m_physicsWorld->AddRigidBody(groundRigidBody);
-    }
-
-    Logger::Info("Created ground entity: " + std::to_string(groundEntity.GetID()));
-    Logger::Info("Demo scene created successfully");
+    Logger::Info("Simplified default scene created successfully");
 }
 
 void Engine::Shutdown() {
     Logger::Info("Shutting down Game Engine...");
+    
+    ExternalScriptManager::Instance().Shutdown();
     
     m_engineUI.reset();
     if (m_testSceneManager) {

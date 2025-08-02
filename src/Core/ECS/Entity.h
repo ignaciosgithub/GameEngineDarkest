@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 
 namespace GameEngine {
     using EntityID = uint32_t;
@@ -21,5 +22,14 @@ namespace GameEngine {
         
     private:
         EntityID m_id;
+    };
+}
+
+namespace std {
+    template<>
+    struct hash<GameEngine::Entity> {
+        std::size_t operator()(const GameEngine::Entity& entity) const noexcept {
+            return std::hash<GameEngine::EntityID>{}(entity.GetID());
+        }
     };
 }

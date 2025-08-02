@@ -123,11 +123,11 @@ void InspectorPanel::DrawCameraComponent(World* world, Entity entity) {
     if (!camera) return;
     
     if (ImGui::CollapsingHeader("Camera")) {
-        ImGui::SameLine();
         if (ImGui::Button("Remove##Camera")) {
             RemoveCameraComponent(world, entity);
             return;
         }
+        ImGui::Separator();
         
         float fov = camera->fieldOfView;
         float nearPlane = camera->nearPlane;
@@ -150,11 +150,11 @@ void InspectorPanel::DrawMovementComponent(World* world, Entity entity) {
     if (!movement) return;
     
     if (ImGui::CollapsingHeader("Movement")) {
-        ImGui::SameLine();
         if (ImGui::Button("Remove##Movement")) {
             RemoveMovementComponent(world, entity);
             return;
         }
+        ImGui::Separator();
         
         ImGui::DragFloat("Movement Speed", &movement->movementSpeed, 0.1f, 0.0f, 100.0f);
         ImGui::DragFloat("Mouse Sensitivity", &movement->mouseSensitivity, 0.1f, 0.1f, 10.0f);
@@ -170,11 +170,11 @@ void InspectorPanel::DrawMeshComponent(World* world, Entity entity) {
     if (!mesh) return;
     
     if (ImGui::CollapsingHeader("Mesh Component")) {
-        ImGui::SameLine();
         if (ImGui::Button("Remove##Mesh")) {
             RemoveMeshComponent(world, entity);
             return;
         }
+        ImGui::Separator();
         
         bool visible = mesh->IsVisible();
         if (ImGui::Checkbox("Visible", &visible)) {
@@ -224,11 +224,11 @@ void InspectorPanel::DrawRigidBodyComponent(World* world, Entity entity) {
     if (!rigidBody) return;
     
     if (ImGui::CollapsingHeader("RigidBody Component")) {
-        ImGui::SameLine();
         if (ImGui::Button("Remove##RigidBody")) {
             RemoveRigidBodyComponent(world, entity);
             return;
         }
+        ImGui::Separator();
         
         ImGui::Text("RigidBody: %s", rigidBody->GetRigidBody() ? "Active" : "Inactive");
         
@@ -247,11 +247,11 @@ void InspectorPanel::DrawAudioComponent(World* world, Entity entity) {
     if (!audio) return;
     
     if (ImGui::CollapsingHeader("Audio Component")) {
-        ImGui::SameLine();
         if (ImGui::Button("Remove##Audio")) {
             RemoveAudioComponent(world, entity);
             return;
         }
+        ImGui::Separator();
         
         float volume = audio->GetVolume();
         if (ImGui::SliderFloat("Volume", &volume, 0.0f, 1.0f)) {
@@ -320,11 +320,11 @@ void InspectorPanel::DrawLightComponent(World* world, Entity entity) {
     if (!lightComp) return;
     
     if (ImGui::CollapsingHeader("Light Component")) {
-        ImGui::SameLine();
         if (ImGui::Button("Remove##Light")) {
             RemoveLightComponent(world, entity);
             return;
         }
+        ImGui::Separator();
         
         Light& light = lightComp->light;
         

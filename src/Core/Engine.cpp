@@ -15,6 +15,7 @@
 #include "Systems/MovementSystem.h"
 #include "Scenes/TestSceneManager.h"
 #include "Scripting/External/ExternalScriptManager.h"
+#include "Project/ProjectManager.h"
 #include "../Rendering/Renderer.h"
 #include "../Rendering/RenderManager.h"
 #include "../Rendering/Meshes/Mesh.h"
@@ -116,6 +117,15 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
 
     ExternalScriptManager::Instance().Initialize();
     Logger::Info("External script manager initialized");
+
+    if (!ProjectManager::Instance().IsProjectLoaded()) {
+        std::string defaultProjectPath = "DefaultProject";
+        if (ProjectManager::Instance().CreateProject(defaultProjectPath, "Default Project")) {
+            Logger::Info("Created default project for JSON saving functionality");
+        } else {
+            Logger::Warning("Failed to create default project - JSON saving may not work");
+        }
+    }
 
     CreateDemoScene();
     

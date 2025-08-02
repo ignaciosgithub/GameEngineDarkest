@@ -12,6 +12,7 @@ namespace GameEngine {
     class UIPanel;
     class PlayModeManager;
     class PhysicsWorld;
+    class SelectionManager;
     enum class EditorMode;
     
     class EngineUI {
@@ -28,6 +29,7 @@ namespace GameEngine {
         void SetWorld(World* world) { m_world = world; }
         void SetPlayModeManager(PlayModeManager* playModeManager) { m_playModeManager = playModeManager; }
         void SetPhysicsWorld(PhysicsWorld* physicsWorld) { m_physicsWorld = physicsWorld; }
+        void SetSelectionManager(SelectionManager* selectionManager) { m_selectionManager = selectionManager; }
         
         class ViewportPanel* GetViewportPanel() const;
         
@@ -47,6 +49,7 @@ namespace GameEngine {
         World* m_world = nullptr;
         PlayModeManager* m_playModeManager = nullptr;
         PhysicsWorld* m_physicsWorld = nullptr;
+        SelectionManager* m_selectionManager = nullptr;
         bool m_showDemoWindow = false;
         bool m_showMetricsWindow = false;
     };

@@ -9,6 +9,8 @@ namespace GameEngine {
         void OnUpdate(World* world, float deltaTime) override;
         void OnInitialize(World* world) override;
         
+        Entity GetActiveCamera() const { return m_activeCamera; }
+        
     private:
         Entity m_activeCamera;
     };

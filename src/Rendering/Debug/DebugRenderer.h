@@ -13,6 +13,8 @@ namespace GameEngine {
         static void RenderWireSphere(const Vector3& center, float radius, const Vector3& color);
         static void RenderWireCone(const Vector3& position, const Vector3& direction, float angle, float range, const Vector3& color);
         static void RenderDirectionalArrow(const Vector3& position, const Vector3& direction, const Vector3& color);
+        static void RenderSelectionOutline(const Vector3& center, const Vector3& size, const Vector3& color);
+        static void RenderMovementGizmo(const Vector3& position, float size = 1.0f);
         
     private:
         static bool s_initialized;

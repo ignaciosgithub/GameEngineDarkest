@@ -8,6 +8,7 @@
 #include "Panels/WorldSettingsPanel.h"
 #include "../Core/Logging/Logger.h"
 #include "../Core/Editor/PlayModeManager.h"
+#include "../Core/Editor/SelectionManager.h"
 #include "../Core/Scenes/Scene.h"
 #include "../Core/Project/ProjectManager.h"
 #include "../Core/Components/TransformComponent.h"
@@ -72,6 +73,10 @@ void EngineUI::Update(World* world, float deltaTime) {
         }
         if (auto* inspector = dynamic_cast<InspectorPanel*>(panel.get())) {
             inspectorPanel = inspector;
+        }
+        if (auto* viewport = dynamic_cast<ViewportPanel*>(panel.get())) {
+            viewport->SetPlayModeManager(m_playModeManager);
+            viewport->SetSelectionManager(m_selectionManager);
         }
         if (auto* worldSettings = dynamic_cast<WorldSettingsPanel*>(panel.get())) {
             worldSettings->SetPhysicsWorld(m_physicsWorld);

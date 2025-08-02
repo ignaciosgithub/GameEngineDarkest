@@ -175,6 +175,92 @@ void DebugRenderer::RenderDirectionalArrow(const Vector3& position, const Vector
     RenderWireframeMesh(vertices, indices, color);
 }
 
+void DebugRenderer::RenderSelectionOutline(const Vector3& center, const Vector3& size, const Vector3& color) {
+    if (!s_initialized) return;
+    
+    std::vector<Vector3> vertices;
+    std::vector<unsigned int> indices;
+    
+    Vector3 halfSize = size * 0.5f;
+    
+    vertices.push_back(center + Vector3(-halfSize.x, -halfSize.y, -halfSize.z)); // 0: left-bottom-back
+    vertices.push_back(center + Vector3( halfSize.x, -halfSize.y, -halfSize.z)); // 1: right-bottom-back
+    vertices.push_back(center + Vector3( halfSize.x,  halfSize.y, -halfSize.z)); // 2: right-top-back
+    vertices.push_back(center + Vector3(-halfSize.x,  halfSize.y, -halfSize.z)); // 3: left-top-back
+    vertices.push_back(center + Vector3(-halfSize.x, -halfSize.y,  halfSize.z)); // 4: left-bottom-front
+    vertices.push_back(center + Vector3( halfSize.x, -halfSize.y,  halfSize.z)); // 5: right-bottom-front
+    vertices.push_back(center + Vector3( halfSize.x,  halfSize.y,  halfSize.z)); // 6: right-top-front
+    vertices.push_back(center + Vector3(-halfSize.x,  halfSize.y,  halfSize.z)); // 7: left-top-front
+    
+    indices.push_back(0); indices.push_back(1);
+    indices.push_back(1); indices.push_back(2);
+    indices.push_back(2); indices.push_back(3);
+    indices.push_back(3); indices.push_back(0);
+    
+    indices.push_back(4); indices.push_back(5);
+    indices.push_back(5); indices.push_back(6);
+    indices.push_back(6); indices.push_back(7);
+    indices.push_back(7); indices.push_back(4);
+    
+    indices.push_back(0); indices.push_back(4);
+    indices.push_back(1); indices.push_back(5);
+    indices.push_back(2); indices.push_back(6);
+    indices.push_back(3); indices.push_back(7);
+    
+    RenderWireframeMesh(vertices, indices, color);
+}
+
+void DebugRenderer::RenderMovementGizmo(const Vector3& position, float size) {
+    if (!s_initialized) return;
+    
+    Vector3 xEnd = position + Vector3(size, 0, 0);
+    std::vector<Vector3> xVertices = {position, xEnd};
+    std::vector<unsigned int> xIndices = {0, 1};
+    RenderWireframeMesh(xVertices, xIndices, Vector3(1.0f, 0.0f, 0.0f));
+    
+    Vector3 yEnd = position + Vector3(0, size, 0);
+    std::vector<Vector3> yVertices = {position, yEnd};
+    std::vector<unsigned int> yIndices = {0, 1};
+    RenderWireframeMesh(yVertices, yIndices, Vector3(0.0f, 1.0f, 0.0f));
+    
+    Vector3 zEnd = position + Vector3(0, 0, size);
+    std::vector<Vector3> zVertices = {position, zEnd};
+    std::vector<unsigned int> zIndices = {0, 1};
+    RenderWireframeMesh(zVertices, zIndices, Vector3(0.0f, 0.0f, 1.0f));
+    
+    float arrowHeadSize = size * 0.1f;
+    
+    std::vector<Vector3> xHeadVertices = {
+        xEnd,
+        xEnd + Vector3(-arrowHeadSize, arrowHeadSize, 0),
+        xEnd + Vector3(-arrowHeadSize, -arrowHeadSize, 0),
+        xEnd + Vector3(-arrowHeadSize, 0, arrowHeadSize),
+        xEnd + Vector3(-arrowHeadSize, 0, -arrowHeadSize)
+    };
+    std::vector<unsigned int> xHeadIndices = {0, 1, 0, 2, 0, 3, 0, 4};
+    RenderWireframeMesh(xHeadVertices, xHeadIndices, Vector3(1.0f, 0.0f, 0.0f));
+    
+    std::vector<Vector3> yHeadVertices = {
+        yEnd,
+        yEnd + Vector3(arrowHeadSize, -arrowHeadSize, 0),
+        yEnd + Vector3(-arrowHeadSize, -arrowHeadSize, 0),
+        yEnd + Vector3(0, -arrowHeadSize, arrowHeadSize),
+        yEnd + Vector3(0, -arrowHeadSize, -arrowHeadSize)
+    };
+    std::vector<unsigned int> yHeadIndices = {0, 1, 0, 2, 0, 3, 0, 4};
+    RenderWireframeMesh(yHeadVertices, yHeadIndices, Vector3(0.0f, 1.0f, 0.0f));
+    
+    std::vector<Vector3> zHeadVertices = {
+        zEnd,
+        zEnd + Vector3(arrowHeadSize, 0, -arrowHeadSize),
+        zEnd + Vector3(-arrowHeadSize, 0, -arrowHeadSize),
+        zEnd + Vector3(0, arrowHeadSize, -arrowHeadSize),
+        zEnd + Vector3(0, -arrowHeadSize, -arrowHeadSize)
+    };
+    std::vector<unsigned int> zHeadIndices = {0, 1, 0, 2, 0, 3, 0, 4};
+    RenderWireframeMesh(zHeadVertices, zHeadIndices, Vector3(0.0f, 0.0f, 1.0f));
+}
+
 void DebugRenderer::SetupWireframeShader() {
     Logger::Debug("Wireframe shader setup - placeholder implementation");
 }

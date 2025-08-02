@@ -124,7 +124,7 @@ std::vector<RayHit2D> RayCaster::RaycastAll2D(const Vector2& origin, const Vecto
     return RaycastAll2D(ray);
 }
 
-Ray3D RayCaster::ScreenPointToRay(const Vector2& screenPoint, const CameraComponent* camera, int screenWidth, int screenHeight) {
+Ray3D RayCaster::ScreenPointToRay(const Vector2& screenPoint, const CameraComponent* camera, const Transform& cameraTransform, int screenWidth, int screenHeight) {
     if (!camera) {
         Logger::Error("RayCaster::ScreenPointToRay - Camera is null");
         return Ray3D(Vector3::Zero, Vector3::Forward);
@@ -133,8 +133,21 @@ Ray3D RayCaster::ScreenPointToRay(const Vector2& screenPoint, const CameraCompon
     float x = (2.0f * screenPoint.x) / screenWidth - 1.0f;
     float y = 1.0f - (2.0f * screenPoint.y) / screenHeight;
     
-    Vector3 rayOrigin = Vector3(0.0f, 5.0f, 10.0f); // Camera position (simplified)
-    Vector3 rayDirection = Vector3(x, y, -1.0f).Normalized(); // Direction towards screen point
+    float aspectRatio = static_cast<float>(screenWidth) / static_cast<float>(screenHeight);
+    Matrix4 projMatrix = camera->GetProjectionMatrix(aspectRatio);
+    Matrix4 viewMatrix = camera->GetViewMatrix(cameraTransform);
+    
+    Matrix4 viewProjMatrix = projMatrix * viewMatrix;
+    Matrix4 invViewProjMatrix = viewProjMatrix.Inverted();
+    
+    Vector3 nearPoint(x, y, -1.0f);  // Near plane
+    Vector3 farPoint(x, y, 1.0f);    // Far plane
+    
+    Vector3 worldNear = invViewProjMatrix * nearPoint;
+    Vector3 worldFar = invViewProjMatrix * farPoint;
+    
+    Vector3 rayOrigin = cameraTransform.GetPosition();
+    Vector3 rayDirection = (worldFar - worldNear).Normalized();
     
     Logger::Debug("Screen point (" + std::to_string(screenPoint.x) + ", " + std::to_string(screenPoint.y) + 
                  ") converted to world ray: origin(" + std::to_string(rayOrigin.x) + ", " + 
@@ -145,8 +158,8 @@ Ray3D RayCaster::ScreenPointToRay(const Vector2& screenPoint, const CameraCompon
     return Ray3D(rayOrigin, rayDirection);
 }
 
-bool RayCaster::ScreenPointRaycast(const Vector2& screenPoint, const CameraComponent* camera, int screenWidth, int screenHeight, RayHit3D& hit) {
-    Ray3D ray = ScreenPointToRay(screenPoint, camera, screenWidth, screenHeight);
+bool RayCaster::ScreenPointRaycast(const Vector2& screenPoint, const CameraComponent* camera, const Transform& cameraTransform, int screenWidth, int screenHeight, RayHit3D& hit) {
+    Ray3D ray = ScreenPointToRay(screenPoint, camera, cameraTransform, screenWidth, screenHeight);
     return Raycast3D(ray, hit);
 }
 

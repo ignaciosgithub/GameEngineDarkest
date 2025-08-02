@@ -76,8 +76,8 @@ public:
     std::vector<RayHit2D> RaycastAll2D(const Vector2& origin, const Vector2& direction, float maxDistance = 1000.0f);
     
     // Screen to world ray casting (for editor picking)
-    Ray3D ScreenPointToRay(const Vector2& screenPoint, const class CameraComponent* camera, int screenWidth, int screenHeight);
-    bool ScreenPointRaycast(const Vector2& screenPoint, const class CameraComponent* camera, int screenWidth, int screenHeight, RayHit3D& hit);
+    Ray3D ScreenPointToRay(const Vector2& screenPoint, const class CameraComponent* camera, const class Transform& cameraTransform, int screenWidth, int screenHeight);
+    bool ScreenPointRaycast(const Vector2& screenPoint, const class CameraComponent* camera, const class Transform& cameraTransform, int screenWidth, int screenHeight, RayHit3D& hit);
     
     // Utility methods
     bool IsPointInSphere(const Vector3& point, const Vector3& sphereCenter, float sphereRadius);

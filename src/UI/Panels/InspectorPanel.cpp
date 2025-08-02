@@ -123,6 +123,12 @@ void InspectorPanel::DrawCameraComponent(World* world, Entity entity) {
     if (!camera) return;
     
     if (ImGui::CollapsingHeader("Camera")) {
+        ImGui::SameLine();
+        if (ImGui::Button("Remove##Camera")) {
+            RemoveCameraComponent(world, entity);
+            return;
+        }
+        
         float fov = camera->fieldOfView;
         float nearPlane = camera->nearPlane;
         float farPlane = camera->farPlane;
@@ -144,6 +150,12 @@ void InspectorPanel::DrawMovementComponent(World* world, Entity entity) {
     if (!movement) return;
     
     if (ImGui::CollapsingHeader("Movement")) {
+        ImGui::SameLine();
+        if (ImGui::Button("Remove##Movement")) {
+            RemoveMovementComponent(world, entity);
+            return;
+        }
+        
         ImGui::DragFloat("Movement Speed", &movement->movementSpeed, 0.1f, 0.0f, 100.0f);
         ImGui::DragFloat("Mouse Sensitivity", &movement->mouseSensitivity, 0.1f, 0.1f, 10.0f);
         
@@ -158,6 +170,12 @@ void InspectorPanel::DrawMeshComponent(World* world, Entity entity) {
     if (!mesh) return;
     
     if (ImGui::CollapsingHeader("Mesh Component")) {
+        ImGui::SameLine();
+        if (ImGui::Button("Remove##Mesh")) {
+            RemoveMeshComponent(world, entity);
+            return;
+        }
+        
         bool visible = mesh->IsVisible();
         if (ImGui::Checkbox("Visible", &visible)) {
             mesh->SetVisible(visible);
@@ -206,6 +224,12 @@ void InspectorPanel::DrawRigidBodyComponent(World* world, Entity entity) {
     if (!rigidBody) return;
     
     if (ImGui::CollapsingHeader("RigidBody Component")) {
+        ImGui::SameLine();
+        if (ImGui::Button("Remove##RigidBody")) {
+            RemoveRigidBodyComponent(world, entity);
+            return;
+        }
+        
         ImGui::Text("RigidBody: %s", rigidBody->GetRigidBody() ? "Active" : "Inactive");
         
         if (ImGui::Button("Add RigidBody") && !rigidBody->GetRigidBody()) {
@@ -223,6 +247,12 @@ void InspectorPanel::DrawAudioComponent(World* world, Entity entity) {
     if (!audio) return;
     
     if (ImGui::CollapsingHeader("Audio Component")) {
+        ImGui::SameLine();
+        if (ImGui::Button("Remove##Audio")) {
+            RemoveAudioComponent(world, entity);
+            return;
+        }
+        
         float volume = audio->GetVolume();
         if (ImGui::SliderFloat("Volume", &volume, 0.0f, 1.0f)) {
             audio->SetVolume(volume);
@@ -290,6 +320,12 @@ void InspectorPanel::DrawLightComponent(World* world, Entity entity) {
     if (!lightComp) return;
     
     if (ImGui::CollapsingHeader("Light Component")) {
+        ImGui::SameLine();
+        if (ImGui::Button("Remove##Light")) {
+            RemoveLightComponent(world, entity);
+            return;
+        }
+        
         Light& light = lightComp->light;
         
         const char* lightTypes[] = {"Directional", "Point", "Spot"};
@@ -409,6 +445,48 @@ void InspectorPanel::AddLightComponent(World* world, Entity entity) {
     if (world && entity.IsValid() && !world->HasComponent<LightComponent>(entity)) {
         world->AddComponent<LightComponent>(entity, LightType::Point);
         Logger::Info("Added LightComponent to entity: " + std::to_string(entity.GetID()));
+    }
+}
+
+void InspectorPanel::RemoveCameraComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && world->HasComponent<CameraComponent>(entity)) {
+        world->RemoveComponent<CameraComponent>(entity);
+        Logger::Info("Removed CameraComponent from entity: " + std::to_string(entity.GetID()));
+    }
+}
+
+void InspectorPanel::RemoveMovementComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && world->HasComponent<MovementComponent>(entity)) {
+        world->RemoveComponent<MovementComponent>(entity);
+        Logger::Info("Removed MovementComponent from entity: " + std::to_string(entity.GetID()));
+    }
+}
+
+void InspectorPanel::RemoveMeshComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && world->HasComponent<MeshComponent>(entity)) {
+        world->RemoveComponent<MeshComponent>(entity);
+        Logger::Info("Removed MeshComponent from entity: " + std::to_string(entity.GetID()));
+    }
+}
+
+void InspectorPanel::RemoveRigidBodyComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && world->HasComponent<RigidBodyComponent>(entity)) {
+        world->RemoveComponent<RigidBodyComponent>(entity);
+        Logger::Info("Removed RigidBodyComponent from entity: " + std::to_string(entity.GetID()));
+    }
+}
+
+void InspectorPanel::RemoveAudioComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && world->HasComponent<AudioComponent>(entity)) {
+        world->RemoveComponent<AudioComponent>(entity);
+        Logger::Info("Removed AudioComponent from entity: " + std::to_string(entity.GetID()));
+    }
+}
+
+void InspectorPanel::RemoveLightComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && world->HasComponent<LightComponent>(entity)) {
+        world->RemoveComponent<LightComponent>(entity);
+        Logger::Info("Removed LightComponent from entity: " + std::to_string(entity.GetID()));
     }
 }
 

@@ -30,6 +30,14 @@ namespace GameEngine {
         void AddAudioComponent(World* world, Entity entity);
         void AddLightComponent(World* world, Entity entity);
         
+        // Component removal methods
+        void RemoveCameraComponent(World* world, Entity entity);
+        void RemoveMovementComponent(World* world, Entity entity);
+        void RemoveMeshComponent(World* world, Entity entity);
+        void RemoveRigidBodyComponent(World* world, Entity entity);
+        void RemoveAudioComponent(World* world, Entity entity);
+        void RemoveLightComponent(World* world, Entity entity);
+        
         Entity m_selectedEntity;
     };
 }

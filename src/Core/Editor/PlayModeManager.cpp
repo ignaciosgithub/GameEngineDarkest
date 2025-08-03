@@ -5,6 +5,7 @@
 #include "../Time/Timer.h"
 #include "../Components/TransformComponent.h"
 #include "../Components/MovementComponent.h"
+#include "../Components/RigidBodyComponent.h"
 #include <GLFW/glfw3.h>
 
 namespace GameEngine {
@@ -93,6 +94,7 @@ namespace GameEngine {
         
         if (m_currentMode == EditorMode::Edit) {
             SaveSceneState();
+            InitializePhysicsFromTransforms();
         }
         
         Timer::Reset();
@@ -238,5 +240,35 @@ namespace GameEngine {
         } else {
             glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
+    }
+    
+    void PlayModeManager::InitializePhysicsFromTransforms() {
+        if (!m_world) {
+            Logger::Error("Cannot initialize physics - World is null");
+            return;
+        }
+        
+        const auto& entities = m_world->GetEntities();
+        int initializedCount = 0;
+        
+        for (const auto& entity : entities) {
+            auto* transformComp = m_world->GetComponent<TransformComponent>(entity);
+            auto* rigidBodyComp = m_world->GetComponent<RigidBodyComponent>(entity);
+            
+            if (transformComp && rigidBodyComp) {
+                RigidBody* rigidBody = rigidBodyComp->GetRigidBody();
+                if (rigidBody) {
+                    Vector3 transformPosition = transformComp->transform.GetPosition();
+                    rigidBody->SetPosition(transformPosition);
+                    
+                    Quaternion transformRotation = transformComp->transform.GetRotation();
+                    rigidBody->SetRotation(transformRotation);
+                    
+                    initializedCount++;
+                }
+            }
+        }
+        
+        Logger::Info("Initialized " + std::to_string(initializedCount) + " RigidBody positions from TransformComponents");
     }
 }

@@ -38,6 +38,7 @@ namespace GameEngine {
         void SaveSceneState();
         void RestoreSceneState();
         void SetCursorMode(bool locked);
+        void InitializePhysicsFromTransforms();
         
         EditorMode m_currentMode = EditorMode::Edit;
         EditorMode m_previousMode = EditorMode::Edit;

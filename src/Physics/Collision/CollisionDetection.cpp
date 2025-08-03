@@ -8,6 +8,7 @@
 #include "../../Core/Math/Matrix4.h"
 #include "../../Core/Math/Quaternion.h"
 #include "../../Core/Logging/Logger.h"
+#include "../../Core/ECS/World.h"
 #include <cmath>
 #include <memory>
 
@@ -30,6 +31,32 @@ Vector3 CollisionDetection::TransformHalfExtents(const Vector3& localHalfExtents
 Matrix4 CollisionDetection::GetOrientationMatrix(const Quaternion& rotation) {
     (void)rotation; // Suppress unused parameter warning
     return Matrix4::Identity();
+}
+
+Vector3 CollisionDetection::GetColliderWorldPosition(ColliderComponent* collider, World* world) {
+    if (!world || !collider) return Vector3::Zero;
+    
+    for (const auto& entity : world->GetEntities()) {
+        auto* entityCollider = world->GetComponent<ColliderComponent>(entity);
+        if (entityCollider == collider) {
+            auto* transform = world->GetComponent<TransformComponent>(entity);
+            return transform ? transform->transform.GetWorldPosition() : Vector3::Zero;
+        }
+    }
+    return Vector3::Zero;
+}
+
+Vector3 CollisionDetection::GetColliderWorldScale(ColliderComponent* collider, World* world) {
+    if (!world || !collider) return Vector3::One;
+    
+    for (const auto& entity : world->GetEntities()) {
+        auto* entityCollider = world->GetComponent<ColliderComponent>(entity);
+        if (entityCollider == collider) {
+            auto* transform = world->GetComponent<TransformComponent>(entity);
+            return transform ? transform->transform.GetWorldScale() : Vector3::One;
+        }
+    }
+    return Vector3::One;
 }
 
 bool CollisionDetection::CheckCollision(RigidBody* bodyA, RigidBody* bodyB) {
@@ -142,7 +169,7 @@ bool CollisionDetection::CheckCollision(RigidBody* bodyA, RigidBody* bodyB, Octr
     return hasCollision;
 }
 // ColliderComponent-only collision detection methods
-bool CollisionDetection::CheckCollision(ColliderComponent* colliderA, ColliderComponent* colliderB, CollisionInfo& info) {
+bool CollisionDetection::CheckCollision(ColliderComponent* colliderA, ColliderComponent* colliderB, CollisionInfo& info, World* world) {
     if (!colliderA || !colliderB || !colliderA->HasCollider() || !colliderB->HasCollider()) {
         return false;
     }
@@ -167,10 +194,10 @@ bool CollisionDetection::CheckCollision(ColliderComponent* colliderA, ColliderCo
         auto sphereA = std::static_pointer_cast<SphereCollider>(shapeA);
         auto sphereB = std::static_pointer_cast<SphereCollider>(shapeB);
         
-        Vector3 posA = Vector3::Zero;
-        Vector3 posB = Vector3::Zero;
-        Vector3 scaleA = Vector3::One;
-        Vector3 scaleB = Vector3::One;
+        Vector3 posA = GetColliderWorldPosition(colliderA, world);
+        Vector3 posB = GetColliderWorldPosition(colliderB, world);
+        Vector3 scaleA = GetColliderWorldScale(colliderA, world);
+        Vector3 scaleB = GetColliderWorldScale(colliderB, world);
         
         float radiusA = TransformRadius(sphereA->GetRadius(), scaleA);
         float radiusB = TransformRadius(sphereB->GetRadius(), scaleB);
@@ -197,10 +224,10 @@ bool CollisionDetection::CheckCollision(ColliderComponent* colliderA, ColliderCo
         auto boxA = std::static_pointer_cast<BoxCollider>(shapeA);
         auto boxB = std::static_pointer_cast<BoxCollider>(shapeB);
         
-        Vector3 posA = Vector3::Zero;
-        Vector3 posB = Vector3::Zero;
-        Vector3 scaleA = Vector3::One;
-        Vector3 scaleB = Vector3::One;
+        Vector3 posA = GetColliderWorldPosition(colliderA, world);
+        Vector3 posB = GetColliderWorldPosition(colliderB, world);
+        Vector3 scaleA = GetColliderWorldScale(colliderA, world);
+        Vector3 scaleB = GetColliderWorldScale(colliderB, world);
         
         Vector3 sizeA = TransformHalfExtents(boxA->GetHalfExtents(), scaleA) * 2.0f;
         Vector3 sizeB = TransformHalfExtents(boxB->GetHalfExtents(), scaleB) * 2.0f;
@@ -242,7 +269,7 @@ bool CollisionDetection::CheckCollision(ColliderComponent* colliderA, ColliderCo
     return hasCollision;
 }
 
-bool CollisionDetection::CheckCollision(RigidBody* rigidBody, ColliderComponent* collider, CollisionInfo& info) {
+bool CollisionDetection::CheckCollision(RigidBody* rigidBody, ColliderComponent* collider, CollisionInfo& info, World* world) {
     if (!rigidBody || !collider || !collider->HasCollider()) {
         return false;
     }
@@ -272,10 +299,10 @@ bool CollisionDetection::CheckCollision(RigidBody* rigidBody, ColliderComponent*
         auto sphereB = std::static_pointer_cast<SphereCollider>(shapeB);
         
         Vector3 posA = rigidBody->GetPosition();
-        Vector3 posB = Vector3::Zero; // TODO: Get from ColliderComponent's entity TransformComponent
+        Vector3 posB = GetColliderWorldPosition(collider, world);
         
         Vector3 scaleA = rigidBody->GetTransformComponent() ? rigidBody->GetTransformComponent()->transform.GetWorldScale() : Vector3::One;
-        Vector3 scaleB = Vector3::One; // TODO: Get from ColliderComponent's entity TransformComponent
+        Vector3 scaleB = GetColliderWorldScale(collider, world);
         
         float radiusA = TransformRadius(sphereA->GetRadius(), scaleA);
         float radiusB = TransformRadius(sphereB->GetRadius(), scaleB);
@@ -303,8 +330,8 @@ bool CollisionDetection::CheckCollision(RigidBody* rigidBody, ColliderComponent*
     return hasCollision;
 }
 
-bool CollisionDetection::CheckCollision(ColliderComponent* collider, RigidBody* rigidBody, CollisionInfo& info) {
-    bool result = CheckCollision(rigidBody, collider, info);
+bool CollisionDetection::CheckCollision(ColliderComponent* collider, RigidBody* rigidBody, CollisionInfo& info, World* world) {
+    bool result = CheckCollision(rigidBody, collider, info, world);
     
     if (result) {
         std::swap(info.bodyA, info.bodyB);

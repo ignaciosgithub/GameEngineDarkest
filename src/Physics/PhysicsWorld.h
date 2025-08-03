@@ -16,6 +16,7 @@ namespace GameEngine {
     class PhysicsWorld {
     public:
         PhysicsWorld();
+        PhysicsWorld(World* world);
         ~PhysicsWorld();
         
         void Initialize();
@@ -83,5 +84,7 @@ namespace GameEngine {
         int m_maxPhysicsStepsPerFrame = 5; // Prevent spiral of death
         
         bool m_initialized = false;
+        
+        World* m_world = nullptr;
     };
 }

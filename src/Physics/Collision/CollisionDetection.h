@@ -8,6 +8,7 @@ namespace GameEngine {
     class RigidBody;
     class ColliderComponent;
     class Octree;
+    class World;
     struct CollisionInfo;
     
     class CollisionDetection {
@@ -18,9 +19,9 @@ namespace GameEngine {
         static bool CheckCollision(RigidBody* bodyA, RigidBody* bodyB, Octree* octree, CollisionInfo& info);
         
         // ColliderComponent-only collision detection
-        static bool CheckCollision(ColliderComponent* colliderA, ColliderComponent* colliderB, CollisionInfo& info);
-        static bool CheckCollision(RigidBody* rigidBody, ColliderComponent* collider, CollisionInfo& info);
-        static bool CheckCollision(ColliderComponent* collider, RigidBody* rigidBody, CollisionInfo& info);
+        static bool CheckCollision(ColliderComponent* colliderA, ColliderComponent* colliderB, CollisionInfo& info, World* world);
+        static bool CheckCollision(RigidBody* rigidBody, ColliderComponent* collider, CollisionInfo& info, World* world);
+        static bool CheckCollision(ColliderComponent* collider, RigidBody* rigidBody, CollisionInfo& info, World* world);
         
         static bool SphereVsSphere(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info);
         static bool BoxVsBox(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info);
@@ -38,6 +39,10 @@ namespace GameEngine {
         static float TransformRadius(float localRadius, const Vector3& scale);
         static Vector3 TransformHalfExtents(const Vector3& localHalfExtents, const Vector3& scale);
         static Matrix4 GetOrientationMatrix(const Quaternion& rotation);
+        
+        // Helper methods for ColliderComponent world coordinates
+        static Vector3 GetColliderWorldPosition(ColliderComponent* collider, World* world);
+        static Vector3 GetColliderWorldScale(ColliderComponent* collider, World* world);
         
     public:
         static void ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, const CollisionInfo& info);

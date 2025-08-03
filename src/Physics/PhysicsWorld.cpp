@@ -10,6 +10,8 @@ namespace GameEngine {
 
 PhysicsWorld::PhysicsWorld() = default;
 
+PhysicsWorld::PhysicsWorld(World* world) : m_world(world) {}
+
 PhysicsWorld::~PhysicsWorld() {
     Shutdown();
 }
@@ -161,7 +163,7 @@ void PhysicsWorld::DetectCollisions() {
         for (ColliderComponent* collider : m_staticColliders) {
             if (rigidBody && collider) {
                 CollisionInfo info;
-                if (CollisionDetection::CheckCollision(rigidBody, collider, info)) {
+                if (CollisionDetection::CheckCollision(rigidBody, collider, info, m_world)) {
                     m_collisions.push_back(info);
                     m_collisionCount++;
                 }
@@ -176,7 +178,7 @@ void PhysicsWorld::DetectCollisions() {
             
             if (colliderA && colliderB) {
                 CollisionInfo info;
-                if (CollisionDetection::CheckCollision(colliderA, colliderB, info)) {
+                if (CollisionDetection::CheckCollision(colliderA, colliderB, info, m_world)) {
                     m_collisions.push_back(info);
                     m_collisionCount++;
                 }

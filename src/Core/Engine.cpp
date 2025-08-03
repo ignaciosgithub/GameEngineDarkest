@@ -99,7 +99,7 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     DebugRenderer::Initialize();
     Logger::Info("Debug renderer initialized for gizmo rendering");
 
-    m_physicsWorld = std::make_unique<PhysicsWorld>();
+    m_physicsWorld = std::make_unique<PhysicsWorld>(m_world.get());
     m_physicsWorld->Initialize();
     m_world->SetPhysicsWorld(m_physicsWorld.get());
 

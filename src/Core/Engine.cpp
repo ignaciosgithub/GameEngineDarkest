@@ -14,6 +14,7 @@
 #include "Components/MeshComponent.h"
 #include "Systems/CameraSystem.h"
 #include "Systems/MovementSystem.h"
+#include "Systems/PhysicsSystem.h"
 #include "Scenes/TestSceneManager.h"
 #include "Scripting/External/ExternalScriptManager.h"
 #include "Project/ProjectManager.h"
@@ -120,6 +121,7 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
 
     m_world->AddSystem<CameraSystem>();
     m_world->AddSystem<MovementSystem>(m_inputManager.get(), m_window.get(), m_playModeManager.get());
+    m_world->AddSystem<PhysicsSystem>(m_playModeManager.get());
 
     m_testSceneManager = std::make_unique<TestSceneManager>(m_world.get(), m_renderManager.get());
     Logger::Info("Test scene manager initialized");
@@ -178,6 +180,9 @@ void Engine::Update(float deltaTime) {
 
     if (m_physicsWorld && m_playModeManager && m_playModeManager->IsInPlayMode()) {
         m_physicsWorld->Update(deltaTime);
+        if (auto* physicsSystem = m_world->GetSystem<PhysicsSystem>()) {
+            physicsSystem->OnUpdate(m_world.get(), deltaTime);
+        }
     }
 
     if (m_playModeManager) {

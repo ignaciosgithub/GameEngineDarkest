@@ -19,6 +19,7 @@ add_library(Core STATIC
     Components/AudioComponent.cpp
     Systems/CameraSystem.cpp
     Systems/MovementSystem.cpp
+    Systems/PhysicsSystem.cpp
     Scenes/TestSceneManager.cpp
     Scenes/Scene.cpp
     GameObject/GameObject.cpp

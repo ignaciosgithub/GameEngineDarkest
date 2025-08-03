@@ -44,6 +44,12 @@ namespace GameEngine {
         const std::vector<Vertex>& GetVertices() const { return m_vertices; }
         const std::vector<unsigned int>& GetIndices() const { return m_indices; }
         
+        // Collision generation helpers
+        void GetBoundingBox(Vector3& min, Vector3& max) const;
+        void GetVertexPositions(std::vector<Vector3>& positions) const;
+        Vector3 GetCenterOfMass() const;
+        float GetBoundingSphereRadius() const;
+        
         // Static mesh creation helpers
         static Mesh CreateCube(float size = 1.0f);
         static Mesh CreateSphere(float radius = 1.0f, int segments = 32);

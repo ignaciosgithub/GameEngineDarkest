@@ -1,5 +1,7 @@
 #include "CollisionDetection.h"
 #include "../RigidBody/RigidBody.h"
+#include "../../Core/Components/ColliderComponent.h"
+#include "../Colliders/ColliderShape.h"
 #include "../../Core/Math/Vector3.h"
 #include "../../Core/Logging/Logger.h"
 #include <cmath>
@@ -9,17 +11,30 @@ namespace GameEngine {
 bool CollisionDetection::CheckCollision(RigidBody* bodyA, RigidBody* bodyB) {
     if (!bodyA || !bodyB) return false;
     
+    ColliderComponent* colliderA = bodyA->GetColliderComponent();
+    ColliderComponent* colliderB = bodyB->GetColliderComponent();
+    
+    if (!colliderA || !colliderB || !colliderA->HasCollider() || !colliderB->HasCollider()) {
+        return false;
+    }
+    
     CollisionInfo info;
     bool hasCollision = false;
     
-    if (bodyA->GetColliderType() == ColliderType::Sphere && bodyB->GetColliderType() == ColliderType::Sphere) {
+    auto shapeA = colliderA->GetColliderShape();
+    auto shapeB = colliderB->GetColliderShape();
+    
+    ColliderShapeType typeA = shapeA->GetType();
+    ColliderShapeType typeB = shapeB->GetType();
+    
+    if (typeA == ColliderShapeType::Sphere && typeB == ColliderShapeType::Sphere) {
         hasCollision = SphereVsSphere(bodyA, bodyB, info);
     }
-    else if (bodyA->GetColliderType() == ColliderType::Box && bodyB->GetColliderType() == ColliderType::Box) {
+    else if (typeA == ColliderShapeType::Box && typeB == ColliderShapeType::Box) {
         hasCollision = BoxVsBox(bodyA, bodyB, info);
     }
-    else if ((bodyA->GetColliderType() == ColliderType::Sphere && bodyB->GetColliderType() == ColliderType::Box) ||
-             (bodyA->GetColliderType() == ColliderType::Box && bodyB->GetColliderType() == ColliderType::Sphere)) {
+    else if ((typeA == ColliderShapeType::Sphere && typeB == ColliderShapeType::Box) ||
+             (typeA == ColliderShapeType::Box && typeB == ColliderShapeType::Sphere)) {
         hasCollision = SphereVsBox(bodyA, bodyB, info);
     }
     
@@ -34,8 +49,11 @@ bool CollisionDetection::SphereVsSphere(RigidBody* bodyA, RigidBody* bodyB, Coll
     Vector3 posA = bodyA->GetPosition();
     Vector3 posB = bodyB->GetPosition();
     
-    float radiusA = bodyA->GetColliderSize().x; // Assuming x component is radius
-    float radiusB = bodyB->GetColliderSize().x;
+    auto sphereA = std::static_pointer_cast<SphereCollider>(bodyA->GetColliderComponent()->GetColliderShape());
+    auto sphereB = std::static_pointer_cast<SphereCollider>(bodyB->GetColliderComponent()->GetColliderShape());
+    
+    float radiusA = sphereA->GetRadius();
+    float radiusB = sphereB->GetRadius();
     
     Vector3 direction = posB - posA;
     float distance = direction.Length();
@@ -61,8 +79,12 @@ bool CollisionDetection::SphereVsSphere(RigidBody* bodyA, RigidBody* bodyB, Coll
 bool CollisionDetection::BoxVsBox(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info) {
     Vector3 posA = bodyA->GetPosition();
     Vector3 posB = bodyB->GetPosition();
-    Vector3 sizeA = bodyA->GetColliderSize();
-    Vector3 sizeB = bodyB->GetColliderSize();
+    
+    auto boxA = std::static_pointer_cast<BoxCollider>(bodyA->GetColliderComponent()->GetColliderShape());
+    auto boxB = std::static_pointer_cast<BoxCollider>(bodyB->GetColliderComponent()->GetColliderShape());
+    
+    Vector3 sizeA = boxA->GetHalfExtents() * 2.0f;
+    Vector3 sizeB = boxB->GetHalfExtents() * 2.0f;
     
     Vector3 minA = posA - sizeA * 0.5f;
     Vector3 maxA = posA + sizeA * 0.5f;
@@ -100,13 +122,19 @@ bool CollisionDetection::BoxVsBox(RigidBody* bodyA, RigidBody* bodyB, CollisionI
 }
 
 bool CollisionDetection::SphereVsBox(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info) {
-    RigidBody* sphere = (bodyA->GetColliderType() == ColliderType::Sphere) ? bodyA : bodyB;
-    RigidBody* box = (bodyA->GetColliderType() == ColliderType::Box) ? bodyA : bodyB;
+    auto shapeA = bodyA->GetColliderComponent()->GetColliderShape();
+    auto shapeB = bodyB->GetColliderComponent()->GetColliderShape();
+    
+    RigidBody* sphere = (shapeA->GetType() == ColliderShapeType::Sphere) ? bodyA : bodyB;
+    RigidBody* box = (shapeA->GetType() == ColliderShapeType::Box) ? bodyA : bodyB;
+    
+    auto sphereCollider = std::static_pointer_cast<SphereCollider>(sphere->GetColliderComponent()->GetColliderShape());
+    auto boxCollider = std::static_pointer_cast<BoxCollider>(box->GetColliderComponent()->GetColliderShape());
     
     Vector3 spherePos = sphere->GetPosition();
     Vector3 boxPos = box->GetPosition();
-    Vector3 boxSize = box->GetColliderSize();
-    float sphereRadius = sphere->GetColliderSize().x;
+    Vector3 boxSize = boxCollider->GetHalfExtents() * 2.0f;
+    float sphereRadius = sphereCollider->GetRadius();
     
     Vector3 boxMin = boxPos - boxSize * 0.5f;
     Vector3 boxMax = boxPos + boxSize * 0.5f;

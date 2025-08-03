@@ -3,6 +3,7 @@
 #include "../../Core/Math/Vector3.h"
 #include "../../Core/Math/Quaternion.h"
 #include <memory>
+#include <vector>
 
 namespace GameEngine {
     enum class ColliderShapeType {
@@ -102,5 +103,42 @@ namespace GameEngine {
     private:
         Vector3 m_normal;
         float m_distance;
+    };
+    
+    class ConvexHullCollider : public ColliderShape {
+    public:
+        ConvexHullCollider(const std::vector<Vector3>& vertices) 
+            : ColliderShape(ColliderShapeType::ConvexHull), m_vertices(vertices) {}
+        
+        const std::vector<Vector3>& GetVertices() const { return m_vertices; }
+        void SetVertices(const std::vector<Vector3>& vertices) { m_vertices = vertices; }
+        
+        Vector3 GetSupportPoint(const Vector3& direction) const override;
+        void GetAABB(const Vector3& position, const Quaternion& rotation, Vector3& min, Vector3& max) const override;
+        float GetVolume() const override;
+        Vector3 GetCenterOfMass() const override;
+        
+    private:
+        std::vector<Vector3> m_vertices;
+    };
+    
+    class TriangleMeshCollider : public ColliderShape {
+    public:
+        TriangleMeshCollider(const std::vector<Vector3>& vertices, const std::vector<unsigned int>& indices) 
+            : ColliderShape(ColliderShapeType::TriangleMesh), m_vertices(vertices), m_indices(indices) {}
+        
+        const std::vector<Vector3>& GetVertices() const { return m_vertices; }
+        const std::vector<unsigned int>& GetIndices() const { return m_indices; }
+        void SetVertices(const std::vector<Vector3>& vertices) { m_vertices = vertices; }
+        void SetIndices(const std::vector<unsigned int>& indices) { m_indices = indices; }
+        
+        Vector3 GetSupportPoint(const Vector3& direction) const override;
+        void GetAABB(const Vector3& position, const Quaternion& rotation, Vector3& min, Vector3& max) const override;
+        float GetVolume() const override;
+        Vector3 GetCenterOfMass() const override;
+        
+    private:
+        std::vector<Vector3> m_vertices;
+        std::vector<unsigned int> m_indices;
     };
 }

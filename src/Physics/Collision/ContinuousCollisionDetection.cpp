@@ -1,5 +1,7 @@
 #include "ContinuousCollisionDetection.h"
 #include "../RigidBody/RigidBody.h"
+#include "../../Core/Components/ColliderComponent.h"
+#include "../Colliders/ColliderShape.h"
 #include "../../Core/Logging/Logger.h"
 #include <cmath>
 #include <algorithm>
@@ -20,10 +22,23 @@ bool ContinuousCollisionDetection::CheckContinuousCollision(RigidBody* bodyA, Ri
         return false; // Use discrete collision detection for slow objects
     }
     
-    if (bodyA->GetColliderType() == ColliderType::Sphere && bodyB->GetColliderType() == ColliderType::Sphere) {
+    ColliderComponent* colliderA = bodyA->GetColliderComponent();
+    ColliderComponent* colliderB = bodyB->GetColliderComponent();
+    
+    if (!colliderA || !colliderB || !colliderA->HasCollider() || !colliderB->HasCollider()) {
+        return false;
+    }
+    
+    auto shapeA = colliderA->GetColliderShape();
+    auto shapeB = colliderB->GetColliderShape();
+    
+    ColliderShapeType typeA = shapeA->GetType();
+    ColliderShapeType typeB = shapeB->GetType();
+    
+    if (typeA == ColliderShapeType::Sphere && typeB == ColliderShapeType::Sphere) {
         return SphereSphereSwept(bodyA, bodyB, deltaTime, info);
     }
-    else if (bodyA->GetColliderType() == ColliderType::Box && bodyB->GetColliderType() == ColliderType::Box) {
+    else if (typeA == ColliderShapeType::Box && typeB == ColliderShapeType::Box) {
         return BoxBoxSwept(bodyA, bodyB, deltaTime, info);
     }
     
@@ -47,8 +62,11 @@ bool ContinuousCollisionDetection::SphereSphereSwept(RigidBody* bodyA, RigidBody
     Vector3 velA = bodyA->GetVelocity();
     Vector3 velB = bodyB->GetVelocity();
     
-    float radiusA = bodyA->GetColliderSize().x;
-    float radiusB = bodyB->GetColliderSize().x;
+    auto sphereA = std::static_pointer_cast<SphereCollider>(bodyA->GetColliderComponent()->GetColliderShape());
+    auto sphereB = std::static_pointer_cast<SphereCollider>(bodyB->GetColliderComponent()->GetColliderShape());
+    
+    float radiusA = sphereA->GetRadius();
+    float radiusB = sphereB->GetRadius();
     float combinedRadius = radiusA + radiusB;
     
     Vector3 relativePos = posA - posB;
@@ -99,8 +117,11 @@ bool ContinuousCollisionDetection::BoxBoxSwept(RigidBody* bodyA, RigidBody* body
     Vector3 posB = bodyB->GetPosition();
     Vector3 velA = bodyA->GetVelocity();
     Vector3 velB = bodyB->GetVelocity();
-    Vector3 sizeA = bodyA->GetColliderSize();
-    Vector3 sizeB = bodyB->GetColliderSize();
+    auto boxA = std::static_pointer_cast<BoxCollider>(bodyA->GetColliderComponent()->GetColliderShape());
+    auto boxB = std::static_pointer_cast<BoxCollider>(bodyB->GetColliderComponent()->GetColliderShape());
+    
+    Vector3 sizeA = boxA->GetHalfExtents() * 2.0f;
+    Vector3 sizeB = boxB->GetHalfExtents() * 2.0f;
     
     Vector3 expandedSize = sizeA + sizeB;
     Vector3 minB = posB - expandedSize * 0.5f;
@@ -169,10 +190,17 @@ bool ContinuousCollisionDetection::RaycastAgainstBody(const Vector3& rayStart, c
     rayDir = rayDir / rayLength;
     
     Vector3 bodyPos = body->GetPosition();
-    Vector3 bodySize = body->GetColliderSize();
     
-    if (body->GetColliderType() == ColliderType::Sphere) {
-        float radius = bodySize.x;
+    ColliderComponent* collider = body->GetColliderComponent();
+    if (!collider || !collider->HasCollider()) {
+        return false;
+    }
+    
+    auto shape = collider->GetColliderShape();
+    
+    if (shape->GetType() == ColliderShapeType::Sphere) {
+        auto sphereCollider = std::static_pointer_cast<SphereCollider>(shape);
+        float radius = sphereCollider->GetRadius();
         Vector3 toSphere = rayStart - bodyPos;
         
         float a = rayDir.Dot(rayDir);

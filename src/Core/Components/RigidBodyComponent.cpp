@@ -1,4 +1,5 @@
 #include "RigidBodyComponent.h"
+#include "ColliderComponent.h"
 #include "../../Physics/PhysicsWorld.h"
 
 namespace GameEngine {
@@ -29,6 +30,14 @@ void RigidBodyComponent::SetPhysicsWorld(PhysicsWorld* physicsWorld) {
     
     if (m_physicsWorld && m_rigidBody) {
         m_physicsWorld->AddRigidBody(m_rigidBody.get());
+    }
+}
+
+void RigidBodyComponent::SetColliderComponent(ColliderComponent* colliderComponent) {
+    m_colliderComponent = colliderComponent;
+    
+    if (m_rigidBody) {
+        m_rigidBody->SetColliderComponent(colliderComponent);
     }
 }
 

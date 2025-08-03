@@ -13,6 +13,7 @@ namespace GameEngine {
     class TestSceneManager;
     class EngineUI;
     class PlayModeManager;
+    class SelectionManager;
 
     class Engine {
     public:
@@ -50,6 +51,7 @@ namespace GameEngine {
         std::unique_ptr<TestSceneManager> m_testSceneManager;
         std::unique_ptr<EngineUI> m_engineUI;
         std::unique_ptr<PlayModeManager> m_playModeManager;
+        std::unique_ptr<SelectionManager> m_selectionManager;
 
         bool m_isRunning = false;
     };

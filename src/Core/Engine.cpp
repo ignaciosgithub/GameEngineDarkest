@@ -6,6 +6,7 @@
 #include "Logging/Logger.h"
 #include "Time/Timer.h"
 #include "Editor/PlayModeManager.h"
+#include "Editor/SelectionManager.h"
 #include "Components/TransformComponent.h"
 #include "Components/CameraComponent.h"
 #include "Components/MovementComponent.h"
@@ -20,6 +21,7 @@
 #include "../Rendering/RenderManager.h"
 #include "../Rendering/Meshes/Mesh.h"
 #include "../Rendering/Lighting/Light.h"
+#include "../Rendering/Debug/DebugRenderer.h"
 #include "../Physics/PhysicsWorld.h"
 #include "../UI/EngineUI.h"
 #include "../UI/Panels/ViewportPanel.h"
@@ -92,6 +94,9 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
         return false;
     }
     Logger::Info("Render manager initialized with multiple pipelines");
+    
+    DebugRenderer::Initialize();
+    Logger::Info("Debug renderer initialized for gizmo rendering");
 
     m_physicsWorld = std::make_unique<PhysicsWorld>();
     m_world->SetPhysicsWorld(m_physicsWorld.get());
@@ -105,9 +110,13 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
 
     m_playModeManager = std::make_unique<PlayModeManager>();
     m_playModeManager->Initialize(m_world.get(), m_window.get());
+    
+    m_selectionManager = std::make_unique<SelectionManager>();
+    
     m_engineUI->SetPlayModeManager(m_playModeManager.get());
     m_engineUI->SetPhysicsWorld(m_physicsWorld.get());
-    Logger::Info("Play Mode Manager initialized successfully");
+    m_engineUI->SetSelectionManager(m_selectionManager.get());
+    Logger::Info("Play Mode Manager and Selection Manager initialized successfully");
 
     m_world->AddSystem<CameraSystem>();
     m_world->AddSystem<MovementSystem>(m_inputManager.get(), m_window.get(), m_playModeManager.get());
@@ -173,6 +182,10 @@ void Engine::Update(float deltaTime) {
 
     if (m_playModeManager) {
         m_playModeManager->Update(deltaTime);
+    }
+    
+    if (m_selectionManager) {
+        m_selectionManager->Update(m_world.get());
     }
 
     ExternalScriptManager::Instance().CheckForScriptChanges();
@@ -243,6 +256,28 @@ void Engine::Render() {
 
     m_renderManager->BeginFrame(renderData);
     m_renderManager->Render(m_world.get());
+    
+    if (m_selectionManager && m_selectionManager->HasSelection() && m_playModeManager && !m_playModeManager->IsInPlayMode()) {
+        Entity selectedEntity = m_selectionManager->GetSelectedEntity();
+        if (selectedEntity.IsValid()) {
+            auto* transform = m_world->GetComponent<TransformComponent>(selectedEntity);
+            auto* mesh = m_world->GetComponent<MeshComponent>(selectedEntity);
+            
+            if (transform) {
+                Vector3 position = transform->transform.GetPosition();
+                Vector3 objectSize = Vector3(1.0f, 1.0f, 1.0f); // Default size
+                
+                if (mesh && mesh->HasMesh()) {
+                    objectSize = Vector3(2.0f, 2.0f, 2.0f);
+                }
+                
+                DebugRenderer::RenderSelectionOutline(position, objectSize, Vector3(1.0f, 1.0f, 0.0f));
+                
+                DebugRenderer::RenderMovementGizmo(position, objectSize);
+            }
+        }
+    }
+    
     m_renderManager->EndFrame();
 
     if (m_engineUI) {
@@ -299,6 +334,7 @@ void Engine::CreateDemoScene() {
 void Engine::Shutdown() {
     Logger::Info("Shutting down Game Engine...");
     
+    DebugRenderer::Shutdown();
     ExternalScriptManager::Instance().Shutdown();
     
     m_engineUI.reset();

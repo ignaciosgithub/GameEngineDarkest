@@ -12,7 +12,9 @@ namespace GameEngine {
     class CollisionDetection {
     public:
         static bool CheckCollision(RigidBody* bodyA, RigidBody* bodyB);
+        static bool CheckCollision(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info);
         static bool CheckCollision(RigidBody* bodyA, RigidBody* bodyB, Octree* octree);
+        static bool CheckCollision(RigidBody* bodyA, RigidBody* bodyB, Octree* octree, CollisionInfo& info);
         
         static bool SphereVsSphere(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info);
         static bool BoxVsBox(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info);
@@ -31,7 +33,7 @@ namespace GameEngine {
         static Vector3 TransformHalfExtents(const Vector3& localHalfExtents, const Vector3& scale);
         static Matrix4 GetOrientationMatrix(const Quaternion& rotation);
         
-    private:
+    public:
         static void ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, const CollisionInfo& info);
     };
     
@@ -40,5 +42,7 @@ namespace GameEngine {
         Vector3 contactPoint;
         Vector3 normal;
         float penetration = 0.0f;
+        RigidBody* bodyA = nullptr;
+        RigidBody* bodyB = nullptr;
     };
 }

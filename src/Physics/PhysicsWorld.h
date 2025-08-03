@@ -3,6 +3,7 @@
 #include <vector>
 #include <memory>
 #include "../Core/Math/Vector3.h"
+#include "Collision/CollisionDetection.h"
 
 namespace GameEngine {
     class RigidBody;
@@ -57,6 +58,10 @@ namespace GameEngine {
     private:
         std::vector<RigidBody*> m_rigidBodies;
         Vector3 m_gravity = Vector3(0.0f, -9.81f, 0.0f);
+        
+        // Collision storage (following PhysicsWorld2D pattern)
+        std::vector<CollisionInfo> m_collisions;
+        int m_collisionCount = 0;
         
         // Spatial partitioning
         std::unique_ptr<Octree> m_octree;

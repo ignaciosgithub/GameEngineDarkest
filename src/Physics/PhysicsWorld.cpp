@@ -122,17 +122,24 @@ void PhysicsWorld::RemoveRigidBody(RigidBody* rigidBody) {
 }
 
 void PhysicsWorld::DetectCollisions() {
+    m_collisions.clear();
+    m_collisionCount = 0;
+    
     if (m_useSpatialPartitioning && m_octree) {
         std::vector<std::pair<RigidBody*, RigidBody*>> collisionPairs;
         m_octree->GetCollisionPairs(collisionPairs);
         
         for (const auto& pair : collisionPairs) {
             if (pair.first && pair.second) {
-                CollisionDetection::CheckCollision(pair.first, pair.second);
+                CollisionInfo info;
+                if (CollisionDetection::CheckCollision(pair.first, pair.second, info)) {
+                    m_collisions.push_back(info);
+                    m_collisionCount++;
+                }
             }
         }
         
-        Logger::Debug("Spatial partitioning detected " + std::to_string(collisionPairs.size()) + " potential collision pairs");
+        Logger::Debug("Spatial partitioning detected " + std::to_string(m_collisionCount) + " actual collisions");
     } else {
         for (size_t i = 0; i < m_rigidBodies.size(); ++i) {
             for (size_t j = i + 1; j < m_rigidBodies.size(); ++j) {
@@ -140,7 +147,11 @@ void PhysicsWorld::DetectCollisions() {
                 RigidBody* bodyB = m_rigidBodies[j];
                 
                 if (bodyA && bodyB) {
-                    CollisionDetection::CheckCollision(bodyA, bodyB);
+                    CollisionInfo info;
+                    if (CollisionDetection::CheckCollision(bodyA, bodyB, info)) {
+                        m_collisions.push_back(info);
+                        m_collisionCount++;
+                    }
                 }
             }
         }
@@ -148,6 +159,11 @@ void PhysicsWorld::DetectCollisions() {
 }
 
 void PhysicsWorld::ResolveCollisions() {
+    for (const auto& collision : m_collisions) {
+        if (collision.hasCollision && collision.bodyA && collision.bodyB) {
+            CollisionDetection::ResolveCollision(collision.bodyA, collision.bodyB, collision);
+        }
+    }
 }
 
 void PhysicsWorld::IntegrateVelocities(float deltaTime) {

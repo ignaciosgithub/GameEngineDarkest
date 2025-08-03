@@ -95,6 +95,10 @@ namespace GameEngine {
         void SetColliderComponent(class ColliderComponent* colliderComponent);
         class ColliderComponent* GetColliderComponent() const { return m_colliderComponent; }
         
+        // Transform component integration
+        void SetTransformComponent(class TransformComponent* transformComponent);
+        class TransformComponent* GetTransformComponent() const { return m_transformComponent; }
+        
         // Integration
         void IntegrateVelocity(float deltaTime);
         void IntegratePosition(float deltaTime);
@@ -138,5 +142,8 @@ namespace GameEngine {
         
         // Collider component reference
         class ColliderComponent* m_colliderComponent = nullptr;
+        
+        // Transform component reference for coordinate transformation
+        class TransformComponent* m_transformComponent = nullptr;
     };
 }

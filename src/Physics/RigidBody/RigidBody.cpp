@@ -1,6 +1,7 @@
 #include "RigidBody.h"
 #include "../Materials/PhysicsMaterial.h"
 #include "../../Core/Components/ColliderComponent.h"
+#include "../../Core/Components/TransformComponent.h"
 #include "../../Core/Logging/Logger.h"
 #include <algorithm>
 
@@ -131,6 +132,10 @@ Vector3 RigidBody::GetPointVelocity(const Vector3& worldPoint) const {
 
 void RigidBody::SetColliderComponent(ColliderComponent* colliderComponent) {
     m_colliderComponent = colliderComponent;
+}
+
+void RigidBody::SetTransformComponent(class TransformComponent* transformComponent) {
+    m_transformComponent = transformComponent;
 }
 
 }

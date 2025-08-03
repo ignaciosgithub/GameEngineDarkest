@@ -26,6 +26,8 @@
 
 namespace GameEngine {
 
+const int DeferredRenderPipeline::SHADOW_MAP_SIZE;
+
 DeferredRenderPipeline::DeferredRenderPipeline() = default;
 DeferredRenderPipeline::~DeferredRenderPipeline() = default;
 
@@ -72,6 +74,7 @@ void DeferredRenderPipeline::BeginFrame(const RenderData& renderData) {
 }
 
 void DeferredRenderPipeline::Render(World* world) {
+    ShadowPass(world);
     GeometryPass(world);
     LightingPass(world);
     CompositePass();
@@ -140,6 +143,9 @@ void DeferredRenderPipeline::CreateGBuffer() {
     
     m_lightingBuffer = std::make_unique<FrameBuffer>(m_width, m_height);
     m_lightingBuffer->AddColorAttachment(TextureFormat::RGBA16F);
+    
+    m_shadowMapBuffer = std::make_unique<FrameBuffer>(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+    m_shadowMapBuffer->AddDepthAttachment(TextureFormat::Depth24);
 }
 
 void DeferredRenderPipeline::CreateShaders() {
@@ -216,6 +222,7 @@ void DeferredRenderPipeline::CreateShaders() {
         uniform sampler2D gAlbedoMetallic;
         uniform sampler2D gNormalRoughness;
         uniform sampler2D gPosition;
+        uniform sampler2D shadowMap;
         
         uniform int numLights;
         uniform vec3 lightPositions[32];
@@ -224,6 +231,23 @@ void DeferredRenderPipeline::CreateShaders() {
         uniform int lightTypes[32];
         uniform float lightRanges[32];
         uniform vec3 viewPos;
+        uniform vec3 viewPos;
+        uniform mat4 lightSpaceMatrix;
+        
+        float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir) {
+            vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+            projCoords = projCoords * 0.5 + 0.5;
+            
+            if(projCoords.z > 1.0) return 0.0;
+            
+            float closestDepth = texture(shadowMap, projCoords.xy).r;
+            float currentDepth = projCoords.z;
+            
+            float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+            float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+            
+            return shadow;
+        }
         
         void main() {
             vec4 albedoMetallic = texture(gAlbedoMetallic, TexCoord);
@@ -248,6 +272,10 @@ void DeferredRenderPipeline::CreateShaders() {
                 
                 if(lightTypes[i] == 0) {
                     vec3 lightDir = normalize(-lightPositions[i]);
+                    
+                    vec4 fragPosLightSpace = lightSpaceMatrix * vec4(fragPos, 1.0);
+                    float shadow = ShadowCalculation(fragPosLightSpace, normal, lightDir);
+                    
                     float diff = max(dot(normal, lightDir), 0.0);
                     vec3 diffuse = diff * lightColors[i] * lightIntensities[i] * albedo;
                     
@@ -255,7 +283,7 @@ void DeferredRenderPipeline::CreateShaders() {
                     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
                     vec3 specular = spec * lightColors[i] * lightIntensities[i];
                     
-                    lightContribution = diffuse + specular;
+                    lightContribution = (diffuse + specular) * (1.0 - shadow);
                 } else if(lightTypes[i] == 1) {
                     vec3 lightDir = normalize(lightPositions[i] - fragPos);
                     float distance = length(lightPositions[i] - fragPos);
@@ -318,6 +346,46 @@ void DeferredRenderPipeline::CreateShaders() {
     m_compositeShader->LoadFromSource(compositeVertexSource, compositeFragmentSource);
     
     Logger::Info("Created complete deferred rendering shaders with lighting and composite passes");
+}
+
+void DeferredRenderPipeline::ShadowPass(World* world) {
+    if (!m_shadowMapBuffer) return;
+    
+    m_shadowMapBuffer->Bind();
+    glViewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    
+    LightManager lightManager;
+    lightManager.CollectLights(world);
+    
+    auto lights = lightManager.GetActiveLights();
+    if (!lights.empty() && lights[0]->GetType() == LightType::Directional) {
+        Vector3 lightDir = lights[0]->GetDirection().Normalized();
+        Vector3 lightPos = Vector3(0, 10, 0) - lightDir * 10.0f;
+        
+        Matrix4 lightView = Matrix4::LookAt(lightPos, Vector3(0, 0, 0), Vector3(0, 1, 0));
+        Matrix4 lightProjection = Matrix4::Orthographic(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 20.0f);
+        
+        if (m_geometryShader) {
+            m_geometryShader->Use();
+            m_geometryShader->SetMatrix4("uView", lightView);
+            m_geometryShader->SetMatrix4("uProjection", lightProjection);
+            
+            static Mesh cubeMesh = Mesh::CreateCube(1.0f);
+            for (const auto& entity : world->GetEntities()) {
+                if (world->HasComponent<TransformComponent>(entity)) {
+                    auto* transformComp = world->GetComponent<TransformComponent>(entity);
+                    if (transformComp) {
+                        Matrix4 modelMatrix = transformComp->transform.GetLocalToWorldMatrix();
+                        m_geometryShader->SetMatrix4("uModel", modelMatrix);
+                        cubeMesh.Draw();
+                    }
+                }
+            }
+        }
+    }
+    
+    m_shadowMapBuffer->Unbind();
 }
 
 void DeferredRenderPipeline::GeometryPass(World* world) {
@@ -401,6 +469,14 @@ void DeferredRenderPipeline::LightingPass(World* world) {
             if (positionTexture) {
                 positionTexture->Bind(2);
                 m_lightingShader->SetInt("gPosition", 2);
+            }
+            
+            if (m_shadowMapBuffer) {
+                auto shadowTexture = m_shadowMapBuffer->GetDepthTexture();
+                if (shadowTexture) {
+                    shadowTexture->Bind(3);
+                    m_lightingShader->SetInt("shadowMap", 3);
+                }
             }
         }
         

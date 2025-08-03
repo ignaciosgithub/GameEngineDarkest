@@ -2,6 +2,7 @@
 #include "../ECS/World.h"
 #include "../Components/MovementComponent.h"
 #include "../Components/TransformComponent.h"
+#include "../Components/RigidBodyComponent.h"
 #include "../Platform/Input.h"
 #include "../Platform/Window.h"
 #include "../Editor/PlayModeManager.h"
@@ -34,6 +35,11 @@ void MovementSystem::UpdateMovement(World* world, float deltaTime) {
         auto* transform = world->GetComponent<TransformComponent>(entity);
         
         if (movement && transform) {
+            if (m_playModeManager && m_playModeManager->IsInPlayMode() && 
+                world->HasComponent<RigidBodyComponent>(entity)) {
+                continue; // Let physics handle position updates
+            }
+            
             Vector3 forward = transform->transform.GetForward();
             Vector3 right = transform->transform.GetRight();
             Vector3 up = Vector3::Up; // World up for vertical movement

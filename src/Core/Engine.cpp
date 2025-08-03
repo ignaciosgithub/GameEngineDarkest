@@ -100,6 +100,7 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     Logger::Info("Debug renderer initialized for gizmo rendering");
 
     m_physicsWorld = std::make_unique<PhysicsWorld>();
+    m_physicsWorld->Initialize();
     m_world->SetPhysicsWorld(m_physicsWorld.get());
 
     m_engineUI = std::make_unique<EngineUI>();
@@ -180,6 +181,9 @@ void Engine::Update(float deltaTime) {
 
     if (m_physicsWorld && m_playModeManager && m_playModeManager->IsInPlayMode()) {
         m_physicsWorld->Update(deltaTime);
+        if (auto* physicsSystem = m_world->GetSystem<PhysicsSystem>()) {
+            physicsSystem->OnUpdate(m_world.get(), deltaTime);
+        }
     }
 
     if (m_playModeManager) {

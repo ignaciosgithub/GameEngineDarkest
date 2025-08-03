@@ -3,6 +3,7 @@
 #include "../Core/OpenGLHeaders.h"
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -210,65 +211,93 @@ void DebugRenderer::RenderSelectionOutline(const Vector3& center, const Vector3&
     RenderWireframeMesh(vertices, indices, color);
 }
 
-void DebugRenderer::RenderMovementGizmo(const Vector3& position, float size) {
+void DebugRenderer::RenderMovementGizmo(const Vector3& position, const Vector3& objectSize) {
     if (!s_initialized) return;
     
-    Vector3 xEnd = position + Vector3(size, 0, 0);
+    float maxDimension = std::max({objectSize.x, objectSize.y, objectSize.z});
+    float gizmoSize = maxDimension * 2.0f;
+    
+    if (gizmoSize < 1.0f) {
+        gizmoSize = 1.0f;
+    }
+    
+    Vector3 xEnd = position + Vector3(gizmoSize, 0, 0);
     std::vector<Vector3> xVertices = {position, xEnd};
     std::vector<unsigned int> xIndices = {0, 1};
     RenderWireframeMesh(xVertices, xIndices, Vector3(1.0f, 0.0f, 0.0f));
     
-    Vector3 yEnd = position + Vector3(0, size, 0);
+    Vector3 yEnd = position + Vector3(0, gizmoSize, 0);
     std::vector<Vector3> yVertices = {position, yEnd};
     std::vector<unsigned int> yIndices = {0, 1};
     RenderWireframeMesh(yVertices, yIndices, Vector3(0.0f, 1.0f, 0.0f));
     
-    Vector3 zEnd = position + Vector3(0, 0, size);
+    Vector3 zEnd = position + Vector3(0, 0, gizmoSize);
     std::vector<Vector3> zVertices = {position, zEnd};
     std::vector<unsigned int> zIndices = {0, 1};
     RenderWireframeMesh(zVertices, zIndices, Vector3(0.0f, 0.0f, 1.0f));
     
-    float arrowHeadSize = size * 0.1f;
+    float arrowHeadSize = gizmoSize * 0.15f;
     
     std::vector<Vector3> xHeadVertices = {
         xEnd,
-        xEnd + Vector3(-arrowHeadSize, arrowHeadSize, 0),
-        xEnd + Vector3(-arrowHeadSize, -arrowHeadSize, 0),
-        xEnd + Vector3(-arrowHeadSize, 0, arrowHeadSize),
-        xEnd + Vector3(-arrowHeadSize, 0, -arrowHeadSize)
+        xEnd + Vector3(-arrowHeadSize, arrowHeadSize * 0.5f, 0),
+        xEnd + Vector3(-arrowHeadSize, -arrowHeadSize * 0.5f, 0),
+        xEnd + Vector3(-arrowHeadSize, 0, arrowHeadSize * 0.5f),
+        xEnd + Vector3(-arrowHeadSize, 0, -arrowHeadSize * 0.5f)
     };
     std::vector<unsigned int> xHeadIndices = {0, 1, 0, 2, 0, 3, 0, 4};
     RenderWireframeMesh(xHeadVertices, xHeadIndices, Vector3(1.0f, 0.0f, 0.0f));
     
     std::vector<Vector3> yHeadVertices = {
         yEnd,
-        yEnd + Vector3(arrowHeadSize, -arrowHeadSize, 0),
-        yEnd + Vector3(-arrowHeadSize, -arrowHeadSize, 0),
-        yEnd + Vector3(0, -arrowHeadSize, arrowHeadSize),
-        yEnd + Vector3(0, -arrowHeadSize, -arrowHeadSize)
+        yEnd + Vector3(arrowHeadSize * 0.5f, -arrowHeadSize, 0),
+        yEnd + Vector3(-arrowHeadSize * 0.5f, -arrowHeadSize, 0),
+        yEnd + Vector3(0, -arrowHeadSize, arrowHeadSize * 0.5f),
+        yEnd + Vector3(0, -arrowHeadSize, -arrowHeadSize * 0.5f)
     };
     std::vector<unsigned int> yHeadIndices = {0, 1, 0, 2, 0, 3, 0, 4};
     RenderWireframeMesh(yHeadVertices, yHeadIndices, Vector3(0.0f, 1.0f, 0.0f));
     
     std::vector<Vector3> zHeadVertices = {
         zEnd,
-        zEnd + Vector3(arrowHeadSize, 0, -arrowHeadSize),
-        zEnd + Vector3(-arrowHeadSize, 0, -arrowHeadSize),
-        zEnd + Vector3(0, arrowHeadSize, -arrowHeadSize),
-        zEnd + Vector3(0, -arrowHeadSize, -arrowHeadSize)
+        zEnd + Vector3(arrowHeadSize * 0.5f, 0, -arrowHeadSize),
+        zEnd + Vector3(-arrowHeadSize * 0.5f, 0, -arrowHeadSize),
+        zEnd + Vector3(0, arrowHeadSize * 0.5f, -arrowHeadSize),
+        zEnd + Vector3(0, -arrowHeadSize * 0.5f, -arrowHeadSize)
     };
     std::vector<unsigned int> zHeadIndices = {0, 1, 0, 2, 0, 3, 0, 4};
     RenderWireframeMesh(zHeadVertices, zHeadIndices, Vector3(0.0f, 0.0f, 1.0f));
 }
 
 void DebugRenderer::SetupWireframeShader() {
-    Logger::Debug("Wireframe shader setup - placeholder implementation");
+    Logger::Debug("Wireframe shader setup - unlit debug rendering implementation");
 }
 
 void DebugRenderer::RenderWireframeMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned int>& indices, const Vector3& color) {
-    (void)color; // Suppress unused parameter warning
+    if (vertices.empty() || indices.empty()) return;
     
-    Logger::Debug("Rendering wireframe mesh with " + std::to_string(vertices.size()) + 
+    glDisable(GL_LIGHTING);
+    glDisable(GL_DEPTH_TEST);
+    
+    glColor3f(color.x, color.y, color.z);
+    glLineWidth(3.0f);
+    
+    glBegin(GL_LINES);
+    for (size_t i = 0; i < indices.size(); i += 2) {
+        if (i + 1 < indices.size()) {
+            const Vector3& v1 = vertices[indices[i]];
+            const Vector3& v2 = vertices[indices[i + 1]];
+            
+            glVertex3f(v1.x, v1.y, v1.z);
+            glVertex3f(v2.x, v2.y, v2.z);
+        }
+    }
+    glEnd();
+    
+    glEnable(GL_DEPTH_TEST);
+    glLineWidth(1.0f);
+    
+    Logger::Debug("Rendered unlit wireframe mesh with " + std::to_string(vertices.size()) + 
                  " vertices and " + std::to_string(indices.size()) + " indices");
 }
 

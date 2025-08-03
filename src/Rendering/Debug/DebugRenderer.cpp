@@ -276,28 +276,35 @@ void DebugRenderer::SetupWireframeShader() {
 void DebugRenderer::RenderWireframeMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned int>& indices, const Vector3& color) {
     if (vertices.empty() || indices.empty()) return;
     
-    glDisable(GL_LIGHTING);
-    glDisable(GL_DEPTH_TEST);
+    unsigned int VAO, VBO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
     
-    glColor3f(color.x, color.y, color.z);
-    glLineWidth(3.0f);
+    glBindVertexArray(VAO);
     
-    glBegin(GL_LINES);
-    for (size_t i = 0; i < indices.size(); i += 2) {
-        if (i + 1 < indices.size()) {
-            const Vector3& v1 = vertices[indices[i]];
-            const Vector3& v2 = vertices[indices[i + 1]];
-            
-            glVertex3f(v1.x, v1.y, v1.z);
-            glVertex3f(v2.x, v2.y, v2.z);
-        }
-    }
-    glEnd();
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vector3), vertices.data(), GL_STATIC_DRAW);
+    
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+    
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vector3), (void*)0);
+    glEnableVertexAttribArray(0);
     
     glEnable(GL_DEPTH_TEST);
+    glLineWidth(3.0f);
+    
+    glColor3f(color.x, color.y, color.z);
+    glDrawElements(GL_LINES, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_INT, 0);
+    
     glLineWidth(1.0f);
     
-    Logger::Debug("Rendered unlit wireframe mesh with " + std::to_string(vertices.size()) + 
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
+    
+    Logger::Debug("Rendered wireframe mesh with " + std::to_string(vertices.size()) + 
                  " vertices and " + std::to_string(indices.size()) + " indices");
 }
 

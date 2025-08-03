@@ -26,14 +26,18 @@ namespace GameEngine {
     private:
         std::unique_ptr<FrameBuffer> m_gBuffer;
         std::unique_ptr<FrameBuffer> m_lightingBuffer;
+        std::unique_ptr<FrameBuffer> m_shadowMapBuffer;
         
         std::unique_ptr<Shader> m_geometryShader;
         std::unique_ptr<Shader> m_lightingShader;
         std::unique_ptr<Shader> m_compositeShader;
         
+        static const int SHADOW_MAP_SIZE = 1024;
+        
         void CreateGBuffer();
         void CreateShaders();
         
+        void ShadowPass(World* world);
         void GeometryPass(World* world);
         void LightingPass(World* world);
         void CompositePass();

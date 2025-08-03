@@ -176,7 +176,7 @@ void Engine::Update(float deltaTime) {
         m_world->Update(deltaTime);
     }
 
-    if (m_physicsWorld) {
+    if (m_physicsWorld && m_playModeManager && m_playModeManager->IsInPlayMode()) {
         m_physicsWorld->Update(deltaTime);
     }
 

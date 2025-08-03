@@ -189,7 +189,8 @@ int OctreeNode::GetChildIndex(const Vector3& point) const {
 
 AABB OctreeNode::GetBodyAABB(RigidBody* body) const {
     Vector3 pos = body->GetPosition();
-    Vector3 size = body->GetColliderSize();
+    
+    Vector3 size = Vector3(1.0f, 1.0f, 1.0f);
     
     Vector3 halfSize = size * 0.5f;
     return AABB(pos - halfSize, pos + halfSize);

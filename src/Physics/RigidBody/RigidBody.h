@@ -91,12 +91,9 @@ namespace GameEngine {
         void SetFreezePosition(const Vector3& freeze) { m_freezePosition = freeze; }
         const Vector3& GetFreezePosition() const { return m_freezePosition; }
         
-        // Collider
-        ColliderType GetColliderType() const { return m_colliderType; }
-        void SetColliderType(ColliderType type) { m_colliderType = type; }
-        
-        const Vector3& GetColliderSize() const { return m_colliderSize; }
-        void SetColliderSize(const Vector3& size) { m_colliderSize = size; }
+        // Collider component integration
+        void SetColliderComponent(class ColliderComponent* colliderComponent);
+        class ColliderComponent* GetColliderComponent() const { return m_colliderComponent; }
         
         // Integration
         void IntegrateVelocity(float deltaTime);
@@ -139,8 +136,7 @@ namespace GameEngine {
         float m_sleepTimer = 0.0f;
         static const float SLEEP_TIME_THRESHOLD;
         
-        // Collider
-        ColliderType m_colliderType = ColliderType::None;
-        Vector3 m_colliderSize = Vector3::One;
+        // Collider component reference
+        class ColliderComponent* m_colliderComponent = nullptr;
     };
 }

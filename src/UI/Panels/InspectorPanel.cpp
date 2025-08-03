@@ -4,6 +4,7 @@
 #include "../../Core/Components/CameraComponent.h"
 #include "../../Core/Components/MovementComponent.h"
 #include "../../Core/Components/MeshComponent.h"
+#include "../../Core/Components/ColliderComponent.h"
 #include "../../Core/Components/RigidBodyComponent.h"
 #include "../../Core/Components/AudioComponent.h"
 #include "../../Rendering/Lighting/Light.h"
@@ -26,6 +27,7 @@ void InspectorPanel::Update(World* world, float /*deltaTime*/) {
             
             DrawTransformComponent(world, m_selectedEntity);
             DrawMeshComponent(world, m_selectedEntity);
+            DrawColliderComponent(world, m_selectedEntity);
             DrawRigidBodyComponent(world, m_selectedEntity);
             DrawAudioComponent(world, m_selectedEntity);
             DrawLightComponent(world, m_selectedEntity);
@@ -242,6 +244,89 @@ void InspectorPanel::DrawRigidBodyComponent(World* world, Entity entity) {
     }
 }
 
+void InspectorPanel::DrawColliderComponent(World* world, Entity entity) {
+    auto* collider = world->GetComponent<ColliderComponent>(entity);
+    if (!collider) return;
+    
+    if (ImGui::CollapsingHeader("Collider Component")) {
+        if (ImGui::Button("Remove##Collider")) {
+            RemoveColliderComponent(world, entity);
+            return;
+        }
+        ImGui::Separator();
+        
+        ImGui::Text("Collider: %s", collider->HasCollider() ? "Active" : "None");
+        
+        if (collider->HasCollider()) {
+            auto shape = collider->GetColliderShape();
+            ColliderShapeType shapeType = shape->GetType();
+            
+            const char* shapeTypes[] = {"None", "Sphere", "Box", "Capsule", "Plane", "ConvexHull", "TriangleMesh"};
+            int currentType = static_cast<int>(shapeType);
+            if (ImGui::Combo("Shape Type", &currentType, shapeTypes, 7)) {
+                ColliderShapeType newType = static_cast<ColliderShapeType>(currentType);
+                if (newType != shapeType) {
+                    switch (newType) {
+                        case ColliderShapeType::Sphere:
+                            collider->SetSphereCollider(1.0f);
+                            break;
+                        case ColliderShapeType::Box:
+                            collider->SetBoxCollider(Vector3(1.0f, 1.0f, 1.0f));
+                            break;
+                        case ColliderShapeType::Capsule:
+                            collider->SetCapsuleCollider(0.5f, 2.0f);
+                            break;
+                        case ColliderShapeType::Plane:
+                            collider->SetPlaneCollider(Vector3(0.0f, 1.0f, 0.0f), 0.0f);
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+            
+            if (shapeType == ColliderShapeType::Sphere) {
+                auto sphereCollider = std::static_pointer_cast<SphereCollider>(shape);
+                float radius = sphereCollider->GetRadius();
+                if (ImGui::DragFloat("Radius", &radius, 0.1f, 0.1f, 100.0f)) {
+                    sphereCollider->SetRadius(radius);
+                }
+            }
+            else if (shapeType == ColliderShapeType::Box) {
+                auto boxCollider = std::static_pointer_cast<BoxCollider>(shape);
+                Vector3 halfExtents = boxCollider->GetHalfExtents();
+                float extentsArray[3] = {halfExtents.x, halfExtents.y, halfExtents.z};
+                if (ImGui::DragFloat3("Half Extents", extentsArray, 0.1f, 0.1f, 100.0f)) {
+                    boxCollider->SetHalfExtents(Vector3(extentsArray[0], extentsArray[1], extentsArray[2]));
+                }
+            }
+            
+            bool isTrigger = collider->IsTrigger();
+            if (ImGui::Checkbox("Is Trigger", &isTrigger)) {
+                collider->SetTrigger(isTrigger);
+            }
+        }
+        
+        ImGui::Separator();
+        
+        if (ImGui::Button("Generate from Mesh")) {
+            auto* meshComp = world->GetComponent<MeshComponent>(entity);
+            if (meshComp) {
+                collider->GenerateFromMesh(meshComp, ColliderShapeType::Box);
+                Logger::Info("Generated collider from mesh for entity: " + std::to_string(entity.GetID()));
+            } else {
+                Logger::Warning("No mesh component found to generate collider from");
+            }
+        }
+        
+        ImGui::SameLine();
+        if (ImGui::Button("Clear Collider")) {
+            collider->ClearCollider();
+            Logger::Info("Cleared collider for entity: " + std::to_string(entity.GetID()));
+        }
+    }
+}
+
 void InspectorPanel::DrawAudioComponent(World* world, Entity entity) {
     auto* audio = world->GetComponent<AudioComponent>(entity);
     if (!audio) return;
@@ -427,6 +512,13 @@ void InspectorPanel::AddMeshComponent(World* world, Entity entity) {
     }
 }
 
+void InspectorPanel::AddColliderComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && !world->HasComponent<ColliderComponent>(entity)) {
+        world->AddComponent<ColliderComponent>(entity);
+        Logger::Info("Added ColliderComponent to entity: " + std::to_string(entity.GetID()));
+    }
+}
+
 void InspectorPanel::AddRigidBodyComponent(World* world, Entity entity) {
     if (world && entity.IsValid() && !world->HasComponent<RigidBodyComponent>(entity)) {
         world->AddComponent<RigidBodyComponent>(entity);
@@ -466,6 +558,13 @@ void InspectorPanel::RemoveMeshComponent(World* world, Entity entity) {
     if (world && entity.IsValid() && world->HasComponent<MeshComponent>(entity)) {
         world->RemoveComponent<MeshComponent>(entity);
         Logger::Info("Removed MeshComponent from entity: " + std::to_string(entity.GetID()));
+    }
+}
+
+void InspectorPanel::RemoveColliderComponent(World* world, Entity entity) {
+    if (world && entity.IsValid() && world->HasComponent<ColliderComponent>(entity)) {
+        world->RemoveComponent<ColliderComponent>(entity);
+        Logger::Info("Removed ColliderComponent from entity: " + std::to_string(entity.GetID()));
     }
 }
 

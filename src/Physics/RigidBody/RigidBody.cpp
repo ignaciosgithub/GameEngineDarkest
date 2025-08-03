@@ -1,5 +1,6 @@
 #include "RigidBody.h"
 #include "../Materials/PhysicsMaterial.h"
+#include "../../Core/Components/ColliderComponent.h"
 #include "../../Core/Logging/Logger.h"
 #include <algorithm>
 
@@ -126,6 +127,10 @@ void RigidBody::IntegratePosition(float deltaTime) {
 Vector3 RigidBody::GetPointVelocity(const Vector3& worldPoint) const {
     Vector3 r = worldPoint - m_position;
     return m_velocity + m_angularVelocity.Cross(r);
+}
+
+void RigidBody::SetColliderComponent(ColliderComponent* colliderComponent) {
+    m_colliderComponent = colliderComponent;
 }
 
 }

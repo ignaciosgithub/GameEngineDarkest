@@ -2,6 +2,7 @@
 #include "../../Core/ECS/World.h"
 #include "../../Core/Components/TransformComponent.h"
 #include "../../Core/Components/MeshComponent.h"
+#include "../../Core/Components/ColliderComponent.h"
 #include "../../Rendering/Lighting/Light.h"
 #include "../../Core/Logging/Logger.h"
 #include <imgui.h>
@@ -38,6 +39,10 @@ void SceneHierarchyPanel::Update(World* world, float /*deltaTime*/) {
                     if (meshComp) {
                         meshComp->SetColor(Vector3(0.8f, 0.8f, 0.8f));
                     }
+                    auto* colliderComp = world->AddComponent<ColliderComponent>(newEntity);
+                    if (colliderComp && meshComp) {
+                        colliderComp->GenerateFromMesh(meshComp, ColliderShapeType::Box);
+                    }
                     m_selectedEntity = newEntity;
                     Logger::Info("Created Cube GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
                     Logger::Info("Cube selected - use Inspector panel to modify position, rotation, and scale");
@@ -50,6 +55,10 @@ void SceneHierarchyPanel::Update(World* world, float /*deltaTime*/) {
                     if (meshComp) {
                         meshComp->SetColor(Vector3(0.8f, 0.8f, 0.8f));
                     }
+                    auto* colliderComp = world->AddComponent<ColliderComponent>(newEntity);
+                    if (colliderComp && meshComp) {
+                        colliderComp->GenerateFromMesh(meshComp, ColliderShapeType::Sphere);
+                    }
                     m_selectedEntity = newEntity;
                     Logger::Info("Created Sphere GameObject with Entity ID: " + std::to_string(newEntity.GetID()));
                     Logger::Info("Sphere selected - use Inspector panel to modify position, rotation, and scale");
@@ -61,6 +70,10 @@ void SceneHierarchyPanel::Update(World* world, float /*deltaTime*/) {
                     auto* meshComp = world->AddComponent<MeshComponent>(newEntity, "plane");
                     if (meshComp) {
                         meshComp->SetColor(Vector3(0.8f, 0.8f, 0.8f));
+                    }
+                    auto* colliderComp = world->AddComponent<ColliderComponent>(newEntity);
+                    if (colliderComp && meshComp) {
+                        colliderComp->GenerateFromMesh(meshComp, ColliderShapeType::Box);
                     }
                     m_selectedEntity = newEntity;
                     Logger::Info("Created Plane GameObject with Entity ID: " + std::to_string(newEntity.GetID()));

@@ -14,6 +14,7 @@ namespace GameEngine {
         
     private:
         void SynchronizePhysicsToTransforms(World* world);
+        void UpdateColliderPhysicsIntegration(World* world);
         
         PlayModeManager* m_playModeManager = nullptr;
     };

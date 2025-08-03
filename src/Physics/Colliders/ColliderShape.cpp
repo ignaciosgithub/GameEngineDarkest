@@ -153,4 +153,149 @@ Vector3 PlaneCollider::GetCenterOfMass() const {
     return m_normal * m_distance;
 }
 
+Vector3 ConvexHullCollider::GetSupportPoint(const Vector3& direction) const {
+    if (m_vertices.empty()) {
+        return Vector3::Zero;
+    }
+    
+    Vector3 maxPoint = m_vertices[0];
+    float maxDot = direction.Dot(maxPoint);
+    
+    for (const auto& vertex : m_vertices) {
+        float dot = direction.Dot(vertex);
+        if (dot > maxDot) {
+            maxDot = dot;
+            maxPoint = vertex;
+        }
+    }
+    
+    return maxPoint;
+}
+
+void ConvexHullCollider::GetAABB(const Vector3& position, const Quaternion& rotation, Vector3& min, Vector3& max) const {
+    if (m_vertices.empty()) {
+        min = max = position;
+        return;
+    }
+    
+    Vector3 firstVertex = position + rotation.RotateVector(m_vertices[0]);
+    min = max = firstVertex;
+    
+    for (const auto& vertex : m_vertices) {
+        Vector3 worldVertex = position + rotation.RotateVector(vertex);
+        min.x = std::min(min.x, worldVertex.x);
+        min.y = std::min(min.y, worldVertex.y);
+        min.z = std::min(min.z, worldVertex.z);
+        max.x = std::max(max.x, worldVertex.x);
+        max.y = std::max(max.y, worldVertex.y);
+        max.z = std::max(max.z, worldVertex.z);
+    }
+}
+
+float ConvexHullCollider::GetVolume() const {
+    if (m_vertices.size() < 4) {
+        return 0.0f;
+    }
+    
+    Vector3 min = m_vertices[0];
+    Vector3 max = m_vertices[0];
+    
+    for (const auto& vertex : m_vertices) {
+        min.x = std::min(min.x, vertex.x);
+        min.y = std::min(min.y, vertex.y);
+        min.z = std::min(min.z, vertex.z);
+        max.x = std::max(max.x, vertex.x);
+        max.y = std::max(max.y, vertex.y);
+        max.z = std::max(max.z, vertex.z);
+    }
+    
+    Vector3 size = max - min;
+    return size.x * size.y * size.z;
+}
+
+Vector3 ConvexHullCollider::GetCenterOfMass() const {
+    if (m_vertices.empty()) {
+        return Vector3::Zero;
+    }
+    
+    Vector3 center = Vector3::Zero;
+    for (const auto& vertex : m_vertices) {
+        center = center + vertex;
+    }
+    
+    return center / static_cast<float>(m_vertices.size());
+}
+
+Vector3 TriangleMeshCollider::GetSupportPoint(const Vector3& direction) const {
+    if (m_vertices.empty()) {
+        return Vector3::Zero;
+    }
+    
+    Vector3 maxPoint = m_vertices[0];
+    float maxDot = direction.Dot(maxPoint);
+    
+    for (const auto& vertex : m_vertices) {
+        float dot = direction.Dot(vertex);
+        if (dot > maxDot) {
+            maxDot = dot;
+            maxPoint = vertex;
+        }
+    }
+    
+    return maxPoint;
+}
+
+void TriangleMeshCollider::GetAABB(const Vector3& position, const Quaternion& rotation, Vector3& min, Vector3& max) const {
+    if (m_vertices.empty()) {
+        min = max = position;
+        return;
+    }
+    
+    Vector3 firstVertex = position + rotation.RotateVector(m_vertices[0]);
+    min = max = firstVertex;
+    
+    for (const auto& vertex : m_vertices) {
+        Vector3 worldVertex = position + rotation.RotateVector(vertex);
+        min.x = std::min(min.x, worldVertex.x);
+        min.y = std::min(min.y, worldVertex.y);
+        min.z = std::min(min.z, worldVertex.z);
+        max.x = std::max(max.x, worldVertex.x);
+        max.y = std::max(max.y, worldVertex.y);
+        max.z = std::max(max.z, worldVertex.z);
+    }
+}
+
+float TriangleMeshCollider::GetVolume() const {
+    if (m_vertices.size() < 3 || m_indices.size() < 3) {
+        return 0.0f;
+    }
+    
+    float volume = 0.0f;
+    
+    for (size_t i = 0; i < m_indices.size(); i += 3) {
+        if (i + 2 < m_indices.size()) {
+            const Vector3& v0 = m_vertices[m_indices[i]];
+            const Vector3& v1 = m_vertices[m_indices[i + 1]];
+            const Vector3& v2 = m_vertices[m_indices[i + 2]];
+            
+            volume += v0.Dot(v1.Cross(v2)) / 6.0f;
+        }
+    }
+    
+    return std::abs(volume);
+}
+
+Vector3 TriangleMeshCollider::GetCenterOfMass() const {
+    if (m_vertices.empty()) {
+        return Vector3::Zero;
+    }
+    
+    Vector3 center = Vector3::Zero;
+    for (const auto& vertex : m_vertices) {
+        center = center + vertex;
+    }
+    
+    return center / static_cast<float>(m_vertices.size());
+}
+
 }

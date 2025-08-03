@@ -18,6 +18,7 @@ namespace GameEngine {
         void DrawCameraComponent(World* world, Entity entity);
         void DrawMovementComponent(World* world, Entity entity);
         void DrawMeshComponent(World* world, Entity entity);
+        void DrawColliderComponent(World* world, Entity entity);
         void DrawRigidBodyComponent(World* world, Entity entity);
         void DrawAudioComponent(World* world, Entity entity);
         void DrawLightComponent(World* world, Entity entity);
@@ -26,6 +27,7 @@ namespace GameEngine {
         void AddCameraComponent(World* world, Entity entity);
         void AddMovementComponent(World* world, Entity entity);
         void AddMeshComponent(World* world, Entity entity);
+        void AddColliderComponent(World* world, Entity entity);
         void AddRigidBodyComponent(World* world, Entity entity);
         void AddAudioComponent(World* world, Entity entity);
         void AddLightComponent(World* world, Entity entity);
@@ -34,6 +36,7 @@ namespace GameEngine {
         void RemoveCameraComponent(World* world, Entity entity);
         void RemoveMovementComponent(World* world, Entity entity);
         void RemoveMeshComponent(World* world, Entity entity);
+        void RemoveColliderComponent(World* world, Entity entity);
         void RemoveRigidBodyComponent(World* world, Entity entity);
         void RemoveAudioComponent(World* world, Entity entity);
         void RemoveLightComponent(World* world, Entity entity);

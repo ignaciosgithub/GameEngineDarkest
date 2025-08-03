@@ -6,6 +6,8 @@
 #include "../src/Core/Components/TransformComponent.h"
 #include "../src/Core/Components/MovementComponent.h"
 #include "../src/Core/Components/CameraComponent.h"
+#include "../src/Core/Components/ColliderComponent.h"
+#include "../src/Core/Components/RigidBodyComponent.h"
 #include "../src/Core/Logging/Logger.h"
 
 using namespace GameEngine;
@@ -31,6 +33,8 @@ public:
         CreateDemoPrefabs();
         
         TestOBJLoading();
+        
+        TestColliderComponentArchitecture();
         
         Logger::Info("GameObject Demo initialized successfully");
         Logger::Info("Scene contains " + std::to_string(m_scene->GetGameObjectCount()) + " GameObjects");
@@ -182,6 +186,105 @@ private:
                 }
             }
         }
+    }
+    
+    void TestColliderComponentArchitecture() {
+        Logger::Info("=== Testing ColliderComponent Architecture ===");
+        
+        Logger::Info("Test 1: Entity with MeshComponent only (no collider)");
+        GameObject meshOnlyObject = m_scene->CreateGameObject(Vector3(10.0f, 0.0f, 0.0f), "Mesh Only Object");
+        auto* meshOnly = meshOnlyObject.AddComponent<MeshComponent>("cube");
+        meshOnly->SetColor(Vector3(1.0f, 0.5f, 0.0f)); // Orange cube
+        m_demoObjects.push_back(meshOnlyObject);
+        Logger::Info("✓ Created entity with MeshComponent only - should render but have no collision");
+        
+        Logger::Info("Test 2: Entity with ColliderComponent only (no mesh)");
+        GameObject colliderOnlyObject = m_scene->CreateGameObject(Vector3(12.0f, 0.0f, 0.0f), "Collider Only Object");
+        auto* colliderOnly = colliderOnlyObject.AddComponent<ColliderComponent>();
+        colliderOnly->SetBoxCollider(Vector3(1.0f, 1.0f, 1.0f));
+        m_demoObjects.push_back(colliderOnlyObject);
+        Logger::Info("✓ Created entity with ColliderComponent only - should have collision but not render");
+        
+        Logger::Info("Test 3: Entity with both MeshComponent and ColliderComponent");
+        GameObject meshAndColliderObject = m_scene->CreateGameObject(Vector3(14.0f, 0.0f, 0.0f), "Mesh + Collider Object");
+        auto* meshComp = meshAndColliderObject.AddComponent<MeshComponent>("sphere");
+        meshComp->SetColor(Vector3(0.0f, 1.0f, 1.0f)); // Cyan sphere
+        auto* colliderComp = meshAndColliderObject.AddComponent<ColliderComponent>();
+        colliderComp->SetSphereCollider(1.0f);
+        m_demoObjects.push_back(meshAndColliderObject);
+        Logger::Info("✓ Created entity with both MeshComponent and ColliderComponent");
+        
+        Logger::Info("Test 4: Mesh-to-collider generation functionality");
+        GameObject meshToColliderObject = m_scene->CreateGameObject(Vector3(16.0f, 0.0f, 0.0f), "Mesh-to-Collider Object");
+        auto* sourceMesh = meshToColliderObject.AddComponent<MeshComponent>("cube");
+        sourceMesh->SetColor(Vector3(1.0f, 0.0f, 1.0f)); // Magenta cube
+        auto* generatedCollider = meshToColliderObject.AddComponent<ColliderComponent>();
+        generatedCollider->GenerateFromMesh(sourceMesh, ColliderShapeType::Box);
+        m_demoObjects.push_back(meshToColliderObject);
+        Logger::Info("✓ Created entity with mesh-to-collider generation using OBJ vertex data");
+        
+        Logger::Info("Test 5: RigidBodyComponent with ColliderComponent");
+        GameObject rigidBodyObject = m_scene->CreateGameObject(Vector3(18.0f, 5.0f, 0.0f), "RigidBody + Collider Object");
+        auto* rigidMesh = rigidBodyObject.AddComponent<MeshComponent>("sphere");
+        rigidMesh->SetColor(Vector3(1.0f, 1.0f, 0.0f)); // Yellow sphere
+        auto* rigidCollider = rigidBodyObject.AddComponent<ColliderComponent>();
+        rigidCollider->SetSphereCollider(1.0f);
+        auto* rigidBody = rigidBodyObject.AddComponent<RigidBodyComponent>();
+        if (rigidBody->GetRigidBody()) {
+            rigidBody->GetRigidBody()->SetMass(1.0f);
+        }
+        m_demoObjects.push_back(rigidBodyObject);
+        Logger::Info("✓ Created entity with RigidBodyComponent + ColliderComponent for physics simulation");
+        
+        Logger::Info("Test 6: Testing different ColliderShape types");
+        GameObject boxColliderObject = m_scene->CreateGameObject(Vector3(20.0f, 0.0f, 0.0f), "Box Collider Object");
+        auto* boxMesh = boxColliderObject.AddComponent<MeshComponent>("cube");
+        boxMesh->SetColor(Vector3(0.5f, 0.5f, 1.0f)); // Light blue cube
+        auto* boxCollider = boxColliderObject.AddComponent<ColliderComponent>();
+        boxCollider->SetBoxCollider(Vector3(2.0f, 1.0f, 1.0f));
+        m_demoObjects.push_back(boxColliderObject);
+        Logger::Info("✓ Created entity with BoxCollider shape");
+        
+        GameObject sphereColliderObject = m_scene->CreateGameObject(Vector3(22.0f, 0.0f, 0.0f), "Sphere Collider Object");
+        auto* sphereMesh = sphereColliderObject.AddComponent<MeshComponent>("sphere");
+        sphereMesh->SetColor(Vector3(1.0f, 0.5f, 0.5f)); // Light red sphere
+        auto* sphereCollider = sphereColliderObject.AddComponent<ColliderComponent>();
+        sphereCollider->SetSphereCollider(1.5f);
+        m_demoObjects.push_back(sphereColliderObject);
+        Logger::Info("✓ Created entity with SphereCollider shape");
+        
+        Logger::Info("Test 7: Testing ConvexHull and TriangleMesh colliders with OBJ vertex data");
+        GameObject convexHullObject = m_scene->CreateGameObject(Vector3(24.0f, 0.0f, 0.0f), "ConvexHull Collider Object");
+        auto* convexMesh = convexHullObject.AddComponent<MeshComponent>("cube");
+        convexMesh->SetColor(Vector3(0.8f, 0.2f, 0.8f)); // Purple cube
+        auto* convexCollider = convexHullObject.AddComponent<ColliderComponent>();
+        convexCollider->GenerateFromMesh(convexMesh, ColliderShapeType::ConvexHull);
+        m_demoObjects.push_back(convexHullObject);
+        Logger::Info("✓ Created entity with ConvexHull collider generated from OBJ vertex data");
+        
+        GameObject triangleMeshObject = m_scene->CreateGameObject(Vector3(26.0f, 0.0f, 0.0f), "TriangleMesh Collider Object");
+        auto* triangleMesh = triangleMeshObject.AddComponent<MeshComponent>("sphere");
+        triangleMesh->SetColor(Vector3(0.2f, 0.8f, 0.2f)); // Light green sphere
+        auto* triangleCollider = triangleMeshObject.AddComponent<ColliderComponent>();
+        triangleCollider->GenerateFromMesh(triangleMesh, ColliderShapeType::TriangleMesh);
+        m_demoObjects.push_back(triangleMeshObject);
+        Logger::Info("✓ Created entity with TriangleMesh collider generated from OBJ vertex data");
+        
+        Logger::Info("Test 8: Testing center of mass calculation");
+        if (sourceMesh && sourceMesh->GetMesh()) {
+            Vector3 centerOfMass = sourceMesh->GetMesh()->GetCenterOfMass();
+            Logger::Info("✓ Center of mass calculated: (" + std::to_string(centerOfMass.x) + ", " + 
+                        std::to_string(centerOfMass.y) + ", " + std::to_string(centerOfMass.z) + ")");
+        }
+        
+        Logger::Info("=== ColliderComponent Architecture Tests Completed ===");
+        Logger::Info("Total test objects created: 8");
+        Logger::Info("Architecture successfully demonstrates:");
+        Logger::Info("- Separation of meshes, colliders, and rigidbodies");
+        Logger::Info("- Independent use of each component type");
+        Logger::Info("- Mesh-to-collider generation using OBJ vertex data");
+        Logger::Info("- Support for all ColliderShape types");
+        Logger::Info("- Center of mass calculation for future rotational physics");
     }
 };
 

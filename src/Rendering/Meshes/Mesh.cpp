@@ -3,6 +3,7 @@
 #include "../../Core/Logging/Logger.h"
 #include "../Core/OpenGLHeaders.h"
 #include <cmath>
+#include <algorithm>
 
 namespace GameEngine {
 
@@ -205,6 +206,64 @@ Mesh Mesh::CreatePlane(float width, float height) {
 
 Mesh Mesh::LoadFromOBJ(const std::string& filepath) {
     return OBJLoader::LoadFromFile(filepath);
+}
+
+void Mesh::GetBoundingBox(Vector3& min, Vector3& max) const {
+    if (m_vertices.empty()) {
+        min = max = Vector3::Zero;
+        return;
+    }
+    
+    min = max = m_vertices[0].position;
+    
+    for (const auto& vertex : m_vertices) {
+        min.x = std::min(min.x, vertex.position.x);
+        min.y = std::min(min.y, vertex.position.y);
+        min.z = std::min(min.z, vertex.position.z);
+        
+        max.x = std::max(max.x, vertex.position.x);
+        max.y = std::max(max.y, vertex.position.y);
+        max.z = std::max(max.z, vertex.position.z);
+    }
+}
+
+void Mesh::GetVertexPositions(std::vector<Vector3>& positions) const {
+    positions.clear();
+    positions.reserve(m_vertices.size());
+    
+    for (const auto& vertex : m_vertices) {
+        positions.push_back(vertex.position);
+    }
+}
+
+Vector3 Mesh::GetCenterOfMass() const {
+    if (m_vertices.empty()) {
+        return Vector3::Zero;
+    }
+    
+    Vector3 center = Vector3::Zero;
+    for (const auto& vertex : m_vertices) {
+        center = center + vertex.position;
+    }
+    
+    return center / static_cast<float>(m_vertices.size());
+}
+
+float Mesh::GetBoundingSphereRadius() const {
+    if (m_vertices.empty()) {
+        return 0.0f;
+    }
+    
+    Vector3 center = GetCenterOfMass();
+    float maxDistanceSquared = 0.0f;
+    
+    for (const auto& vertex : m_vertices) {
+        Vector3 diff = vertex.position - center;
+        float distanceSquared = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
+        maxDistanceSquared = std::max(maxDistanceSquared, distanceSquared);
+    }
+    
+    return std::sqrt(maxDistanceSquared);
 }
 
 }

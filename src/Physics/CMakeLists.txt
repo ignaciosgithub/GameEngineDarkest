@@ -6,6 +6,7 @@ add_library(Physics STATIC
     Spatial/Octree.cpp
     Colliders/ColliderShape.cpp
     Materials/PhysicsMaterial.cpp
+    ../Core/Components/ColliderComponent.cpp
 )
 
 target_include_directories(Physics PUBLIC

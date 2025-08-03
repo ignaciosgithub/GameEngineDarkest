@@ -7,6 +7,7 @@
 
 namespace GameEngine {
     class RigidBody;
+    class ColliderComponent;
     class Entity;
     class World;
     class Octree;
@@ -66,6 +67,11 @@ namespace GameEngine {
         // Spatial partitioning
         std::unique_ptr<Octree> m_octree;
         bool m_useSpatialPartitioning = true;
+        
+        // Static collider management
+        std::vector<ColliderComponent*> m_staticColliders;
+        void AddStaticCollider(ColliderComponent* collider);
+        void RemoveStaticCollider(ColliderComponent* collider);
         
         // 2D Physics integration
         std::unique_ptr<PhysicsWorld2D> m_physicsWorld2D;

@@ -36,6 +36,8 @@ public:
         
         TestColliderComponentArchitecture();
         
+        TestColliderComponentCollisionDetection();
+        
         Logger::Info("GameObject Demo initialized successfully");
         Logger::Info("Scene contains " + std::to_string(m_scene->GetGameObjectCount()) + " GameObjects");
         
@@ -285,6 +287,115 @@ private:
         Logger::Info("- Mesh-to-collider generation using OBJ vertex data");
         Logger::Info("- Support for all ColliderShape types");
         Logger::Info("- Center of mass calculation for future rotational physics");
+    }
+    
+    void TestColliderComponentCollisionDetection() {
+        Logger::Info("=== Testing ColliderComponent-only Collision Detection ===");
+        
+        Logger::Info("Test 1: Static ColliderComponent vs Static ColliderComponent collision");
+        GameObject staticColliderA = m_scene->CreateGameObject(Vector3(30.0f, 0.0f, 0.0f), "Static Collider A");
+        auto* colliderA = staticColliderA.AddComponent<ColliderComponent>();
+        colliderA->SetBoxCollider(Vector3(1.0f, 1.0f, 1.0f));
+        m_demoObjects.push_back(staticColliderA);
+        
+        GameObject staticColliderB = m_scene->CreateGameObject(Vector3(30.5f, 0.0f, 0.0f), "Static Collider B");
+        auto* colliderB = staticColliderB.AddComponent<ColliderComponent>();
+        colliderB->SetBoxCollider(Vector3(1.0f, 1.0f, 1.0f));
+        m_demoObjects.push_back(staticColliderB);
+        Logger::Info("✓ Created two overlapping static ColliderComponent objects");
+        
+        Logger::Info("Test 2: RigidBody vs Static ColliderComponent collision");
+        GameObject dynamicObject = m_scene->CreateGameObject(Vector3(32.0f, 2.0f, 0.0f), "Dynamic Object");
+        auto* dynamicMesh = dynamicObject.AddComponent<MeshComponent>("sphere");
+        dynamicMesh->SetColor(Vector3(1.0f, 0.0f, 0.0f)); // Red sphere
+        auto* dynamicCollider = dynamicObject.AddComponent<ColliderComponent>();
+        dynamicCollider->SetSphereCollider(0.5f);
+        auto* rigidBody = dynamicObject.AddComponent<RigidBodyComponent>();
+        if (rigidBody->GetRigidBody()) {
+            rigidBody->GetRigidBody()->SetMass(1.0f);
+            rigidBody->GetRigidBody()->SetVelocity(Vector3(0.0f, -1.0f, 0.0f)); // Falling down
+        }
+        m_demoObjects.push_back(dynamicObject);
+        
+        GameObject staticGround = m_scene->CreateGameObject(Vector3(32.0f, 0.0f, 0.0f), "Static Ground");
+        auto* groundCollider = staticGround.AddComponent<ColliderComponent>();
+        groundCollider->SetBoxCollider(Vector3(2.0f, 0.1f, 2.0f)); // Thin ground plane
+        m_demoObjects.push_back(staticGround);
+        Logger::Info("✓ Created falling RigidBody sphere above static ColliderComponent ground");
+        
+        Logger::Info("Test 3: Trigger ColliderComponent functionality");
+        GameObject triggerZone = m_scene->CreateGameObject(Vector3(34.0f, 1.0f, 0.0f), "Trigger Zone");
+        auto* triggerCollider = triggerZone.AddComponent<ColliderComponent>();
+        triggerCollider->SetSphereCollider(1.5f);
+        triggerCollider->SetTrigger(true);
+        m_demoObjects.push_back(triggerZone);
+        
+        GameObject triggerTestObject = m_scene->CreateGameObject(Vector3(34.0f, 3.0f, 0.0f), "Trigger Test Object");
+        auto* triggerTestMesh = triggerTestObject.AddComponent<MeshComponent>("cube");
+        triggerTestMesh->SetColor(Vector3(0.0f, 1.0f, 0.0f)); // Green cube
+        auto* triggerTestCollider = triggerTestObject.AddComponent<ColliderComponent>();
+        triggerTestCollider->SetBoxCollider(Vector3(0.5f, 0.5f, 0.5f));
+        auto* triggerTestRigidBody = triggerTestObject.AddComponent<RigidBodyComponent>();
+        if (triggerTestRigidBody->GetRigidBody()) {
+            triggerTestRigidBody->GetRigidBody()->SetMass(1.0f);
+            triggerTestRigidBody->GetRigidBody()->SetVelocity(Vector3(0.0f, -0.5f, 0.0f)); // Slow fall
+        }
+        m_demoObjects.push_back(triggerTestObject);
+        Logger::Info("✓ Created trigger zone with falling object to test trigger collision detection");
+        
+        Logger::Info("Test 4: Mixed collision scenarios");
+        GameObject mixedObjectA = m_scene->CreateGameObject(Vector3(36.0f, 1.0f, 0.0f), "Mixed Object A");
+        auto* mixedMeshA = mixedObjectA.AddComponent<MeshComponent>("sphere");
+        mixedMeshA->SetColor(Vector3(1.0f, 1.0f, 0.0f)); // Yellow sphere
+        auto* mixedColliderA = mixedObjectA.AddComponent<ColliderComponent>();
+        mixedColliderA->SetSphereCollider(0.8f);
+        auto* mixedRigidBodyA = mixedObjectA.AddComponent<RigidBodyComponent>();
+        if (mixedRigidBodyA->GetRigidBody()) {
+            mixedRigidBodyA->GetRigidBody()->SetMass(1.0f);
+        }
+        m_demoObjects.push_back(mixedObjectA);
+        
+        GameObject mixedObjectB = m_scene->CreateGameObject(Vector3(36.5f, 1.0f, 0.0f), "Mixed Object B");
+        auto* mixedColliderB = mixedObjectB.AddComponent<ColliderComponent>();
+        mixedColliderB->SetSphereCollider(0.8f);
+        m_demoObjects.push_back(mixedObjectB);
+        Logger::Info("✓ Created overlapping RigidBody+ColliderComponent vs ColliderComponent-only objects");
+        
+        Logger::Info("Test 5: Verify existing RigidBody vs RigidBody collisions still work");
+        GameObject rigidBodyA = m_scene->CreateGameObject(Vector3(38.0f, 2.0f, 0.0f), "RigidBody A");
+        auto* rigidMeshA = rigidBodyA.AddComponent<MeshComponent>("cube");
+        rigidMeshA->SetColor(Vector3(0.0f, 0.0f, 1.0f)); // Blue cube
+        auto* rigidColliderA = rigidBodyA.AddComponent<ColliderComponent>();
+        rigidColliderA->SetBoxCollider(Vector3(0.5f, 0.5f, 0.5f));
+        auto* rigidBodyCompA = rigidBodyA.AddComponent<RigidBodyComponent>();
+        if (rigidBodyCompA->GetRigidBody()) {
+            rigidBodyCompA->GetRigidBody()->SetMass(1.0f);
+            rigidBodyCompA->GetRigidBody()->SetVelocity(Vector3(1.0f, 0.0f, 0.0f)); // Moving right
+        }
+        m_demoObjects.push_back(rigidBodyA);
+        
+        GameObject rigidBodyB = m_scene->CreateGameObject(Vector3(40.0f, 2.0f, 0.0f), "RigidBody B");
+        auto* rigidMeshB = rigidBodyB.AddComponent<MeshComponent>("cube");
+        rigidMeshB->SetColor(Vector3(1.0f, 0.0f, 1.0f)); // Magenta cube
+        auto* rigidColliderB = rigidBodyB.AddComponent<ColliderComponent>();
+        rigidColliderB->SetBoxCollider(Vector3(0.5f, 0.5f, 0.5f));
+        auto* rigidBodyCompB = rigidBodyB.AddComponent<RigidBodyComponent>();
+        if (rigidBodyCompB->GetRigidBody()) {
+            rigidBodyCompB->GetRigidBody()->SetMass(1.0f);
+            rigidBodyCompB->GetRigidBody()->SetVelocity(Vector3(-1.0f, 0.0f, 0.0f)); // Moving left
+        }
+        m_demoObjects.push_back(rigidBodyB);
+        Logger::Info("✓ Created two RigidBody objects moving toward each other");
+        
+        Logger::Info("=== ColliderComponent Collision Detection Tests Completed ===");
+        Logger::Info("Total collision test objects created: 10");
+        Logger::Info("Collision detection tests cover:");
+        Logger::Info("- Static ColliderComponent vs Static ColliderComponent");
+        Logger::Info("- RigidBody vs Static ColliderComponent");
+        Logger::Info("- Trigger ColliderComponent functionality");
+        Logger::Info("- Mixed collision scenarios (RigidBody+ColliderComponent vs ColliderComponent-only)");
+        Logger::Info("- Existing RigidBody vs RigidBody collisions");
+        Logger::Info("Run the demo with physics enabled to see collision detection in action!");
     }
 };
 

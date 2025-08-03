@@ -139,7 +139,7 @@ void PhysicsWorld::DetectCollisions() {
             }
         }
         
-        Logger::Debug("Spatial partitioning detected " + std::to_string(m_collisionCount) + " actual collisions");
+        Logger::Debug("Spatial partitioning detected " + std::to_string(m_collisionCount) + " RigidBody vs RigidBody collisions");
     } else {
         for (size_t i = 0; i < m_rigidBodies.size(); ++i) {
             for (size_t j = i + 1; j < m_rigidBodies.size(); ++j) {
@@ -156,6 +156,35 @@ void PhysicsWorld::DetectCollisions() {
             }
         }
     }
+    
+    for (RigidBody* rigidBody : m_rigidBodies) {
+        for (ColliderComponent* collider : m_staticColliders) {
+            if (rigidBody && collider) {
+                CollisionInfo info;
+                if (CollisionDetection::CheckCollision(rigidBody, collider, info)) {
+                    m_collisions.push_back(info);
+                    m_collisionCount++;
+                }
+            }
+        }
+    }
+    
+    for (size_t i = 0; i < m_staticColliders.size(); ++i) {
+        for (size_t j = i + 1; j < m_staticColliders.size(); ++j) {
+            ColliderComponent* colliderA = m_staticColliders[i];
+            ColliderComponent* colliderB = m_staticColliders[j];
+            
+            if (colliderA && colliderB) {
+                CollisionInfo info;
+                if (CollisionDetection::CheckCollision(colliderA, colliderB, info)) {
+                    m_collisions.push_back(info);
+                    m_collisionCount++;
+                }
+            }
+        }
+    }
+    
+    Logger::Debug("Detected " + std::to_string(m_collisionCount) + " total collisions (RigidBody vs RigidBody, RigidBody vs ColliderComponent, ColliderComponent vs ColliderComponent)");
 }
 
 void PhysicsWorld::ResolveCollisions() {
@@ -163,6 +192,34 @@ void PhysicsWorld::ResolveCollisions() {
         if (collision.hasCollision && collision.bodyA && collision.bodyB) {
             CollisionDetection::ResolveCollision(collision.bodyA, collision.bodyB, collision);
         }
+    }
+}
+
+void PhysicsWorld::AddStaticCollider(ColliderComponent* collider) {
+    if (!collider) return;
+    
+    auto it = std::find(m_staticColliders.begin(), m_staticColliders.end(), collider);
+    if (it == m_staticColliders.end()) {
+        m_staticColliders.push_back(collider);
+        
+        if (m_octree && m_useSpatialPartitioning) {
+        }
+        
+        Logger::Debug("Added static ColliderComponent to PhysicsWorld");
+    }
+}
+
+void PhysicsWorld::RemoveStaticCollider(ColliderComponent* collider) {
+    if (!collider) return;
+    
+    auto it = std::find(m_staticColliders.begin(), m_staticColliders.end(), collider);
+    if (it != m_staticColliders.end()) {
+        m_staticColliders.erase(it);
+        
+        if (m_octree && m_useSpatialPartitioning) {
+        }
+        
+        Logger::Debug("Removed static ColliderComponent from PhysicsWorld");
     }
 }
 

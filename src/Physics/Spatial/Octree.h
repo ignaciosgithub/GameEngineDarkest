@@ -6,6 +6,7 @@
 
 namespace GameEngine {
     class RigidBody;
+    class ColliderComponent;
     
     struct AABB {
         Vector3 min;
@@ -27,10 +28,14 @@ namespace GameEngine {
         
         void Insert(RigidBody* body);
         void Remove(RigidBody* body);
+        void Insert(ColliderComponent* collider);
+        void Remove(ColliderComponent* collider);
         void Clear();
         
         void Query(const AABB& bounds, std::vector<RigidBody*>& results) const;
         void QuerySphere(const Vector3& center, float radius, std::vector<RigidBody*>& results) const;
+        void Query(const AABB& bounds, std::vector<ColliderComponent*>& results) const;
+        void QuerySphere(const Vector3& center, float radius, std::vector<ColliderComponent*>& results) const;
         
         bool IsLeaf() const { return m_children[0] == nullptr; }
         int GetDepth() const { return m_depth; }
@@ -41,6 +46,7 @@ namespace GameEngine {
         AABB GetChildBounds(int childIndex) const;
         int GetChildIndex(const Vector3& point) const;
         AABB GetBodyAABB(RigidBody* body) const;
+        AABB GetColliderAABB(ColliderComponent* collider) const;
         
         static const int MAX_OBJECTS_PER_NODE = 10;
         static const int MAX_DEPTH = 6;
@@ -50,6 +56,7 @@ namespace GameEngine {
         int m_maxDepth;
         
         std::vector<RigidBody*> m_objects;
+        std::vector<ColliderComponent*> m_colliders;
         std::unique_ptr<OctreeNode> m_children[8];
     };
     
@@ -61,13 +68,20 @@ namespace GameEngine {
         void Insert(RigidBody* body);
         void Remove(RigidBody* body);
         void Update(RigidBody* body);
+        void Insert(ColliderComponent* collider);
+        void Remove(ColliderComponent* collider);
+        void Update(ColliderComponent* collider);
         void Clear();
         
         void Query(const AABB& bounds, std::vector<RigidBody*>& results) const;
         void QuerySphere(const Vector3& center, float radius, std::vector<RigidBody*>& results) const;
+        void Query(const AABB& bounds, std::vector<ColliderComponent*>& results) const;
+        void QuerySphere(const Vector3& center, float radius, std::vector<ColliderComponent*>& results) const;
         
         // Get all potential collision pairs
         void GetCollisionPairs(std::vector<std::pair<RigidBody*, RigidBody*>>& pairs) const;
+        void GetCollisionPairs(std::vector<std::pair<RigidBody*, ColliderComponent*>>& pairs) const;
+        void GetCollisionPairs(std::vector<std::pair<ColliderComponent*, ColliderComponent*>>& pairs) const;
         
         const AABB& GetWorldBounds() const { return m_worldBounds; }
         

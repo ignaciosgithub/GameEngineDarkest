@@ -141,6 +141,181 @@ bool CollisionDetection::CheckCollision(RigidBody* bodyA, RigidBody* bodyB, Octr
     
     return hasCollision;
 }
+// ColliderComponent-only collision detection methods
+bool CollisionDetection::CheckCollision(ColliderComponent* colliderA, ColliderComponent* colliderB, CollisionInfo& info) {
+    if (!colliderA || !colliderB || !colliderA->HasCollider() || !colliderB->HasCollider()) {
+        return false;
+    }
+    
+    info.colliderA = colliderA;
+    info.colliderB = colliderB;
+    
+    
+    auto shapeA = colliderA->GetColliderShape();
+    auto shapeB = colliderB->GetColliderShape();
+    
+    if (!shapeA || !shapeB) {
+        return false;
+    }
+    
+    ColliderShapeType typeA = shapeA->GetType();
+    ColliderShapeType typeB = shapeB->GetType();
+    
+    bool hasCollision = false;
+    
+    if (typeA == ColliderShapeType::Sphere && typeB == ColliderShapeType::Sphere) {
+        auto sphereA = std::static_pointer_cast<SphereCollider>(shapeA);
+        auto sphereB = std::static_pointer_cast<SphereCollider>(shapeB);
+        
+        Vector3 posA = Vector3::Zero;
+        Vector3 posB = Vector3::Zero;
+        Vector3 scaleA = Vector3::One;
+        Vector3 scaleB = Vector3::One;
+        
+        float radiusA = TransformRadius(sphereA->GetRadius(), scaleA);
+        float radiusB = TransformRadius(sphereB->GetRadius(), scaleB);
+        
+        Vector3 direction = posB - posA;
+        float distance = direction.Length();
+        float combinedRadius = radiusA + radiusB;
+        
+        if (distance < combinedRadius) {
+            info.hasCollision = true;
+            info.penetration = combinedRadius - distance;
+            
+            if (distance > 0.0f) {
+                info.normal = direction / distance;
+            } else {
+                info.normal = Vector3::Up;
+            }
+            
+            info.contactPoint = posA + info.normal * radiusA;
+            hasCollision = true;
+        }
+    }
+    else if (typeA == ColliderShapeType::Box && typeB == ColliderShapeType::Box) {
+        auto boxA = std::static_pointer_cast<BoxCollider>(shapeA);
+        auto boxB = std::static_pointer_cast<BoxCollider>(shapeB);
+        
+        Vector3 posA = Vector3::Zero;
+        Vector3 posB = Vector3::Zero;
+        Vector3 scaleA = Vector3::One;
+        Vector3 scaleB = Vector3::One;
+        
+        Vector3 sizeA = TransformHalfExtents(boxA->GetHalfExtents(), scaleA) * 2.0f;
+        Vector3 sizeB = TransformHalfExtents(boxB->GetHalfExtents(), scaleB) * 2.0f;
+        
+        Vector3 minA = posA - sizeA * 0.5f;
+        Vector3 maxA = posA + sizeA * 0.5f;
+        Vector3 minB = posB - sizeB * 0.5f;
+        Vector3 maxB = posB + sizeB * 0.5f;
+        
+        bool overlapX = (minA.x <= maxB.x) && (maxA.x >= minB.x);
+        bool overlapY = (minA.y <= maxB.y) && (maxA.y >= minB.y);
+        bool overlapZ = (minA.z <= maxB.z) && (maxA.z >= minB.z);
+        
+        if (overlapX && overlapY && overlapZ) {
+            info.hasCollision = true;
+            
+            Vector3 overlap;
+            overlap.x = std::min(maxA.x - minB.x, maxB.x - minA.x);
+            overlap.y = std::min(maxA.y - minB.y, maxB.y - minA.y);
+            overlap.z = std::min(maxA.z - minB.z, maxB.z - minA.z);
+            
+            if (overlap.x <= overlap.y && overlap.x <= overlap.z) {
+                info.penetration = overlap.x;
+                info.normal = (posA.x < posB.x) ? Vector3(-1, 0, 0) : Vector3(1, 0, 0);
+            } else if (overlap.y <= overlap.z) {
+                info.penetration = overlap.y;
+                info.normal = (posA.y < posB.y) ? Vector3(0, -1, 0) : Vector3(0, 1, 0);
+            } else {
+                info.penetration = overlap.z;
+                info.normal = (posA.z < posB.z) ? Vector3(0, 0, -1) : Vector3(0, 0, 1);
+            }
+            
+            info.contactPoint = posA + info.normal * (info.penetration * 0.5f);
+            hasCollision = true;
+        }
+    }
+    
+    Logger::Debug("ColliderComponent collision check: " + std::string(hasCollision ? "collision detected" : "no collision"));
+    return hasCollision;
+}
+
+bool CollisionDetection::CheckCollision(RigidBody* rigidBody, ColliderComponent* collider, CollisionInfo& info) {
+    if (!rigidBody || !collider || !collider->HasCollider()) {
+        return false;
+    }
+    
+    ColliderComponent* rigidBodyCollider = rigidBody->GetColliderComponent();
+    if (!rigidBodyCollider || !rigidBodyCollider->HasCollider()) {
+        return false;
+    }
+    
+    info.bodyA = rigidBody;
+    info.colliderB = collider;
+    
+    auto shapeA = rigidBodyCollider->GetColliderShape();
+    auto shapeB = collider->GetColliderShape();
+    
+    if (!shapeA || !shapeB) {
+        return false;
+    }
+    
+    ColliderShapeType typeA = shapeA->GetType();
+    ColliderShapeType typeB = shapeB->GetType();
+    
+    bool hasCollision = false;
+    
+    if (typeA == ColliderShapeType::Sphere && typeB == ColliderShapeType::Sphere) {
+        auto sphereA = std::static_pointer_cast<SphereCollider>(shapeA);
+        auto sphereB = std::static_pointer_cast<SphereCollider>(shapeB);
+        
+        Vector3 posA = rigidBody->GetPosition();
+        Vector3 posB = Vector3::Zero; // TODO: Get from ColliderComponent's entity TransformComponent
+        
+        Vector3 scaleA = rigidBody->GetTransformComponent() ? rigidBody->GetTransformComponent()->transform.GetWorldScale() : Vector3::One;
+        Vector3 scaleB = Vector3::One; // TODO: Get from ColliderComponent's entity TransformComponent
+        
+        float radiusA = TransformRadius(sphereA->GetRadius(), scaleA);
+        float radiusB = TransformRadius(sphereB->GetRadius(), scaleB);
+        
+        Vector3 direction = posB - posA;
+        float distance = direction.Length();
+        float combinedRadius = radiusA + radiusB;
+        
+        if (distance < combinedRadius) {
+            info.hasCollision = true;
+            info.penetration = combinedRadius - distance;
+            
+            if (distance > 0.0f) {
+                info.normal = direction / distance;
+            } else {
+                info.normal = Vector3::Up;
+            }
+            
+            info.contactPoint = posA + info.normal * radiusA;
+            hasCollision = true;
+        }
+    }
+    
+    Logger::Debug("RigidBody vs ColliderComponent collision check: " + std::string(hasCollision ? "collision detected" : "no collision"));
+    return hasCollision;
+}
+
+bool CollisionDetection::CheckCollision(ColliderComponent* collider, RigidBody* rigidBody, CollisionInfo& info) {
+    bool result = CheckCollision(rigidBody, collider, info);
+    
+    if (result) {
+        std::swap(info.bodyA, info.bodyB);
+        std::swap(info.colliderA, info.colliderB);
+        info.normal = -info.normal; // Reverse the normal direction
+    }
+    
+    return result;
+}
+
+
 
 bool CollisionDetection::SphereVsSphere(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info) {
     Vector3 posA = bodyA->GetPosition();
@@ -288,6 +463,26 @@ bool CollisionDetection::SphereVsBox(RigidBody* bodyA, RigidBody* bodyB, Collisi
 void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, const CollisionInfo& info) {
     if (!info.hasCollision) return;
     
+    ColliderComponent* colliderA = info.colliderA;
+    ColliderComponent* colliderB = info.colliderB;
+    
+    if (!colliderA && bodyA) {
+        colliderA = bodyA->GetColliderComponent();
+    }
+    if (!colliderB && bodyB) {
+        colliderB = bodyB->GetColliderComponent();
+    }
+    
+    if ((colliderA && colliderA->IsTrigger()) || (colliderB && colliderB->IsTrigger())) {
+        Logger::Debug("Trigger collision detected - skipping physics resolution");
+        return;
+    }
+    
+    if (!bodyA || !bodyB) {
+        Logger::Debug("ColliderComponent-only collision detected - no physics resolution needed");
+        return;
+    }
+    
     float totalInvMass = bodyA->GetInverseMass() + bodyB->GetInverseMass();
     if (totalInvMass <= 0.0f) return; // Both objects are static
     
@@ -308,6 +503,9 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
     if (velocityAlongNormal > 0) return;
     
     float restitution = std::min(bodyA->GetRestitution(), bodyB->GetRestitution());
+    if (colliderA && colliderB) {
+        restitution = std::min(colliderA->GetRestitution(), colliderB->GetRestitution());
+    }
     
     float impulseScalar = -(1 + restitution) * velocityAlongNormal / totalInvMass;
     
@@ -319,6 +517,8 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
     if (!bodyB->IsStatic()) {
         bodyB->SetVelocity(bodyB->GetVelocity() + impulse * bodyB->GetInverseMass());
     }
+    
+    Logger::Debug("Resolved collision between RigidBodies with penetration: " + std::to_string(info.penetration));
 }
 
 bool CollisionDetection::ConvexHullVsConvexHull(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info) {

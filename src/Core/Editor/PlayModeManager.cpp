@@ -215,6 +215,16 @@ namespace GameEngine {
                         movement->yaw = entityState.yaw;
                     }
                 }
+                
+                auto* rigidBodyComp = m_world->GetComponent<RigidBodyComponent>(entity);
+                if (rigidBodyComp) {
+                    RigidBody* rigidBody = rigidBodyComp->GetRigidBody();
+                    if (rigidBody) {
+                        rigidBody->SetVelocity(Vector3::Zero);
+                        rigidBody->SetAngularVelocity(Vector3::Zero);
+                        rigidBody->ClearForces();
+                    }
+                }
             }
         }
         

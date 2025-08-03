@@ -33,10 +33,20 @@ Matrix4 CollisionDetection::GetOrientationMatrix(const Quaternion& rotation) {
 }
 
 bool CollisionDetection::CheckCollision(RigidBody* bodyA, RigidBody* bodyB) {
-    return CheckCollision(bodyA, bodyB, nullptr);
+    CollisionInfo info;
+    return CheckCollision(bodyA, bodyB, info);
+}
+
+bool CollisionDetection::CheckCollision(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info) {
+    return CheckCollision(bodyA, bodyB, nullptr, info);
 }
 
 bool CollisionDetection::CheckCollision(RigidBody* bodyA, RigidBody* bodyB, Octree* octree) {
+    CollisionInfo info;
+    return CheckCollision(bodyA, bodyB, octree, info);
+}
+
+bool CollisionDetection::CheckCollision(RigidBody* bodyA, RigidBody* bodyB, Octree* octree, CollisionInfo& info) {
     if (!bodyA || !bodyB) return false;
     
     ColliderComponent* colliderA = bodyA->GetColliderComponent();
@@ -45,6 +55,9 @@ bool CollisionDetection::CheckCollision(RigidBody* bodyA, RigidBody* bodyB, Octr
     if (!colliderA || !colliderB || !colliderA->HasCollider() || !colliderB->HasCollider()) {
         return false;
     }
+    
+    info.bodyA = bodyA;
+    info.bodyB = bodyB;
     
     if (octree) {
         std::vector<RigidBody*> potentialCollisions;
@@ -89,7 +102,6 @@ bool CollisionDetection::CheckCollision(RigidBody* bodyA, RigidBody* bodyB, Octr
         Logger::Debug("Octree optimization: Found potential collision between bodies, proceeding with detailed check");
     }
     
-    CollisionInfo info;
     bool hasCollision = false;
     
     auto shapeA = colliderA->GetColliderShape();
@@ -125,10 +137,6 @@ bool CollisionDetection::CheckCollision(RigidBody* bodyA, RigidBody* bodyB, Octr
     else if ((typeA == ColliderShapeType::Box && typeB == ColliderShapeType::ConvexHull) ||
              (typeA == ColliderShapeType::ConvexHull && typeB == ColliderShapeType::Box)) {
         hasCollision = BoxVsConvexHull(bodyA, bodyB, info);
-    }
-    
-    if (hasCollision) {
-        ResolveCollision(bodyA, bodyB, info);
     }
     
     return hasCollision;

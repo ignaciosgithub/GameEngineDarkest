@@ -180,9 +180,6 @@ void Engine::Update(float deltaTime) {
 
     if (m_physicsWorld && m_playModeManager && m_playModeManager->IsInPlayMode()) {
         m_physicsWorld->Update(deltaTime);
-        if (auto* physicsSystem = m_world->GetSystem<PhysicsSystem>()) {
-            physicsSystem->OnUpdate(m_world.get(), deltaTime);
-        }
     }
 
     if (m_playModeManager) {

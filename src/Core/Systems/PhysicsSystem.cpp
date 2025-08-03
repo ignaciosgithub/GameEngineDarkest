@@ -8,8 +8,8 @@
 
 namespace GameEngine {
 
-PhysicsSystem::PhysicsSystem(PlayModeManager* playModeManager)
-    : m_playModeManager(playModeManager) {
+PhysicsSystem::PhysicsSystem(PlayModeManager* playModeManager, PhysicsWorld* physicsWorld)
+    : m_playModeManager(playModeManager), m_physicsWorld(physicsWorld) {
 }
 
 void PhysicsSystem::OnInitialize(World* /*world*/) {
@@ -20,6 +20,7 @@ void PhysicsSystem::OnUpdate(World* world, float /*deltaTime*/) {
     if (m_playModeManager && m_playModeManager->IsInPlayMode()) {
         SynchronizePhysicsToTransforms(world);
         UpdateColliderPhysicsIntegration(world);
+        CleanupStaticColliders(world);
     }
 }
 
@@ -61,8 +62,52 @@ void PhysicsSystem::UpdateColliderPhysicsIntegration(World* world) {
         
         else if (colliderComp && transformComp && !rigidBodyComp) {
             if (colliderComp->HasCollider()) {
-                Logger::Debug("Static collider detected for entity: " + std::to_string(entity.GetID()));
+                if (m_physicsWorld && m_registeredStaticColliders.find(colliderComp) == m_registeredStaticColliders.end()) {
+                    m_physicsWorld->AddStaticCollider(colliderComp);
+                    m_registeredStaticColliders.insert(colliderComp);
+                    Logger::Debug("Registered static collider with PhysicsWorld for entity: " + std::to_string(entity.GetID()));
+                } else if (!m_physicsWorld) {
+                    Logger::Warning("PhysicsWorld not available - cannot register static collider for entity: " + std::to_string(entity.GetID()));
+                }
             }
+        }
+    }
+}
+
+void PhysicsSystem::CleanupStaticColliders(World* world) {
+    if (!m_physicsWorld) return;
+    
+    auto it = m_registeredStaticColliders.begin();
+    while (it != m_registeredStaticColliders.end()) {
+        ColliderComponent* collider = *it;
+        
+        bool shouldRemove = false;
+        
+        bool entityExists = false;
+        bool hasRigidBody = false;
+        
+        for (const auto& entity : world->GetEntities()) {
+            auto* entityCollider = world->GetComponent<ColliderComponent>(entity);
+            if (entityCollider == collider) {
+                entityExists = true;
+                auto* rigidBodyComp = world->GetComponent<RigidBodyComponent>(entity);
+                if (rigidBodyComp) {
+                    hasRigidBody = true;
+                }
+                break;
+            }
+        }
+        
+        if (!entityExists || hasRigidBody || !collider->HasCollider()) {
+            shouldRemove = true;
+        }
+        
+        if (shouldRemove) {
+            m_physicsWorld->RemoveStaticCollider(collider);
+            it = m_registeredStaticColliders.erase(it);
+            Logger::Debug("Removed static collider from PhysicsWorld during cleanup");
+        } else {
+            ++it;
         }
     }
 }

@@ -479,6 +479,21 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
     }
     
     if (!bodyA || !bodyB) {
+        if (bodyA && !bodyB && info.colliderB) {
+            Vector3 separation = info.normal * info.penetration;
+            if (!bodyA->IsStatic()) {
+                bodyA->SetPosition(bodyA->GetPosition() - separation);
+                Logger::Debug("Resolved RigidBody vs static ColliderComponent collision");
+            }
+            return;
+        } else if (!bodyA && bodyB && info.colliderA) {
+            Vector3 separation = info.normal * info.penetration;
+            if (!bodyB->IsStatic()) {
+                bodyB->SetPosition(bodyB->GetPosition() + separation);
+                Logger::Debug("Resolved static ColliderComponent vs RigidBody collision");
+            }
+            return;
+        }
         Logger::Debug("ColliderComponent-only collision detected - no physics resolution needed");
         return;
     }

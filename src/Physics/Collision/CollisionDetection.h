@@ -6,6 +6,7 @@
 
 namespace GameEngine {
     class RigidBody;
+    class ColliderComponent;
     class Octree;
     struct CollisionInfo;
     
@@ -15,6 +16,11 @@ namespace GameEngine {
         static bool CheckCollision(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info);
         static bool CheckCollision(RigidBody* bodyA, RigidBody* bodyB, Octree* octree);
         static bool CheckCollision(RigidBody* bodyA, RigidBody* bodyB, Octree* octree, CollisionInfo& info);
+        
+        // ColliderComponent-only collision detection
+        static bool CheckCollision(ColliderComponent* colliderA, ColliderComponent* colliderB, CollisionInfo& info);
+        static bool CheckCollision(RigidBody* rigidBody, ColliderComponent* collider, CollisionInfo& info);
+        static bool CheckCollision(ColliderComponent* collider, RigidBody* rigidBody, CollisionInfo& info);
         
         static bool SphereVsSphere(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info);
         static bool BoxVsBox(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info);
@@ -44,5 +50,7 @@ namespace GameEngine {
         float penetration = 0.0f;
         RigidBody* bodyA = nullptr;
         RigidBody* bodyB = nullptr;
+        ColliderComponent* colliderA = nullptr;
+        ColliderComponent* colliderB = nullptr;
     };
 }

@@ -90,6 +90,11 @@ namespace GameEngine {
                 else if (StartsWith(line, "mtllib ")) {
                     std::string lib = TrimString(line.substr(7));
                     data.materialLibs[lib] = lib;
+                    try {
+                        std::filesystem::path objPath(filepath);
+                        std::string objDir = objPath.parent_path().string();
+                        LoadMTL(objDir, lib, data.materials);
+                    } catch (...) {}
                 }
                 else if (StartsWith(line, "usemtl ")) {
                     data.currentMaterial = TrimString(line.substr(7));
@@ -208,6 +213,56 @@ namespace GameEngine {
         }
         
         mesh.Upload();
+    bool OBJLoader::LoadMTL(const std::string& objDir, const std::string& mtlFile, std::unordered_map<std::string, MaterialDesc>& out) {
+        try {
+            std::filesystem::path mtlPath = std::filesystem::path(objDir) / mtlFile;
+            std::ifstream file(mtlPath.string());
+            if (!file.is_open()) {
+                Logger::Warning("Failed to open MTL: " + mtlPath.string());
+                return false;
+            }
+            std::string line;
+            std::string current;
+            while (std::getline(file, line)) {
+                line = TrimString(line);
+                if (line.empty() || line[0] == '#') continue;
+                if (StartsWith(line, "newmtl ")) {
+                    current = TrimString(line.substr(7));
+                    out[current] = MaterialDesc{};
+                } else if (StartsWith(line, "Kd ")) {
+                    if (!current.empty()) {
+                        std::vector<std::string> t = SplitString(TrimString(line.substr(3)), ' ');
+                        if (t.size() >= 3) {
+                            out[current].Kd = Vector3(std::stof(t[0]), std::stof(t[1]), std::stof(t[2]));
+                        }
+                    }
+                } else if (StartsWith(line, "Ks ")) {
+                    if (!current.empty()) {
+                        std::vector<std::string> t = SplitString(TrimString(line.substr(3)), ' ');
+                        if (t.size() >= 3) {
+                            out[current].Ks = Vector3(std::stof(t[0]), std::stof(t[1]), std::stof(t[2]));
+                        }
+                    }
+                } else if (StartsWith(line, "Ns ")) {
+                    if (!current.empty()) {
+                        std::string v = TrimString(line.substr(3));
+                        out[current].Ns = std::stof(v);
+                    }
+                } else if (StartsWith(line, "map_Kd ")) {
+                    if (!current.empty()) {
+                        out[current].map_Kd = TrimString(line.substr(7));
+                    }
+                }
+            }
+            file.close();
+            Logger::Info("Loaded MTL with " + std::to_string(out.size()) + " materials: " + mtlPath.string());
+            return true;
+        } catch (const std::exception& e) {
+            Logger::Warning(std::string("Exception parsing MTL: ") + e.what());
+            return false;
+        }
+    }
+
         
         Logger::Debug("Created mesh from OBJ data with " + std::to_string(data.vertices.size()) + 
                      " vertices and " + std::to_string(data.indices.size()) + " indices");

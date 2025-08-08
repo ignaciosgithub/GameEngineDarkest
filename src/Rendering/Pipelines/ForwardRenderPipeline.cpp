@@ -85,55 +85,83 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform float lightRanges[32];
         uniform vec3 viewPos;
         
+        float saturate(float x) { return clamp(x, 0.0, 1.0); }
+        
+        float DistributionGGX(vec3 N, vec3 H, float roughness) {
+            float a      = roughness * roughness;
+            float a2     = a * a;
+            float NdotH  = max(dot(N, H), 0.0);
+            float NdotH2 = NdotH * NdotH;
+            float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+            return a2 / (3.14159265 * denom * denom);
+        }
+        
+        float GeometrySchlickGGX(float NdotV, float roughness) {
+            float r = (roughness + 1.0);
+            float k = (r * r) / 8.0;
+            float denom = NdotV * (1.0 - k) + k;
+            return NdotV / denom;
+        }
+        
+        float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+            float NdotV = max(dot(N, V), 0.0);
+            float NdotL = max(dot(N, L), 0.0);
+            float ggx1 = GeometrySchlickGGX(NdotV, roughness);
+            float ggx2 = GeometrySchlickGGX(NdotL, roughness);
+            return ggx1 * ggx2;
+        }
+        
+        vec3 FresnelSchlick(float cosTheta, vec3 F0) {
+            return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+        }
+        
         void main() {
-            vec3 norm = normalize(Normal);
-            vec3 viewDir = normalize(viewPos - FragPos);
+            vec3 N = normalize(Normal);
+            vec3 V = normalize(viewPos - FragPos);
             
-            vec3 totalLighting = vec3(0.0);
-            float totalBrightness = 0.0;
+            vec3 albedo = clamp(Color, 0.0, 1.0);
+            float metallic = 0.0;   // can be driven from component later
+            float roughness = 0.5;  // can be driven from component later
+            float ao = 1.0;
             
-            for(int i = 0; i < numLights && i < 32; i++) {
-                vec3 lightContribution = vec3(0.0);
-                
-                if(lightTypes[i] == 0) {
-                    vec3 lightDir = normalize(-lightPositions[i]);
-                    float diff = max(dot(norm, lightDir), 0.0);
-                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i];
-                    
-                    vec3 reflectDir = reflect(-lightDir, norm);
-                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-                    vec3 specular = spec * lightColors[i] * lightIntensities[i];
-                    
-                    lightContribution = diffuse + specular;
-                } else if(lightTypes[i] == 1) {
-                    vec3 lightDir = normalize(lightPositions[i] - FragPos);
-                    float distance = length(lightPositions[i] - FragPos);
-                    
-                    float attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
-                    if(distance > lightRanges[i]) attenuation = 0.0;
-                    
-                    float diff = max(dot(norm, lightDir), 0.0);
-                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i] * attenuation;
-                    
-                    vec3 reflectDir = reflect(-lightDir, norm);
-                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-                    vec3 specular = spec * lightColors[i] * lightIntensities[i] * attenuation;
-                    
-                    lightContribution = diffuse + specular;
+            vec3 F0 = mix(vec3(0.04), albedo, metallic);
+            
+            vec3 Lo = vec3(0.0);
+            for (int i = 0; i < numLights && i < 32; ++i) {
+                vec3 L;
+                float attenuation = 1.0;
+                if (lightTypes[i] == 0) {
+                    L = normalize(-lightPositions[i]);
+                } else {
+                    vec3 lightVec = lightPositions[i] - FragPos;
+                    float distance = length(lightVec);
+                    L = lightVec / max(distance, 1e-4);
+                    if (distance > lightRanges[i]) continue;
+                    attenuation = 1.0 / max(distance * distance, 1e-4);
                 }
                 
-                totalLighting += lightContribution;
-                totalBrightness += lightIntensities[i];
+                vec3 H = normalize(V + L);
+                float NDF = DistributionGGX(N, H, roughness);
+                float G   = GeometrySmith(N, V, L, roughness);
+                vec3  F   = FresnelSchlick(max(dot(H, V), 0.0), F0);
+                
+                vec3 numerator    = NDF * G * F;
+                float denom       = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 1e-4;
+                vec3 specular     = numerator / denom;
+                
+                vec3 kS = F;
+                vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+                float NdotL = max(dot(N, L), 0.0);
+                
+                vec3 radiance = lightColors[i] * lightIntensities[i] * attenuation;
+                Lo += (kD * albedo / 3.14159265 + specular) * radiance * NdotL;
             }
             
-            if(totalBrightness > 100.0) {
-                totalLighting *= (100.0 / totalBrightness);
-            }
-            
-            vec3 ambient = vec3(0.1, 0.1, 0.1);
-            vec3 result = (ambient + totalLighting) * Color;
-            
-            FragColor = vec4(result, 1.0);
+            vec3 ambient = vec3(0.03) * albedo * ao;
+            vec3 color = ambient + Lo;
+            color = color / (color + vec3(1.0));
+            color = pow(color, vec3(1.0/2.2));
+            FragColor = vec4(color, 1.0);
         }
     )";
     
@@ -156,55 +184,73 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform vec3 viewPos;
         uniform float alpha;
         
+        float DistributionGGX(vec3 N, vec3 H, float roughness) {
+            float a = roughness * roughness;
+            float a2 = a * a;
+            float NdotH = max(dot(N, H), 0.0);
+            float d = (NdotH * NdotH) * (a2 - 1.0) + 1.0;
+            return a2 / (3.14159265 * d * d);
+        }
+        float GeometrySchlickGGX(float NdotV, float roughness) {
+            float r = roughness + 1.0;
+            float k = (r*r) / 8.0;
+            return NdotV / (NdotV * (1.0 - k) + k);
+        }
+        float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+            float NdotV = max(dot(N, V), 0.0);
+            float NdotL = max(dot(N, L), 0.0);
+            float ggx1 = GeometrySchlickGGX(NdotV, roughness);
+            float ggx2 = GeometrySchlickGGX(NdotL, roughness);
+            return ggx1 * ggx2;
+        }
+        vec3 FresnelSchlick(float cosTheta, vec3 F0) {
+            return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+        }
+        
         void main() {
-            vec3 norm = normalize(Normal);
-            vec3 viewDir = normalize(viewPos - FragPos);
+            vec3 N = normalize(Normal);
+            vec3 V = normalize(viewPos - FragPos);
+            vec3 albedo = clamp(Color, 0.0, 1.0);
+            float metallic = 0.0;
+            float roughness = 0.5;
+            float ao = 1.0;
+            vec3 F0 = mix(vec3(0.04), albedo, metallic);
             
-            vec3 totalLighting = vec3(0.0);
-            float totalBrightness = 0.0;
-            
-            for(int i = 0; i < numLights && i < 32; i++) {
-                vec3 lightContribution = vec3(0.0);
-                
-                if(lightTypes[i] == 0) {
-                    vec3 lightDir = normalize(-lightPositions[i]);
-                    float diff = max(dot(norm, lightDir), 0.0);
-                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i];
-                    
-                    vec3 reflectDir = reflect(-lightDir, norm);
-                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-                    vec3 specular = spec * lightColors[i] * lightIntensities[i];
-                    
-                    lightContribution = diffuse + specular;
-                } else if(lightTypes[i] == 1) {
-                    vec3 lightDir = normalize(lightPositions[i] - FragPos);
-                    float distance = length(lightPositions[i] - FragPos);
-                    
-                    float attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
-                    if(distance > lightRanges[i]) attenuation = 0.0;
-                    
-                    float diff = max(dot(norm, lightDir), 0.0);
-                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i] * attenuation;
-                    
-                    vec3 reflectDir = reflect(-lightDir, norm);
-                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-                    vec3 specular = spec * lightColors[i] * lightIntensities[i] * attenuation;
-                    
-                    lightContribution = diffuse + specular;
+            vec3 Lo = vec3(0.0);
+            for (int i = 0; i < numLights && i < 32; ++i) {
+                vec3 L;
+                float attenuation = 1.0;
+                if (lightTypes[i] == 0) {
+                    L = normalize(-lightPositions[i]);
+                } else {
+                    vec3 lightVec = lightPositions[i] - FragPos;
+                    float distance = length(lightVec);
+                    if (distance > lightRanges[i]) continue;
+                    L = lightVec / max(distance, 1e-4);
+                    attenuation = 1.0 / max(distance*distance, 1e-4);
                 }
+                vec3 H = normalize(V + L);
+                float NDF = DistributionGGX(N, H, roughness);
+                float G   = GeometrySmith(N, V, L, roughness);
+                vec3  F   = FresnelSchlick(max(dot(H, V), 0.0), F0);
                 
-                totalLighting += lightContribution;
-                totalBrightness += lightIntensities[i];
+                vec3 numerator = NDF * G * F;
+                float denom = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 1e-4;
+                vec3 specular = numerator / denom;
+                
+                vec3 kS = F;
+                vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+                float NdotL = max(dot(N, L), 0.0);
+                
+                vec3 radiance = lightColors[i] * lightIntensities[i] * attenuation;
+                Lo += (kD * albedo / 3.14159265 + specular) * radiance * NdotL;
             }
             
-            if(totalBrightness > 100.0) {
-                totalLighting *= (100.0 / totalBrightness);
-            }
-            
-            vec3 ambient = vec3(0.1, 0.1, 0.1);
-            vec3 result = (ambient + totalLighting) * Color;
-            
-            FragColor = vec4(result, alpha);
+            vec3 ambient = vec3(0.03) * albedo * ao;
+            vec3 color = ambient + Lo;
+            color = color / (color + vec3(1.0));
+            color = pow(color, vec3(1.0/2.2));
+            FragColor = vec4(color, alpha);
         }
     )";
     

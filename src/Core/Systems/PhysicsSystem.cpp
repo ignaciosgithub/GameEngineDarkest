@@ -49,6 +49,7 @@ void PhysicsSystem::UpdateColliderPhysicsIntegration(World* world) {
         if (rigidBodyComp && colliderComp && transformComp) {
             RigidBody* rigidBody = rigidBodyComp->GetRigidBody();
             if (rigidBody && colliderComp->HasCollider()) {
+                colliderComp->SetOwnerTransform(transformComp);
                 if (rigidBody->IsStatic()) {
                     Vector3 transformPosition = transformComp->transform.GetPosition();
                     rigidBody->SetPosition(transformPosition);
@@ -67,6 +68,7 @@ void PhysicsSystem::UpdateColliderPhysicsIntegration(World* world) {
         }
         
         else if (colliderComp && transformComp && !rigidBodyComp) {
+            colliderComp->SetOwnerTransform(transformComp);
             if (colliderComp->HasCollider()) {
                 if (m_physicsWorld && m_registeredStaticColliders.find(colliderComp) == m_registeredStaticColliders.end()) {
                     m_physicsWorld->AddStaticCollider(colliderComp);

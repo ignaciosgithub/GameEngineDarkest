@@ -167,11 +167,12 @@ bool CollisionDetection::CheckCollision(ColliderComponent* colliderA, ColliderCo
         auto sphereA = std::static_pointer_cast<SphereCollider>(shapeA);
         auto sphereB = std::static_pointer_cast<SphereCollider>(shapeB);
         
-        Vector3 posA = Vector3::Zero;
-        Vector3 posB = Vector3::Zero;
-        Vector3 scaleA = Vector3::One;
-        Vector3 scaleB = Vector3::One;
-        
+        TransformComponent* ta = colliderA->GetOwnerTransform();
+        TransformComponent* tb = colliderB->GetOwnerTransform();
+        Vector3 posA = ta ? ta->transform.GetWorldPosition() : Vector3::Zero;
+        Vector3 posB = tb ? tb->transform.GetWorldPosition() : Vector3::Zero;
+        Vector3 scaleA = ta ? ta->transform.GetWorldScale() : Vector3::One;
+        Vector3 scaleB = tb ? tb->transform.GetWorldScale() : Vector3::One;
         
         float radiusA = TransformRadius(sphereA->GetRadius(), scaleA);
         float radiusB = TransformRadius(sphereB->GetRadius(), scaleB);
@@ -198,13 +199,14 @@ bool CollisionDetection::CheckCollision(ColliderComponent* colliderA, ColliderCo
         auto boxA = std::static_pointer_cast<BoxCollider>(shapeA);
         auto boxB = std::static_pointer_cast<BoxCollider>(shapeB);
         
-        Vector3 posA = Vector3::Zero;
-        Vector3 posB = Vector3::Zero;
-        Vector3 scaleA = Vector3::One;
-        Vector3 scaleB = Vector3::One;
-        Quaternion rotA = Quaternion::Identity();
-        Quaternion rotB = Quaternion::Identity();
-        
+        TransformComponent* ta = colliderA->GetOwnerTransform();
+        TransformComponent* tb = colliderB->GetOwnerTransform();
+        Vector3 posA = ta ? ta->transform.GetWorldPosition() : Vector3::Zero;
+        Vector3 posB = tb ? tb->transform.GetWorldPosition() : Vector3::Zero;
+        Vector3 scaleA = ta ? ta->transform.GetWorldScale() : Vector3::One;
+        Vector3 scaleB = tb ? tb->transform.GetWorldScale() : Vector3::One;
+        Quaternion rotA = ta ? ta->transform.GetWorldRotation() : Quaternion::Identity();
+        Quaternion rotB = tb ? tb->transform.GetWorldRotation() : Quaternion::Identity();
         
         Vector3 eA = TransformHalfExtents(boxA->GetHalfExtents(), scaleA);
         Vector3 eB = TransformHalfExtents(boxB->GetHalfExtents(), scaleB);
@@ -348,11 +350,11 @@ bool CollisionDetection::CheckCollision(RigidBody* rigidBody, ColliderComponent*
         auto sphereB = std::static_pointer_cast<SphereCollider>(shapeB);
         
         Vector3 posA = rigidBody->GetPosition();
-        Vector3 posB = Vector3::Zero;
+        TransformComponent* tb = collider->GetOwnerTransform();
+        Vector3 posB = tb ? tb->transform.GetWorldPosition() : Vector3::Zero;
         
         Vector3 scaleA = rigidBody->GetTransformComponent() ? rigidBody->GetTransformComponent()->transform.GetWorldScale() : Vector3::One;
-        Vector3 scaleB = Vector3::One;
-        
+        Vector3 scaleB = tb ? tb->transform.GetWorldScale() : Vector3::One;
         
         float radiusA = TransformRadius(sphereA->GetRadius(), scaleA);
         float radiusB = TransformRadius(sphereB->GetRadius(), scaleB);

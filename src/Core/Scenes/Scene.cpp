@@ -3,6 +3,7 @@
 #include "../Components/MovementComponent.h"
 #include "../Components/CameraComponent.h"
 #include "../Components/RigidBodyComponent.h"
+#include "../Components/MeshComponent.h"
 #include "../../Rendering/Lighting/Light.h"
 #include <fstream>
 #include <sstream>
@@ -320,6 +321,14 @@ namespace GameEngine {
                  << light->light.GetIntensity() << ","
                  << light->light.GetColor().x << "," << light->light.GetColor().y << "," << light->light.GetColor().z << "\n";
         }
+
+        if (gameObject.HasComponent<MeshComponent>()) {
+            auto* mesh = gameObject.GetComponent<MeshComponent>();
+            file << "MeshComponent: " << mesh->GetMeshType() << ","
+                 << mesh->GetColor().x << "," << mesh->GetColor().y << "," << mesh->GetColor().z << ","
+                 << mesh->GetMetallic() << "," << mesh->GetRoughness() << ","
+                 << (mesh->IsVisible() ? 1 : 0) << "\n";
+        }
         
         if (auto* transform = gameObject.GetTransform()) {
             if (transform->transform.GetParent()) {
@@ -397,6 +406,23 @@ namespace GameEngine {
                 auto* light = gameObject.AddComponent<LightComponent>(type);
                 light->light.SetIntensity(intensity);
                 light->light.SetColor(color);
+            }
+            else if (line.find("MeshComponent: ") == 0) {
+                std::stringstream ss(line.substr(15));
+                std::string typeStr, rStr, gStr, bStr, metallicStr, roughnessStr, visibleStr;
+                std::getline(ss, typeStr, ',');
+                std::getline(ss, rStr, ',');
+                std::getline(ss, gStr, ',');
+                std::getline(ss, bStr, ',');
+                std::getline(ss, metallicStr, ',');
+                std::getline(ss, roughnessStr, ',');
+                std::getline(ss, visibleStr, ',');
+                
+                auto* mesh = gameObject.AddComponent<MeshComponent>(typeStr);
+                mesh->SetColor(Vector3(std::stof(rStr), std::stof(gStr), std::stof(bStr)));
+                mesh->SetMetallic(std::stof(metallicStr));
+                mesh->SetRoughness(std::stof(roughnessStr));
+                mesh->SetVisible(std::stoi(visibleStr) != 0);
             }
             else if (line.find("ParentID: ") == 0) {
                 Logger::Debug("Found ParentID entry during deserialization - will restore hierarchy in second pass");

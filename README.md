@@ -1,5 +1,39 @@
 # GameEngineDarkest
 
+## Windows Build (Visual Studio 2022, x64)
+- Use “x64 Native Tools Command Prompt for VS 2022” or Developer PowerShell
+- Commands:
+  ```
+  mkdir build && cd build
+  cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release ..
+  cmake --build . --config Release -j
+  ```
+- Or open build\GameEngineDarkest.sln in Visual Studio, select “Release” + “x64”, then Build Solution.
+
+Outputs:
+- Editor: build\bin\GameEngineEditor.exe
+- Demos:  build\demo\GameEngineDemo.exe
+          build\demo\GameObjectDemo.exe
+
+Optional script:
+- PowerShell: scripts\build_windows.ps1
+  ```
+  pwsh scripts\build_windows.ps1 -Config Release
+  ```
+
+Notes for Windows:
+- If MSVC reports M_PI undeclared errors in some files, add:
+  ```
+  #ifndef M_PI
+  #define M_PI 3.14159265358979323846
+  #endif
+  ```
+  to the affected source files.
+- If you see “OpenGL header already included … glad already provides it”, ensure GLAD is included before any OpenGL headers across Core and Rendering modules.
+- If you see size_t→GLsizei or double→float conversion warnings treated as errors, add explicit casts where needed.
+- If ImGui linking errors occur (cannot open imgui.lib), verify CMake finds and links ImGui, or integrate via vcpkg and set CMAKE_TOOLCHAIN_FILE accordingly.
+# GameEngineDarkest
+
 A modular 3D/2D game engine built with C++20, featuring Unity-comparable functionality with production-ready architecture. The engine follows ECS (Entity-Component-System) design principles and supports multiple rendering pipelines, comprehensive physics simulation, and cross-platform deployment.
 
 ## 🚀 Features

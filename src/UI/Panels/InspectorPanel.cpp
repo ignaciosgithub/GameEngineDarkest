@@ -88,6 +88,25 @@ void InspectorPanel::Update(World* world, float /*deltaTime*/) {
                 }
             }
             
+            if (!world->HasComponent<ColliderComponent>(m_selectedEntity)) {
+                if (ImGui::Button("Collider Component")) {
+                    auto* collider = world->AddComponent<ColliderComponent>(m_selectedEntity);
+                    if (collider) {
+                        auto* meshComp = world->GetComponent<MeshComponent>(m_selectedEntity);
+                        if (meshComp && meshComp->HasMesh()) {
+                            collider->GenerateFromMesh(meshComp, ColliderShapeType::ConvexHull);
+                            Logger::Info("Added ColliderComponent (ConvexHull from Mesh) to entity: " + std::to_string(m_selectedEntity.GetID()));
+                        } else {
+                            collider->SetBoxCollider(Vector3(1.0f, 1.0f, 1.0f));
+                            Logger::Info("Added ColliderComponent (default Box) to entity: " + std::to_string(m_selectedEntity.GetID()));
+                        }
+                    } else {
+                        Logger::Warning("Failed to add ColliderComponent");
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+
             ImGui::Separator();
             if (ImGui::Button("Cancel")) {
                 ImGui::CloseCurrentPopup();
@@ -305,14 +324,32 @@ void InspectorPanel::DrawColliderComponent(World* world, Entity entity) {
             if (ImGui::Checkbox("Is Trigger", &isTrigger)) {
                 collider->SetTrigger(isTrigger);
             }
+            float restitution = collider->GetRestitution();
+            if (ImGui::SliderFloat("Restitution", &restitution, 0.0f, 1.0f)) {
+                collider->SetRestitution(restitution);
+            }
+            float friction = collider->GetFriction();
+            if (ImGui::SliderFloat("Friction", &friction, 0.0f, 1.0f)) {
+                collider->SetFriction(friction);
+            }
         }
         
+        if (!collider->HasCollider()) {
+            ImGui::Text("No collider shape set");
+            if (ImGui::Button("Add Box")) {
+                collider->SetBoxCollider(Vector3(1.0f, 1.0f, 1.0f));
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Add Sphere")) {
+                collider->SetSphereCollider(1.0f);
+            }
+        }
         ImGui::Separator();
         
         if (ImGui::Button("Generate from Mesh")) {
             auto* meshComp = world->GetComponent<MeshComponent>(entity);
             if (meshComp) {
-                collider->GenerateFromMesh(meshComp, ColliderShapeType::Box);
+                collider->GenerateFromMesh(meshComp, ColliderShapeType::ConvexHull);
                 Logger::Info("Generated collider from mesh for entity: " + std::to_string(entity.GetID()));
             } else {
                 Logger::Warning("No mesh component found to generate collider from");

@@ -19,9 +19,9 @@ void PhysicsSystem::OnInitialize(World* /*world*/) {
 void PhysicsSystem::OnUpdate(World* world, float /*deltaTime*/) {
     if (m_playModeManager && m_playModeManager->IsInPlayMode()) {
         SynchronizePhysicsToTransforms(world);
-        UpdateColliderPhysicsIntegration(world);
-        CleanupStaticColliders(world);
     }
+    UpdateColliderPhysicsIntegration(world);
+    CleanupStaticColliders(world);
 }
 
 void PhysicsSystem::SynchronizePhysicsToTransforms(World* world) {

@@ -4,6 +4,7 @@
 #include "../Components/CameraComponent.h"
 #include "../Components/RigidBodyComponent.h"
 #include "../Components/MeshComponent.h"
+#include "../Components/ColliderComponent.h"
 #include "../../Rendering/Lighting/Light.h"
 #include <fstream>
 #include <sstream>
@@ -329,6 +330,39 @@ namespace GameEngine {
                  << mesh->GetMetallic() << "," << mesh->GetRoughness() << ","
                  << (mesh->IsVisible() ? 1 : 0) << "\n";
         }
+
+        if (gameObject.HasComponent<ColliderComponent>()) {
+            auto* collider = gameObject.GetComponent<ColliderComponent>();
+            int has = collider->HasCollider() ? 1 : 0;
+            int shape = 0;
+            float p0 = 0.0f, p1 = 0.0f, p2 = 0.0f;
+            if (has) {
+                auto shapePtr = collider->GetColliderShape();
+                if (shapePtr) {
+                    shape = static_cast<int>(shapePtr->GetType());
+                    switch (shapePtr->GetType()) {
+                        case ColliderShapeType::Sphere: {
+                            auto s = std::static_pointer_cast<SphereCollider>(shapePtr);
+                            p0 = s->GetRadius();
+                            break;
+                        }
+                        case ColliderShapeType::Box: {
+                            auto b = std::static_pointer_cast<BoxCollider>(shapePtr);
+                            Vector3 he = b->GetHalfExtents();
+                            p0 = he.x; p1 = he.y; p2 = he.z;
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+                }
+            }
+            file << "ColliderComponent: "
+                 << has << "," << shape << ","
+                 << (collider->IsTrigger() ? 1 : 0) << ","
+                 << collider->GetRestitution() << "," << collider->GetFriction() << ","
+                 << p0 << "," << p1 << "," << p2 << "\n";
+        }
         
         if (auto* transform = gameObject.GetTransform()) {
             if (transform->transform.GetParent()) {
@@ -423,6 +457,43 @@ namespace GameEngine {
                 mesh->SetMetallic(std::stof(metallicStr));
                 mesh->SetRoughness(std::stof(roughnessStr));
                 mesh->SetVisible(std::stoi(visibleStr) != 0);
+            }
+            else if (line.find("ColliderComponent: ") == 0) {
+                std::stringstream ss(line.substr(19));
+                std::string hasStr, shapeStr, triggerStr, restStr, fricStr, p0Str, p1Str, p2Str;
+                std::getline(ss, hasStr, ',');
+                std::getline(ss, shapeStr, ',');
+                std::getline(ss, triggerStr, ',');
+                std::getline(ss, restStr, ',');
+                std::getline(ss, fricStr, ',');
+                std::getline(ss, p0Str, ',');
+                std::getline(ss, p1Str, ',');
+                std::getline(ss, p2Str, ',');
+                
+                auto* collider = gameObject.AddComponent<ColliderComponent>();
+                bool has = std::stoi(hasStr) != 0;
+                collider->SetTrigger(std::stoi(triggerStr) != 0);
+                collider->SetRestitution(std::stof(restStr));
+                collider->SetFriction(std::stof(fricStr));
+                if (has) {
+                    ColliderShapeType type = static_cast<ColliderShapeType>(std::stoi(shapeStr));
+                    switch (type) {
+                        case ColliderShapeType::Sphere: {
+                            float r = std::stof(p0Str);
+                            collider->SetSphereCollider(r);
+                            break;
+                        }
+                        case ColliderShapeType::Box: {
+                            float ex = std::stof(p0Str);
+                            float ey = std::stof(p1Str);
+                            float ez = std::stof(p2Str);
+                            collider->SetBoxCollider(Vector3(ex, ey, ez));
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+                }
             }
             else if (line.find("ParentID: ") == 0) {
                 Logger::Debug("Found ParentID entry during deserialization - will restore hierarchy in second pass");

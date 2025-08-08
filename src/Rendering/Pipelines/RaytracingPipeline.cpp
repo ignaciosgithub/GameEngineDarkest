@@ -297,6 +297,12 @@ HitInfo RaytracingPipeline::RayIntersectScene(const Ray& ray) {
         }
     }
     
+    HitInfo triHit = TraverseBVH(ray);
+    if (triHit.hit && triHit.distance < closestDistance) {
+        closestDistance = triHit.distance;
+        closestHit = triHit;
+    }
+    
     return closestHit;
 }
 

@@ -90,6 +90,7 @@ public:
     
     void SetMaxBounces(int bounces) { m_maxBounces = bounces; }
     void SetUseComputeShader(bool use) { m_useComputeShader = use; }
+    void SetSingleSpecularBounce(bool enabled) { m_maxBounces = enabled ? 2 : 1; }
 
 private:
     void Cleanup();

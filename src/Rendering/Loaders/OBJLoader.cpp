@@ -186,6 +186,12 @@ namespace GameEngine {
                 }
             }
             
+            if (!data.currentMaterial.empty()) {
+                auto it = data.materials.find(data.currentMaterial);
+                if (it != data.materials.end()) {
+                    vertex.color = it->second.Kd;
+                }
+            }
             faceVertexData.push_back(vertex);
         }
         

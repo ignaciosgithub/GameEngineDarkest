@@ -231,7 +231,6 @@ void DeferredRenderPipeline::CreateShaders() {
         uniform int lightTypes[32];
         uniform float lightRanges[32];
         uniform vec3 viewPos;
-        uniform vec3 viewPos;
         uniform mat4 lightSpaceMatrix;
         
         float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir) {
@@ -365,6 +364,7 @@ void DeferredRenderPipeline::ShadowPass(World* world) {
         
         Matrix4 lightView = Matrix4::LookAt(lightPos, Vector3(0, 0, 0), Vector3(0, 1, 0));
         Matrix4 lightProjection = Matrix4::Orthographic(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 20.0f);
+        m_lightSpaceMatrix = lightProjection * lightView;
         
         if (m_geometryShader) {
             m_geometryShader->Use();
@@ -497,6 +497,7 @@ void DeferredRenderPipeline::LightingPass(World* world) {
             m_lightingShader->SetInt("lightTypes[" + indexStr + "]", lightData[i].type);
             m_lightingShader->SetFloat("lightRanges[" + indexStr + "]", lightData[i].range);
         }
+        m_lightingShader->SetMatrix4("lightSpaceMatrix", m_lightSpaceMatrix);
         
         Matrix4 invViewMatrix = m_renderData.viewMatrix.Inverted();
         Vector3 cameraPosition = Vector3(invViewMatrix.m[12], invViewMatrix.m[13], invViewMatrix.m[14]);

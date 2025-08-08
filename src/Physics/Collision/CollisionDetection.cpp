@@ -172,6 +172,7 @@ bool CollisionDetection::CheckCollision(ColliderComponent* colliderA, ColliderCo
         Vector3 scaleA = Vector3::One;
         Vector3 scaleB = Vector3::One;
         
+        
         float radiusA = TransformRadius(sphereA->GetRadius(), scaleA);
         float radiusB = TransformRadius(sphereB->GetRadius(), scaleB);
         
@@ -201,39 +202,114 @@ bool CollisionDetection::CheckCollision(ColliderComponent* colliderA, ColliderCo
         Vector3 posB = Vector3::Zero;
         Vector3 scaleA = Vector3::One;
         Vector3 scaleB = Vector3::One;
+        Quaternion rotA = Quaternion::Identity();
+        Quaternion rotB = Quaternion::Identity();
         
-        Vector3 sizeA = TransformHalfExtents(boxA->GetHalfExtents(), scaleA) * 2.0f;
-        Vector3 sizeB = TransformHalfExtents(boxB->GetHalfExtents(), scaleB) * 2.0f;
         
-        Vector3 minA = posA - sizeA * 0.5f;
-        Vector3 maxA = posA + sizeA * 0.5f;
-        Vector3 minB = posB - sizeB * 0.5f;
-        Vector3 maxB = posB + sizeB * 0.5f;
+        Vector3 eA = TransformHalfExtents(boxA->GetHalfExtents(), scaleA);
+        Vector3 eB = TransformHalfExtents(boxB->GetHalfExtents(), scaleB);
         
-        bool overlapX = (minA.x <= maxB.x) && (maxA.x >= minB.x);
-        bool overlapY = (minA.y <= maxB.y) && (maxA.y >= minB.y);
-        bool overlapZ = (minA.z <= maxB.z) && (maxA.z >= minB.z);
+        Vector3 A0 = rotA.RotateVector(Vector3(1,0,0));
+        Vector3 A1 = rotA.RotateVector(Vector3(0,1,0));
+        Vector3 A2 = rotA.RotateVector(Vector3(0,0,1));
+        Vector3 B0 = rotB.RotateVector(Vector3(1,0,0));
+        Vector3 B1 = rotB.RotateVector(Vector3(0,1,0));
+        Vector3 B2 = rotB.RotateVector(Vector3(0,0,1));
         
-        if (overlapX && overlapY && overlapZ) {
-            info.hasCollision = true;
-            
-            Vector3 overlap;
-            overlap.x = std::min(maxA.x - minB.x, maxB.x - minA.x);
-            overlap.y = std::min(maxA.y - minB.y, maxB.y - minA.y);
-            overlap.z = std::min(maxA.z - minB.z, maxB.z - minA.z);
-            
-            if (overlap.x <= overlap.y && overlap.x <= overlap.z) {
-                info.penetration = overlap.x;
-                info.normal = (posA.x < posB.x) ? Vector3(-1, 0, 0) : Vector3(1, 0, 0);
-            } else if (overlap.y <= overlap.z) {
-                info.penetration = overlap.y;
-                info.normal = (posA.y < posB.y) ? Vector3(0, -1, 0) : Vector3(0, 1, 0);
-            } else {
-                info.penetration = overlap.z;
-                info.normal = (posA.z < posB.z) ? Vector3(0, 0, -1) : Vector3(0, 0, 1);
+        float R[3][3];
+        float AbsR[3][3];
+        const float EPS = 1e-4f;
+        R[0][0] = A0.Dot(B0); R[0][1] = A0.Dot(B1); R[0][2] = A0.Dot(B2);
+        R[1][0] = A1.Dot(B0); R[1][1] = A1.Dot(B1); R[1][2] = A1.Dot(B2);
+        R[2][0] = A2.Dot(B0); R[2][1] = A2.Dot(B1); R[2][2] = A2.Dot(B2);
+        for (int i=0;i<3;++i) for (int j=0;j<3;++j) AbsR[i][j] = std::fabs(R[i][j]) + EPS;
+        Vector3 tWorld = posB - posA;
+        Vector3 t( tWorld.Dot(A0), tWorld.Dot(A1), tWorld.Dot(A2) );
+        
+        float minPenetration = std::numeric_limits<float>::max();
+        Vector3 bestAxis = Vector3::Zero;
+        bool found = true;
+        auto testAxis = [&](const Vector3& axis, float ra, float rb, float tProj) -> bool {
+            float dist = std::fabs(tProj);
+            float overlap = ra + rb - dist;
+            if (overlap < 0.0f) return false;
+            if (overlap < minPenetration) {
+                minPenetration = overlap;
+                bestAxis = axis;
+                if (tProj > 0.0f) bestAxis = -bestAxis;
             }
-            
-            info.contactPoint = posA + info.normal * (info.penetration * 0.5f);
+            return true;
+        };
+        if (!testAxis(A0, eA.x, eB.x*AbsR[0][0] + eB.y*AbsR[0][1] + eB.z*AbsR[0][2], t.x)) found = false;
+        if (found && !testAxis(A1, eA.y, eB.x*AbsR[1][0] + eB.y*AbsR[1][1] + eB.z*AbsR[1][2], t.y)) found = false;
+        if (found && !testAxis(A2, eA.z, eB.x*AbsR[2][0] + eB.y*AbsR[2][1] + eB.z*AbsR[2][2], t.z)) found = false;
+        if (found && !testAxis(B0, eB.x, eA.x*AbsR[0][0] + eA.y*AbsR[1][0] + eA.z*AbsR[2][0], t.x*R[0][0] + t.y*R[1][0] + t.z*R[2][0])) found = false;
+        if (found && !testAxis(B1, eB.y, eA.x*AbsR[0][1] + eA.y*AbsR[1][1] + eA.z*AbsR[2][1], t.x*R[0][1] + t.y*R[1][1] + t.z*R[2][1])) found = false;
+        if (found && !testAxis(B2, eB.z, eA.x*AbsR[0][2] + eA.y*AbsR[1][2] + eA.z*AbsR[2][2], t.x*R[0][2] + t.y*R[1][2] + t.z*R[2][2])) found = false;
+        if (found) {
+            Vector3 C00 = A0.Cross(B0); if (C00.LengthSquared()>EPS) { C00 = C00.Normalized();
+                float ra = eA.y*AbsR[2][0] + eA.z*AbsR[1][0];
+                float rb = eB.y*AbsR[0][2] + eB.z*AbsR[0][1];
+                float tProj = std::fabs(t.z*R[1][0] - t.y*R[2][0]);
+                if (!testAxis(C00, ra, rb, tProj)) found=false;
+            }
+            if (found) { Vector3 C01 = A0.Cross(B1); if (C01.LengthSquared()>EPS) { C01 = C01.Normalized();
+                float ra = eA.y*AbsR[2][1] + eA.z*AbsR[1][1];
+                float rb = eB.x*AbsR[0][2] + eB.z*AbsR[0][0];
+                float tProj = std::fabs(t.z*R[1][1] - t.y*R[2][1]);
+                if (!testAxis(C01, ra, rb, tProj)) found=false;
+            } }
+            if (found) { Vector3 C02 = A0.Cross(B2); if (C02.LengthSquared()>EPS) { C02 = C02.Normalized();
+                float ra = eA.y*AbsR[2][2] + eA.z*AbsR[1][2];
+                float rb = eB.x*AbsR[0][1] + eB.y*AbsR[0][0];
+                float tProj = std::fabs(t.z*R[1][2] - t.y*R[2][2]);
+                if (!testAxis(C02, ra, rb, tProj)) found=false;
+            } }
+            if (found) { Vector3 C10 = A1.Cross(B0); if (C10.LengthSquared()>EPS) { C10 = C10.Normalized();
+                float ra = eA.x*AbsR[2][0] + eA.z*AbsR[0][0];
+                float rb = eB.y*AbsR[1][2] + eB.z*AbsR[1][1];
+                float tProj = std::fabs(t.x*R[2][0] - t.z*R[0][0]);
+                if (!testAxis(C10, ra, rb, tProj)) found=false;
+            } }
+            if (found) { Vector3 C11 = A1.Cross(B1); if (C11.LengthSquared()>EPS) { C11 = C11.Normalized();
+                float ra = eA.x*AbsR[2][1] + eA.z*AbsR[0][1];
+                float rb = eB.x*AbsR[1][2] + eB.z*AbsR[1][0];
+                float tProj = std::fabs(t.x*R[2][1] - t.z*R[0][1]);
+                if (!testAxis(C11, ra, rb, tProj)) found=false;
+            } }
+            if (found) { Vector3 C12 = A1.Cross(B2); if (C12.LengthSquared()>EPS) { C12 = C12.Normalized();
+                float ra = eA.x*AbsR[2][2] + eA.z*AbsR[0][2];
+                float rb = eB.x*AbsR[1][1] + eB.y*AbsR[1][0];
+                float tProj = std::fabs(t.x*R[2][2] - t.z*R[0][2]);
+                if (!testAxis(C12, ra, rb, tProj)) found=false;
+            } }
+            if (found) { Vector3 C20 = A2.Cross(B0); if (C20.LengthSquared()>EPS) { C20 = C20.Normalized();
+                float ra = eA.x*AbsR[1][0] + eA.y*AbsR[0][0];
+                float rb = eB.y*AbsR[2][2] + eB.z*AbsR[2][1];
+                float tProj = std::fabs(t.y*R[0][0] - t.x*R[1][0]);
+                if (!testAxis(C20, ra, rb, tProj)) found=false;
+            } }
+            if (found) { Vector3 C21 = A2.Cross(B1); if (C21.LengthSquared()>EPS) { C21 = C21.Normalized();
+                float ra = eA.x*AbsR[1][1] + eA.y*AbsR[0][1];
+                float rb = eB.x*AbsR[2][2] + eB.z*AbsR[2][0];
+                float tProj = std::fabs(t.y*R[0][1] - t.x*R[1][1]);
+                if (!testAxis(C21, ra, rb, tProj)) found=false;
+            } }
+            if (found) { Vector3 C22 = A2.Cross(B2); if (C22.LengthSquared()>EPS) { C22 = C22.Normalized();
+                float ra = eA.x*AbsR[1][2] + eA.y*AbsR[0][2];
+                float rb = eB.x*AbsR[2][1] + eB.y*AbsR[2][0];
+                float tProj = std::fabs(t.y*R[0][2] - t.x*R[1][2]);
+                if (!testAxis(C22, ra, rb, tProj)) found=false;
+            } }
+        }
+        
+        if (found && minPenetration != std::numeric_limits<float>::max()) {
+            info.hasCollision = true;
+            info.penetration = minPenetration;
+            Vector3 n = bestAxis;
+            if (n.LengthSquared() > 0.0f) n = n.Normalized();
+            info.normal = n;
+            info.contactPoint = posA + (posB - posA) * 0.5f;
             hasCollision = true;
         }
     }
@@ -272,10 +348,11 @@ bool CollisionDetection::CheckCollision(RigidBody* rigidBody, ColliderComponent*
         auto sphereB = std::static_pointer_cast<SphereCollider>(shapeB);
         
         Vector3 posA = rigidBody->GetPosition();
-        Vector3 posB = Vector3::Zero; // TODO: Get from ColliderComponent's entity TransformComponent
+        Vector3 posB = Vector3::Zero;
         
         Vector3 scaleA = rigidBody->GetTransformComponent() ? rigidBody->GetTransformComponent()->transform.GetWorldScale() : Vector3::One;
-        Vector3 scaleB = Vector3::One; // TODO: Get from ColliderComponent's entity TransformComponent
+        Vector3 scaleB = Vector3::One;
+        
         
         float radiusA = TransformRadius(sphereA->GetRadius(), scaleA);
         float radiusB = TransformRadius(sphereB->GetRadius(), scaleB);
@@ -503,17 +580,31 @@ bool CollisionDetection::SphereVsBox(RigidBody* bodyA, RigidBody* bodyB, Collisi
     Vector3 sphereScale = sphere->GetTransformComponent() ? sphere->GetTransformComponent()->transform.GetWorldScale() : Vector3::One;
     Vector3 boxScale = box->GetTransformComponent() ? box->GetTransformComponent()->transform.GetWorldScale() : Vector3::One;
     
-    Vector3 boxSize = TransformHalfExtents(boxCollider->GetHalfExtents(), boxScale) * 2.0f;
     float sphereRadius = TransformRadius(sphereCollider->GetRadius(), sphereScale);
+    Vector3 he = TransformHalfExtents(boxCollider->GetHalfExtents(), boxScale);
     
     Quaternion boxRotation = box->GetTransformComponent() ? box->GetTransformComponent()->transform.GetWorldRotation() : Quaternion::Identity();
+    Quaternion invBoxRot = boxRotation.Inverted();
     
-    (void)boxRotation; // Suppress unused variable warning
-    
-    Vector3 boxMin = boxPos - boxSize * 0.5f;
-    Vector3 boxMax = boxPos + boxSize * 0.5f;
-    
-    Vector3 closestPoint;
+    Vector3 sphereLocal = invBoxRot.RotateVector(spherePos - boxPos);
+    Vector3 pLocal(
+        std::max(-he.x, std::min(sphereLocal.x, he.x)),
+        std::max(-he.y, std::min(sphereLocal.y, he.y)),
+        std::max(-he.z, std::min(sphereLocal.z, he.z))
+    );
+    Vector3 deltaLocal = sphereLocal - pLocal;
+    float dist2 = deltaLocal.LengthSquared();
+    if (dist2 <= sphereRadius * sphereRadius) {
+        float dist = std::sqrt(std::max(dist2, 0.0f));
+        Vector3 localNormal = dist > 0.0f ? (deltaLocal / dist) : Vector3::Up;
+        Vector3 worldNormal = boxRotation.RotateVector(localNormal);
+        info.hasCollision = true;
+        info.normal = worldNormal;
+        info.penetration = sphereRadius - dist;
+        info.contactPoint = boxPos + boxRotation.RotateVector(pLocal);
+        return true;
+    }
+    return false;
     closestPoint.x = std::max(boxMin.x, std::min(spherePos.x, boxMax.x));
     closestPoint.y = std::max(boxMin.y, std::min(spherePos.y, boxMax.y));
     closestPoint.z = std::max(boxMin.z, std::min(spherePos.z, boxMax.z));

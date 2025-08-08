@@ -39,6 +39,9 @@ bool RaytracingPipeline::Initialize(int width, int height) {
     m_colorTexture = std::make_shared<Texture>();
     m_colorTexture->CreateEmpty(width, height, TextureFormat::RGBA8);
     
+    m_accumulation.assign(width * height, Vector3(0.0f, 0.0f, 0.0f));
+    m_accumulatedFrames = 0;
+    
     m_framebuffer->AddColorAttachment(TextureFormat::RGBA8);
     
     if (!m_framebuffer->IsComplete()) {
@@ -98,6 +101,8 @@ void RaytracingPipeline::Render(World* /*world*/) {
         }
     }
     
+    m_accumulatedFrames++;
+    
     std::vector<unsigned char> pixels(width * height * 4);
     for (int i = 0; i < width * height; ++i) {
         Vector3 color = framebuffer[i];
@@ -139,6 +144,22 @@ void RaytracingPipeline::Shutdown() {
 
 void RaytracingPipeline::BeginFrame(const RenderData& renderData) {
     m_renderData = renderData;
+    
+    m_rngSeed = (m_rngSeed * 1664525u + 1013904223u);
+    
+    static Vector3 prevPos = m_cameraPos;
+    static Vector3 prevTarget = m_cameraTarget;
+    static Vector3 prevUp = m_cameraUp;
+    static float prevFov = m_fov;
+    bool changed = (prevPos - m_cameraPos).LengthSquared() > 1e-6f
+                || (prevTarget - m_cameraTarget).LengthSquared() > 1e-6f
+                || (prevUp - m_cameraUp).LengthSquared() > 1e-6f
+                || std::abs(prevFov - m_fov) > 1e-6f;
+    if (changed && !m_accumulation.empty()) {
+        std::fill(m_accumulation.begin(), m_accumulation.end(), Vector3(0.0f, 0.0f, 0.0f));
+        m_accumulatedFrames = 0;
+    }
+    prevPos = m_cameraPos; prevTarget = m_cameraTarget; prevUp = m_cameraUp; prevFov = m_fov;
 }
 
 void RaytracingPipeline::EndFrame() {
@@ -377,20 +398,28 @@ Ray RaytracingPipeline::GetCameraRay(float x, float y) {
 }
 
 void RaytracingPipeline::RenderPixel(int x, int y, std::vector<Vector3>& framebuffer) {
-    Vector3 color(0.0f, 0.0f, 0.0f);
+    std::minstd_rand rng(static_cast<unsigned int>(m_rngSeed + static_cast<unsigned int>(y) * 9781u + static_cast<unsigned int>(x) * 6271u + static_cast<unsigned int>(m_accumulatedFrames) * 7919u));
+    std::uniform_real_distribution<float> uni(0.0f, 1.0f);
     
+    Vector3 color(0.0f, 0.0f, 0.0f);
     for (int s = 0; s < m_samplesPerPixel; ++s) {
-        float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(m_renderData.viewportWidth);
-        float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(m_renderData.viewportHeight);
+        float jitterX = uni(rng);
+        float jitterY = uni(rng);
+        float u = (static_cast<float>(x) + jitterX) / static_cast<float>(m_renderData.viewportWidth);
+        float v = (static_cast<float>(y) + jitterY) / static_cast<float>(m_renderData.viewportHeight);
         
         Ray ray = GetCameraRay(u, v);
         color = color + TraceRay(ray);
     }
-    
     color = color / static_cast<float>(m_samplesPerPixel);
     
     int index = y * m_renderData.viewportWidth + x;
-    framebuffer[index] = color;
+    if (index >= 0 && index < static_cast<int>(m_accumulation.size())) {
+        m_accumulation[index] = m_accumulation[index] + color;
+        framebuffer[index] = m_accumulation[index] / static_cast<float>(std::max(1, m_accumulatedFrames));
+    } else {
+        framebuffer[index] = color;
+    }
 }
 
 void RaytracingPipeline::RenderTile(int startX, int startY, int endX, int endY, std::vector<Vector3>& framebuffer) {

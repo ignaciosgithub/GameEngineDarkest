@@ -95,7 +95,7 @@ public:
 private:
     void Cleanup();
     void SetSamplesPerPixel(int samples) { m_samplesPerPixel = samples; }
-
+    
     Vector3 TraceRay(const Ray& ray, int depth = 0);
     HitInfo RayIntersectSphere(const Ray& ray, const Sphere& sphere);
     HitInfo RayIntersectTriangle(const Ray& ray, const Triangle& triangle);
@@ -111,7 +111,7 @@ private:
     HitInfo TraverseBVH(const Ray& ray);
     void RenderWithComputeShader();
     void SetupComputeShaderBuffers();
-
+    
     std::shared_ptr<FrameBuffer> m_framebuffer;
     std::shared_ptr<Texture> m_colorTexture;
     
@@ -132,6 +132,10 @@ private:
     int m_samplesPerPixel = 1;
     bool m_initialized = false;
     bool m_useComputeShader = true;
+    
+    std::vector<Vector3> m_accumulation;
+    int m_accumulatedFrames = 0;
+    unsigned int m_rngSeed = 1337;
     
     std::shared_ptr<Shader> m_computeShader;
     unsigned int m_triangleSSBO = 0;

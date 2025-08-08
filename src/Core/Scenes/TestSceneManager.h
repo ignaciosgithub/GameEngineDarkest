@@ -34,6 +34,7 @@ public:
     void CreatePostProcessingScene();
     void CreateRaytracingScene();
     
+    void ReplaceScene();
     // Utility methods
     void ClearCurrentScene();
     void AddTestCube(const Vector3& position, const Vector3& scale = Vector3(1.0f), Material* material = nullptr);

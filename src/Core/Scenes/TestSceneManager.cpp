@@ -20,7 +20,7 @@ TestSceneManager::~TestSceneManager() {
 void TestSceneManager::LoadScene(TestSceneType sceneType) {
     Logger::Info("Loading test scene: " + std::to_string(static_cast<int>(sceneType)));
     
-    ClearCurrentScene();
+    ReplaceScene();
     m_currentSceneType = sceneType;
     m_animationTime = 0.0f;
     
@@ -195,6 +195,52 @@ void TestSceneManager::CreateRaytracingScene() {
     CreatePointLight(Vector3(0.0f, 5.0f, 0.0f), Vector3(1.0f, 1.0f, 1.0f), 8.0f, 20.0f);
 }
 
+void TestSceneManager::ReplaceScene() {
+    std::vector<Entity> toDestroy;
+    bool preservedCamera = false;
+    Entity preservedCameraEntity;
+    for (const auto& entity : m_world->GetEntities()) {
+        if (!preservedCamera && m_world->HasComponent<CameraComponent>(entity)) {
+            preservedCamera = true;
+            preservedCameraEntity = entity;
+            continue;
+        }
+        toDestroy.push_back(entity);
+    }
+    for (Entity e : toDestroy) {
+        if (e.IsValid()) {
+            m_world->DestroyEntity(e);
+        }
+    }
+    m_sceneEntities.clear();
+    m_sceneMaterials.clear();
+    if (preservedCamera) {
+        m_sceneEntities.push_back(preservedCameraEntity);
+    }
+}
+void TestSceneManager::ReplaceScene() {
+    std::vector<Entity> toDestroy;
+    bool preservedCamera = false;
+    Entity preservedCameraEntity;
+    for (const auto& entity : m_world->GetEntities()) {
+        if (!preservedCamera && m_world->HasComponent<CameraComponent>(entity)) {
+            preservedCamera = true;
+            preservedCameraEntity = entity;
+            continue;
+        }
+        toDestroy.push_back(entity);
+    }
+    for (Entity e : toDestroy) {
+        if (e.IsValid()) {
+            m_world->DestroyEntity(e);
+        }
+    }
+    m_sceneEntities.clear();
+    m_sceneMaterials.clear();
+    if (preservedCamera) {
+        m_sceneEntities.push_back(preservedCameraEntity);
+    }
+}
 void TestSceneManager::ClearCurrentScene() {
     Logger::Debug("Clearing current test scene");
     

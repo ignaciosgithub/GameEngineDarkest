@@ -33,6 +33,7 @@ namespace GameEngine {
         std::unique_ptr<Shader> m_compositeShader;
         
         static const int SHADOW_MAP_SIZE = 1024;
+        Matrix4 m_lightSpaceMatrix;
         
         void CreateGBuffer();
         void CreateShaders();

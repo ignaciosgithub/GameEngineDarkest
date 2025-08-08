@@ -197,38 +197,35 @@ void RaytracingPipeline::BuildBVH() {
         Logger::Warning("Cannot build BVH: no triangles in scene");
         return;
     }
-    
+
     m_bvhNodes.clear();
-    m_bvhNodes.resize(m_triangles.size() * 2);
-    
-    std::vector<int> triangleIndices(m_triangles.size());
+    m_triangleIndices.clear();
+    m_bvhNodes.reserve(m_triangles.size() * 2);
+    m_bvhNodes.resize(1);
+
+    std::vector<int> indices(m_triangles.size());
     for (size_t i = 0; i < m_triangles.size(); ++i) {
-        triangleIndices[i] = static_cast<int>(i);
+        indices[i] = static_cast<int>(i);
     }
-    
-    BVHNode& root = m_bvhNodes[0];
-    root.triangleStart = 0;
-    root.triangleCount = static_cast<int>(m_triangles.size());
-    
+
     Vector3 minBounds(1e30f, 1e30f, 1e30f);
     Vector3 maxBounds(-1e30f, -1e30f, -1e30f);
-    
-    for (const Triangle& tri : m_triangles) {
-        minBounds.x = std::min({minBounds.x, tri.v0.x, tri.v1.x, tri.v2.x});
-        minBounds.y = std::min({minBounds.y, tri.v0.y, tri.v1.y, tri.v2.y});
-        minBounds.z = std::min({minBounds.z, tri.v0.z, tri.v1.z, tri.v2.z});
-        
-        maxBounds.x = std::max({maxBounds.x, tri.v0.x, tri.v1.x, tri.v2.x});
-        maxBounds.y = std::max({maxBounds.y, tri.v0.y, tri.v1.y, tri.v2.y});
-        maxBounds.z = std::max({maxBounds.z, tri.v0.z, tri.v1.z, tri.v2.z});
+    for (const auto& tri : m_triangles) {
+        minBounds = Vector3::Min(minBounds, Vector3::Min(Vector3::Min(tri.v0, tri.v1), tri.v2));
+        maxBounds = Vector3::Max(maxBounds, Vector3::Max(Vector3::Max(tri.v0, tri.v1), tri.v2));
     }
-    
+
+    BVHNode& root = m_bvhNodes[0];
     root.minBounds = minBounds;
     root.maxBounds = maxBounds;
-    
-    BuildBVHRecursive(0, triangleIndices);
-    
-    Logger::Info("Built BVH with " + std::to_string(m_bvhNodes.size()) + " nodes for " + std::to_string(m_triangles.size()) + " triangles");
+    root.leftChild = -1;
+    root.rightChild = -1;
+    root.triangleStart = -1;
+    root.triangleCount = 0;
+
+    BuildBVHRecursive(0, indices);
+
+    Logger::Info("Built BVH with " + std::to_string(m_bvhNodes.size()) + " nodes; leaf index buffer size " + std::to_string(m_triangleIndices.size()));
 }
 
 Vector3 RaytracingPipeline::TraceRay(const Ray& ray, int depth) {
@@ -298,6 +295,12 @@ HitInfo RaytracingPipeline::RayIntersectScene(const Ray& ray) {
             closestDistance = hit.distance;
             closestHit = hit;
         }
+    }
+    
+    HitInfo triHit = TraverseBVH(ray);
+    if (triHit.hit && triHit.distance < closestDistance) {
+        closestDistance = triHit.distance;
+        closestHit = triHit;
     }
     
     return closestHit;
@@ -439,66 +442,60 @@ HitInfo RaytracingPipeline::RayIntersectTriangle(const Ray& ray, const Triangle&
     return hit;
 }
 
-void RaytracingPipeline::BuildBVHRecursive(int nodeIndex, std::vector<int>& triangleIndices) {
+void RaytracingPipeline::BuildBVHRecursive(int nodeIndex, std::vector<int>& triIdx) {
     BVHNode& node = m_bvhNodes[nodeIndex];
-    
-    if (triangleIndices.size() <= 4) {
-        node.triangleStart = static_cast<int>(triangleIndices.size() > 0 ? triangleIndices[0] : 0);
-        node.triangleCount = static_cast<int>(triangleIndices.size());
+
+    if (triIdx.size() <= 4) {
+        node.triangleStart = static_cast<int>(m_triangleIndices.size());
+        node.triangleCount = static_cast<int>(triIdx.size());
+        m_triangleIndices.insert(m_triangleIndices.end(), triIdx.begin(), triIdx.end());
         return;
     }
-    
+
     Vector3 extent = node.maxBounds - node.minBounds;
     int splitAxis = 0;
     if (extent.y > extent.x) splitAxis = 1;
     if (extent.z > extent[splitAxis]) splitAxis = 2;
-    
-    std::sort(triangleIndices.begin(), triangleIndices.end(), 
+
+    std::sort(triIdx.begin(), triIdx.end(),
         [this, splitAxis](int a, int b) {
-            Vector3 centroidA = (m_triangles[a].v0 + m_triangles[a].v1 + m_triangles[a].v2) / 3.0f;
-            Vector3 centroidB = (m_triangles[b].v0 + m_triangles[b].v1 + m_triangles[b].v2) / 3.0f;
-            return centroidA[splitAxis] < centroidB[splitAxis];
+            Vector3 ca = (m_triangles[a].v0 + m_triangles[a].v1 + m_triangles[a].v2) / 3.0f;
+            Vector3 cb = (m_triangles[b].v0 + m_triangles[b].v1 + m_triangles[b].v2) / 3.0f;
+            return ca[splitAxis] < cb[splitAxis];
         });
-    
-    size_t mid = triangleIndices.size() / 2;
-    std::vector<int> leftTriangles(triangleIndices.begin(), triangleIndices.begin() + mid);
-    std::vector<int> rightTriangles(triangleIndices.begin() + mid, triangleIndices.end());
-    
+
+    size_t mid = triIdx.size() / 2;
+    std::vector<int> leftTris(triIdx.begin(), triIdx.begin() + mid);
+    std::vector<int> rightTris(triIdx.begin() + mid, triIdx.end());
+
     int leftChildIndex = static_cast<int>(m_bvhNodes.size());
     int rightChildIndex = leftChildIndex + 1;
-    
+    m_bvhNodes.resize(m_bvhNodes.size() + 2);
+
     node.leftChild = leftChildIndex;
     node.rightChild = rightChildIndex;
-    
-    m_bvhNodes.resize(m_bvhNodes.size() + 2);
-    
+
     BVHNode& leftChild = m_bvhNodes[leftChildIndex];
     BVHNode& rightChild = m_bvhNodes[rightChildIndex];
-    
-    if (!leftTriangles.empty()) {
-        leftChild.minBounds = Vector3(std::numeric_limits<float>::max());
-        leftChild.maxBounds = Vector3(std::numeric_limits<float>::lowest());
-        
-        for (int triIndex : leftTriangles) {
-            const Triangle& tri = m_triangles[triIndex];
-            leftChild.minBounds = Vector3::Min(leftChild.minBounds, Vector3::Min(Vector3::Min(tri.v0, tri.v1), tri.v2));
-            leftChild.maxBounds = Vector3::Max(leftChild.maxBounds, Vector3::Max(Vector3::Max(tri.v0, tri.v1), tri.v2));
-        }
+
+    leftChild.minBounds = Vector3(std::numeric_limits<float>::max());
+    leftChild.maxBounds = Vector3(std::numeric_limits<float>::lowest());
+    for (int ti : leftTris) {
+        const Triangle& tri = m_triangles[ti];
+        leftChild.minBounds = Vector3::Min(leftChild.minBounds, Vector3::Min(Vector3::Min(tri.v0, tri.v1), tri.v2));
+        leftChild.maxBounds = Vector3::Max(leftChild.maxBounds, Vector3::Max(Vector3::Max(tri.v0, tri.v1), tri.v2));
     }
-    
-    if (!rightTriangles.empty()) {
-        rightChild.minBounds = Vector3(std::numeric_limits<float>::max());
-        rightChild.maxBounds = Vector3(std::numeric_limits<float>::lowest());
-        
-        for (int triIndex : rightTriangles) {
-            const Triangle& tri = m_triangles[triIndex];
-            rightChild.minBounds = Vector3::Min(rightChild.minBounds, Vector3::Min(Vector3::Min(tri.v0, tri.v1), tri.v2));
-            rightChild.maxBounds = Vector3::Max(rightChild.maxBounds, Vector3::Max(Vector3::Max(tri.v0, tri.v1), tri.v2));
-        }
+
+    rightChild.minBounds = Vector3(std::numeric_limits<float>::max());
+    rightChild.maxBounds = Vector3(std::numeric_limits<float>::lowest());
+    for (int ti : rightTris) {
+        const Triangle& tri = m_triangles[ti];
+        rightChild.minBounds = Vector3::Min(rightChild.minBounds, Vector3::Min(Vector3::Min(tri.v0, tri.v1), tri.v2));
+        rightChild.maxBounds = Vector3::Max(rightChild.maxBounds, Vector3::Max(Vector3::Max(tri.v0, tri.v1), tri.v2));
     }
-    
-    BuildBVHRecursive(leftChildIndex, leftTriangles);
-    BuildBVHRecursive(rightChildIndex, rightTriangles);
+
+    BuildBVHRecursive(leftChildIndex, leftTris);
+    BuildBVHRecursive(rightChildIndex, rightTris);
 }
 
 bool RaytracingPipeline::RayBoxIntersect(const Ray& ray, const Vector3& boxMin, const Vector3& boxMax) {
@@ -518,29 +515,30 @@ bool RaytracingPipeline::RayBoxIntersect(const Ray& ray, const Vector3& boxMin, 
 HitInfo RaytracingPipeline::TraverseBVH(const Ray& ray) {
     HitInfo closestHit;
     float closestDistance = std::numeric_limits<float>::max();
-    
+
     if (m_bvhNodes.empty()) {
         return closestHit;
     }
-    
+
     std::vector<int> nodeStack;
     nodeStack.reserve(64);
     nodeStack.push_back(0);
-    
+
     while (!nodeStack.empty()) {
         int nodeIndex = nodeStack.back();
         nodeStack.pop_back();
-        
+
         const BVHNode& node = m_bvhNodes[nodeIndex];
-        
+
         if (!RayBoxIntersect(ray, node.minBounds, node.maxBounds)) {
             continue;
         }
-        
+
         if (node.triangleCount > 0) {
             for (int i = 0; i < node.triangleCount; ++i) {
-                int triIndex = node.triangleStart + i;
-                if (triIndex < static_cast<int>(m_triangles.size())) {
+                int idx = node.triangleStart + i;
+                if (idx >= 0 && idx < static_cast<int>(m_triangleIndices.size())) {
+                    int triIndex = m_triangleIndices[idx];
                     HitInfo hit = RayIntersectTriangle(ray, m_triangles[triIndex]);
                     if (hit.hit && hit.distance < closestDistance) {
                         closestDistance = hit.distance;
@@ -549,15 +547,11 @@ HitInfo RaytracingPipeline::TraverseBVH(const Ray& ray) {
                 }
             }
         } else {
-            if (node.leftChild >= 0) {
-                nodeStack.push_back(node.leftChild);
-            }
-            if (node.rightChild >= 0) {
-                nodeStack.push_back(node.rightChild);
-            }
+            if (node.leftChild >= 0) nodeStack.push_back(node.leftChild);
+            if (node.rightChild >= 0) nodeStack.push_back(node.rightChild);
         }
     }
-    
+
     return closestHit;
 }
 

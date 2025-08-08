@@ -90,6 +90,7 @@ public:
     
     void SetMaxBounces(int bounces) { m_maxBounces = bounces; }
     void SetUseComputeShader(bool use) { m_useComputeShader = use; }
+    void SetSingleSpecularBounce(bool enabled) { m_maxBounces = enabled ? 2 : 1; }
 
 private:
     void Cleanup();
@@ -117,6 +118,7 @@ private:
     std::vector<Sphere> m_spheres;
     std::vector<Triangle> m_triangles;
     std::vector<BVHNode> m_bvhNodes;
+    std::vector<int> m_triangleIndices;
     
     Vector3 m_cameraPos;
     Vector3 m_cameraTarget;

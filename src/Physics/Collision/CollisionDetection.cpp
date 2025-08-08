@@ -352,57 +352,139 @@ bool CollisionDetection::SphereVsSphere(RigidBody* bodyA, RigidBody* bodyB, Coll
 }
 
 bool CollisionDetection::BoxVsBox(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info) {
-    Vector3 posA = bodyA->GetPosition();
-    Vector3 posB = bodyB->GetPosition();
-    
+    Vector3 cA = bodyA->GetPosition();
+    Vector3 cB = bodyB->GetPosition();
     auto boxA = std::static_pointer_cast<BoxCollider>(bodyA->GetColliderComponent()->GetColliderShape());
     auto boxB = std::static_pointer_cast<BoxCollider>(bodyB->GetColliderComponent()->GetColliderShape());
-    
     Vector3 scaleA = bodyA->GetTransformComponent() ? bodyA->GetTransformComponent()->transform.GetWorldScale() : Vector3::One;
     Vector3 scaleB = bodyB->GetTransformComponent() ? bodyB->GetTransformComponent()->transform.GetWorldScale() : Vector3::One;
-    
-    Vector3 sizeA = TransformHalfExtents(boxA->GetHalfExtents(), scaleA) * 2.0f;
-    Vector3 sizeB = TransformHalfExtents(boxB->GetHalfExtents(), scaleB) * 2.0f;
-    
-    Quaternion rotA = bodyA->GetTransformComponent() ? bodyA->GetTransformComponent()->transform.GetWorldRotation() : Quaternion::Identity();
-    Quaternion rotB = bodyB->GetTransformComponent() ? bodyB->GetTransformComponent()->transform.GetWorldRotation() : Quaternion::Identity();
-    
-    (void)rotA; // Suppress unused variable warning
-    (void)rotB; // Suppress unused variable warning
-    
-    Vector3 minA = posA - sizeA * 0.5f;
-    Vector3 maxA = posA + sizeA * 0.5f;
-    Vector3 minB = posB - sizeB * 0.5f;
-    Vector3 maxB = posB + sizeB * 0.5f;
-    
-    bool overlapX = (minA.x <= maxB.x) && (maxA.x >= minB.x);
-    bool overlapY = (minA.y <= maxB.y) && (maxA.y >= minB.y);
-    bool overlapZ = (minA.z <= maxB.z) && (maxA.z >= minB.z);
-    
-    if (overlapX && overlapY && overlapZ) {
-        info.hasCollision = true;
-        
-        Vector3 overlap;
-        overlap.x = std::min(maxA.x - minB.x, maxB.x - minA.x);
-        overlap.y = std::min(maxA.y - minB.y, maxB.y - minA.y);
-        overlap.z = std::min(maxA.z - minB.z, maxB.z - minA.z);
-        
-        if (overlap.x <= overlap.y && overlap.x <= overlap.z) {
-            info.penetration = overlap.x;
-            info.normal = (posA.x < posB.x) ? Vector3(-1, 0, 0) : Vector3(1, 0, 0);
-        } else if (overlap.y <= overlap.z) {
-            info.penetration = overlap.y;
-            info.normal = (posA.y < posB.y) ? Vector3(0, -1, 0) : Vector3(0, 1, 0);
-        } else {
-            info.penetration = overlap.z;
-            info.normal = (posA.z < posB.z) ? Vector3(0, 0, -1) : Vector3(0, 0, 1);
+    Vector3 eA = TransformHalfExtents(boxA->GetHalfExtents(), scaleA);
+    Vector3 eB = TransformHalfExtents(boxB->GetHalfExtents(), scaleB);
+    Quaternion qA = bodyA->GetTransformComponent() ? bodyA->GetTransformComponent()->transform.GetWorldRotation() : Quaternion::Identity();
+    Quaternion qB = bodyB->GetTransformComponent() ? bodyB->GetTransformComponent()->transform.GetWorldRotation() : Quaternion::Identity();
+
+    Vector3 A0 = qA.RotateVector(Vector3(1,0,0));
+    Vector3 A1 = qA.RotateVector(Vector3(0,1,0));
+    Vector3 A2 = qA.RotateVector(Vector3(0,0,1));
+    Vector3 B0 = qB.RotateVector(Vector3(1,0,0));
+    Vector3 B1 = qB.RotateVector(Vector3(0,1,0));
+    Vector3 B2 = qB.RotateVector(Vector3(0,0,1));
+
+    float R[3][3];
+    float AbsR[3][3];
+    const float EPS = 1e-4f;
+
+    R[0][0] = A0.Dot(B0); R[0][1] = A0.Dot(B1); R[0][2] = A0.Dot(B2);
+    R[1][0] = A1.Dot(B0); R[1][1] = A1.Dot(B1); R[1][2] = A1.Dot(B2);
+    R[2][0] = A2.Dot(B0); R[2][1] = A2.Dot(B1); R[2][2] = A2.Dot(B2);
+
+    for (int i=0;i<3;++i) for (int j=0;j<3;++j) AbsR[i][j] = std::fabs(R[i][j]) + EPS;
+
+    Vector3 tWorld = cB - cA;
+    Vector3 t( tWorld.Dot(A0), tWorld.Dot(A1), tWorld.Dot(A2) );
+
+    float minPenetration = std::numeric_limits<float>::max();
+    Vector3 bestAxis = Vector3::Zero;
+    bool found = true;
+
+    auto testAxis = [&](const Vector3& axis, float ra, float rb, float tProj) -> bool {
+        float dist = std::fabs(tProj);
+        float overlap = ra + rb - dist;
+        if (overlap < 0.0f) return false;
+        if (overlap < minPenetration) {
+            minPenetration = overlap;
+            bestAxis = axis;
+            if (tProj > 0.0f) bestAxis = -bestAxis;
         }
-        
-        info.contactPoint = posA + (posB - posA) * 0.5f;
         return true;
+    };
+
+    if (!testAxis(A0, eA.x, eB.x*AbsR[0][0] + eB.y*AbsR[0][1] + eB.z*AbsR[0][2], t.x)) found = false;
+    if (found && !testAxis(A1, eA.y, eB.x*AbsR[1][0] + eB.y*AbsR[1][1] + eB.z*AbsR[1][2], t.y)) found = false;
+    if (found && !testAxis(A2, eA.z, eB.x*AbsR[2][0] + eB.y*AbsR[2][1] + eB.z*AbsR[2][2], t.z)) found = false;
+
+    if (found && !testAxis(B0,
+        eB.x, eA.x*AbsR[0][0] + eA.y*AbsR[1][0] + eA.z*AbsR[2][0],
+        t.x*R[0][0] + t.y*R[1][0] + t.z*R[2][0])) found = false;
+
+    if (found && !testAxis(B1,
+        eB.y, eA.x*AbsR[0][1] + eA.y*AbsR[1][1] + eA.z*AbsR[2][1],
+        t.x*R[0][1] + t.y*R[1][1] + t.z*R[2][1])) found = false;
+
+    if (found && !testAxis(B2,
+        eB.z, eA.x*AbsR[0][2] + eA.y*AbsR[1][2] + eA.z*AbsR[2][2],
+        t.x*R[0][2] + t.y*R[1][2] + t.z*R[2][2])) found = false;
+
+    if (found) {
+        Vector3 C00 = A0.Cross(B0); if (C00.LengthSquared()>EPS) { C00 = C00.Normalized();
+            float ra = eA.y*AbsR[2][0] + eA.z*AbsR[1][0];
+            float rb = eB.y*AbsR[0][2] + eB.z*AbsR[0][1];
+            float tProj = std::fabs(t.z*R[1][0] - t.y*R[2][0]);
+            if (!testAxis(C00, ra, rb, tProj*(C00.Dot(A0.Cross(B0))>=0?1.0f:-1.0f))) found=false;
+        }
+        if (found) { Vector3 C01 = A0.Cross(B1); if (C01.LengthSquared()>EPS) { C01 = C01.Normalized();
+            float ra = eA.y*AbsR[2][1] + eA.z*AbsR[1][1];
+            float rb = eB.x*AbsR[0][2] + eB.z*AbsR[0][0];
+            float tProj = std::fabs(t.z*R[1][1] - t.y*R[2][1]);
+            if (!testAxis(C01, ra, rb, tProj*(C01.Dot(A0.Cross(B1))>=0?1.0f:-1.0f))) found=false;
+        } }
+        if (found) { Vector3 C02 = A0.Cross(B2); if (C02.LengthSquared()>EPS) { C02 = C02.Normalized();
+            float ra = eA.y*AbsR[2][2] + eA.z*AbsR[1][2];
+            float rb = eB.x*AbsR[0][1] + eB.y*AbsR[0][0];
+            float tProj = std::fabs(t.z*R[1][2] - t.y*R[2][2]);
+            if (!testAxis(C02, ra, rb, tProj*(C02.Dot(A0.Cross(B2))>=0?1.0f:-1.0f))) found=false;
+        } }
+
+        if (found) { Vector3 C10 = A1.Cross(B0); if (C10.LengthSquared()>EPS) { C10 = C10.Normalized();
+            float ra = eA.x*AbsR[2][0] + eA.z*AbsR[0][0];
+            float rb = eB.y*AbsR[1][2] + eB.z*AbsR[1][1];
+            float tProj = std::fabs(t.x*R[2][0] - t.z*R[0][0]);
+            if (!testAxis(C10, ra, rb, tProj*(C10.Dot(A1.Cross(B0))>=0?1.0f:-1.0f))) found=false;
+        } }
+        if (found) { Vector3 C11 = A1.Cross(B1); if (C11.LengthSquared()>EPS) { C11 = C11.Normalized();
+            float ra = eA.x*AbsR[2][1] + eA.z*AbsR[0][1];
+            float rb = eB.x*AbsR[1][2] + eB.z*AbsR[1][0];
+            float tProj = std::fabs(t.x*R[2][1] - t.z*R[0][1]);
+            if (!testAxis(C11, ra, rb, tProj*(C11.Dot(A1.Cross(B1))>=0?1.0f:-1.0f))) found=false;
+        } }
+        if (found) { Vector3 C12 = A1.Cross(B2); if (C12.LengthSquared()>EPS) { C12 = C12.Normalized();
+            float ra = eA.x*AbsR[2][2] + eA.z*AbsR[0][2];
+            float rb = eB.x*AbsR[1][1] + eB.y*AbsR[1][0];
+            float tProj = std::fabs(t.x*R[2][2] - t.z*R[0][2]);
+            if (!testAxis(C12, ra, rb, tProj*(C12.Dot(A1.Cross(B2))>=0?1.0f:-1.0f))) found=false;
+        } }
+
+        if (found) { Vector3 C20 = A2.Cross(B0); if (C20.LengthSquared()>EPS) { C20 = C20.Normalized();
+            float ra = eA.x*AbsR[1][0] + eA.y*AbsR[0][0];
+            float rb = eB.y*AbsR[2][2] + eB.z*AbsR[2][1];
+            float tProj = std::fabs(t.y*R[0][0] - t.x*R[1][0]);
+            if (!testAxis(C20, ra, rb, tProj*(C20.Dot(A2.Cross(B0))>=0?1.0f:-1.0f))) found=false;
+        } }
+        if (found) { Vector3 C21 = A2.Cross(B1); if (C21.LengthSquared()>EPS) { C21 = C21.Normalized();
+            float ra = eA.x*AbsR[1][1] + eA.y*AbsR[0][1];
+            float rb = eB.x*AbsR[2][2] + eB.z*AbsR[2][0];
+            float tProj = std::fabs(t.y*R[0][1] - t.x*R[1][1]);
+            if (!testAxis(C21, ra, rb, tProj*(C21.Dot(A2.Cross(B1))>=0?1.0f:-1.0f))) found=false;
+        } }
+        if (found) { Vector3 C22 = A2.Cross(B2); if (C22.LengthSquared()>EPS) { C22 = C22.Normalized();
+            float ra = eA.x*AbsR[1][2] + eA.y*AbsR[0][2];
+            float rb = eB.x*AbsR[2][1] + eB.y*AbsR[2][0];
+            float tProj = std::fabs(t.y*R[0][2] - t.x*R[1][2]);
+            if (!testAxis(C22, ra, rb, tProj*(C22.Dot(A2.Cross(B2))>=0?1.0f:-1.0f))) found=false;
+        } }
     }
-    
-    return false;
+
+    if (!found || minPenetration == std::numeric_limits<float>::max()) {
+        return false;
+    }
+
+    info.hasCollision = true;
+    info.penetration = minPenetration;
+    Vector3 n = bestAxis;
+    if (n.LengthSquared() > 0.0f) n = n.Normalized();
+    info.normal = n;
+    info.contactPoint = cA + (cB - cA) * 0.5f;
+    return true;
 }
 
 bool CollisionDetection::SphereVsBox(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info) {

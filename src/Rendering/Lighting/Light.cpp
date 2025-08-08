@@ -72,59 +72,47 @@ Matrix4 Light::GetLightSpaceMatrix() const {
 }
 
 Matrix4 Light::GetProjectionMatrix() const {
-    Matrix4 projection;
-    
     switch (m_type) {
         case LightType::Directional: {
-            // float orthoSize = 50.0f; // This should be calculated based on scene bounds
-            projection = Matrix4(); // Placeholder orthographic projection
-            break;
+            float orthoSize = 25.0f;
+            float nearPlane = m_data.shadowNearPlane;
+            float farPlane = m_data.shadowFarPlane;
+            return Matrix4::Orthographic(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
         }
         case LightType::Point: {
-            projection = Matrix4(); // Placeholder perspective projection
-            break;
+            float aspect = 1.0f;
+            float fov = 90.0f * static_cast<float>(M_PI) / 180.0f;
+            return Matrix4::Perspective(fov, aspect, m_data.shadowNearPlane, m_data.shadowFarPlane);
         }
         case LightType::Spot: {
-            // float fov = m_data.outerConeAngle * 2.0f;
-            projection = Matrix4(); // Placeholder perspective projection
-            break;
+            float aspect = 1.0f;
+            float fov = std::max(1.0f, m_data.outerConeAngle * 2.0f) * static_cast<float>(M_PI) / 180.0f;
+            return Matrix4::Perspective(fov, aspect, m_data.shadowNearPlane, m_data.shadowFarPlane);
         }
     }
-    
-    return projection;
+    return Matrix4::Identity();
 }
 
 Matrix4 Light::GetViewMatrix() const {
-    Matrix4 view;
-    
+    Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
+    if (std::abs(m_data.direction.Dot(up)) > 0.99f) {
+        up = Vector3(1.0f, 0.0f, 0.0f);
+    }
+
     switch (m_type) {
         case LightType::Directional: {
-            // Vector3 lightPos = m_data.position - m_data.direction * 100.0f;
-            // Vector3 target = m_data.position;
-            Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
-            
-            if (std::abs(m_data.direction.Dot(up)) > 0.99f) {
-                up = Vector3(1.0f, 0.0f, 0.0f);
-            }
-            
-            view = Matrix4(); // Placeholder look-at matrix
-            break;
+            Vector3 lightPos = m_data.position - m_data.direction * 50.0f;
+            Vector3 target = m_data.position;
+            return Matrix4::LookAt(lightPos, target, up);
         }
         case LightType::Point:
         case LightType::Spot: {
-            // Vector3 target = m_data.position + m_data.direction;
-            Vector3 up = Vector3(0.0f, 1.0f, 0.0f);
-            
-            if (std::abs(m_data.direction.Dot(up)) > 0.99f) {
-                up = Vector3(1.0f, 0.0f, 0.0f);
-            }
-            
-            view = Matrix4(); // Placeholder look-at matrix
-            break;
+            Vector3 target = m_data.position + m_data.direction;
+            return Matrix4::LookAt(m_data.position, target, up);
         }
     }
-    
-    return view;
+
+    return Matrix4::Identity();
 }
 
 float Light::GetAttenuationAtDistance(float distance) const {

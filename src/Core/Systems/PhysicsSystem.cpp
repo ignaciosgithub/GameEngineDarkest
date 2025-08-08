@@ -34,6 +34,7 @@ void PhysicsSystem::SynchronizePhysicsToTransforms(World* world) {
             if (rigidBody && !rigidBody->IsStatic()) {
                 Vector3 physicsPosition = rigidBody->GetPosition();
                 transformComp->transform.SetPosition(physicsPosition);
+                transformComp->transform.SetRotation(rigidBody->GetRotation());
             }
         }
     }
@@ -51,11 +52,16 @@ void PhysicsSystem::UpdateColliderPhysicsIntegration(World* world) {
                 if (rigidBody->IsStatic()) {
                     Vector3 transformPosition = transformComp->transform.GetPosition();
                     rigidBody->SetPosition(transformPosition);
+                    rigidBody->SetRotation(transformComp->transform.GetRotation());
                 }
                 
                 if (!rigidBodyComp->GetColliderComponent()) {
                     rigidBodyComp->SetColliderComponent(colliderComp);
                     Logger::Debug("Linked ColliderComponent to RigidBody for entity: " + std::to_string(entity.GetID()));
+                }
+                if (!rigidBody->GetTransformComponent()) {
+                    rigidBody->SetTransformComponent(transformComp);
+                    Logger::Debug("Linked TransformComponent to RigidBody for entity: " + std::to_string(entity.GetID()));
                 }
             }
         }

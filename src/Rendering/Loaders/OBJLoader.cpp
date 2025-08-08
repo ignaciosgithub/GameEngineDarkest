@@ -14,7 +14,7 @@ namespace GameEngine {
         if (!std::filesystem::exists(filepath)) {
             Logger::Error("OBJ file does not exist: " + filepath);
             Logger::Error("Current working directory: " + std::filesystem::current_path().string());
-            return Mesh(); // Return empty mesh
+            return Mesh();
         }
         
         try {
@@ -27,12 +27,16 @@ namespace GameEngine {
         OBJData data;
         if (!ParseOBJFile(filepath, data)) {
             Logger::Error("Failed to parse OBJ file: " + filepath);
-            return Mesh(); // Return empty mesh
+            return Mesh();
+        }
+        
+        if (data.normals.empty()) {
+            ComputeMissingNormals(data);
         }
         
         if (data.vertices.empty()) {
             Logger::Warning("OBJ file contains no vertices: " + filepath);
-            return Mesh(); // Return empty mesh
+            return Mesh();
         }
         
         Logger::Info("Successfully loaded OBJ file with " + std::to_string(data.vertices.size()) + 
@@ -57,24 +61,47 @@ namespace GameEngine {
             line = TrimString(line);
             
             if (line.empty() || line[0] == '#') {
-                continue; // Skip empty lines and comments
+                continue;
             }
             
             try {
-                if (line.substr(0, 2) == "v ") {
+                if (StartsWith(line, "v ")) {
                     Vector3 position = ParseVector3(line.substr(2));
                     data.positions.push_back(position);
                 }
-                else if (line.substr(0, 3) == "vn ") {
+                else if (StartsWith(line, "vn ")) {
                     Vector3 normal = ParseVector3(line.substr(3));
                     data.normals.push_back(normal);
                 }
-                else if (line.substr(0, 3) == "vt ") {
-                    Vector3 texCoord = ParseVector3(line.substr(3));
-                    data.texCoords.push_back(texCoord);
+                else if (StartsWith(line, "vt ")) {
+                    std::vector<std::string> comps = SplitString(TrimString(line.substr(3)), ' ');
+                    float u = 0.0f, v = 0.0f, w = 0.0f;
+                    if (comps.size() >= 1 && IsValidFloat(comps[0])) u = std::stof(comps[0]);
+                    if (comps.size() >= 2 && IsValidFloat(comps[1])) v = std::stof(comps[1]);
+                    if (comps.size() >= 3 && IsValidFloat(comps[2])) w = std::stof(comps[2]);
+                    data.texCoords.push_back(Vector3(u, v, w));
                 }
-                else if (line.substr(0, 2) == "f ") {
+                else if (StartsWith(line, "f ")) {
                     ParseFace(line.substr(2), data);
+                }
+                else if (StartsWith(line, "o ") || StartsWith(line, "g ")) {
+                    data.currentGroup = TrimString(line.substr(2));
+                }
+                else if (StartsWith(line, "mtllib ")) {
+                    std::string lib = TrimString(line.substr(7));
+                    data.materialLibs[lib] = lib;
+                    try {
+                        std::filesystem::path objPath(filepath);
+                        std::string objDir = objPath.parent_path().string();
+                        LoadMTL(objDir, lib, data.materials);
+                    } catch (...) {}
+                }
+                else if (StartsWith(line, "usemtl ")) {
+                    data.currentMaterial = TrimString(line.substr(7));
+                }
+                else if (StartsWith(line, "s ")) {
+                    std::string s = TrimString(line.substr(2));
+                    data.smoothing = (s != "off" && s != "0");
                 }
             }
             catch (const std::exception& e) {
@@ -96,7 +123,7 @@ namespace GameEngine {
     Vector3 OBJLoader::ParseVector3(const std::string& line) {
         std::vector<std::string> components = SplitString(TrimString(line), ' ');
         
-        if (components.size() < 2) {
+        if (components.size() < 1) {
             throw std::runtime_error("Invalid vector format");
         }
         
@@ -123,39 +150,48 @@ namespace GameEngine {
         }
         
         std::vector<Vertex> faceVertexData;
+        faceVertexData.reserve(faceVertices.size());
         
         for (const std::string& vertexStr : faceVertices) {
             std::vector<std::string> indices = SplitString(vertexStr, '/');
-            
             if (indices.empty()) continue;
             
             Vertex vertex;
             vertex.position = Vector3::Zero;
-            vertex.normal = Vector3(0.0f, 1.0f, 0.0f); // Default normal
-            vertex.color = Vector3(1.0f, 1.0f, 1.0f);   // Default white color
-            vertex.texCoords = Vector3::Zero; // Default UV coordinates
+            vertex.normal = Vector3(0.0f, 1.0f, 0.0f);
+            vertex.color = Vector3(1.0f, 1.0f, 1.0f);
+            vertex.texCoords = Vector3::Zero;
             
             if (!indices[0].empty()) {
-                int posIndex = std::stoi(indices[0]) - 1; // OBJ indices are 1-based
+                int posIndex = std::stoi(indices[0]);
+                posIndex = ResolveIndex(posIndex, static_cast<int>(data.positions.size()));
                 if (posIndex >= 0 && posIndex < static_cast<int>(data.positions.size())) {
                     vertex.position = data.positions[posIndex];
                 }
             }
             
             if (indices.size() > 1 && !indices[1].empty()) {
-                int texIndex = std::stoi(indices[1]) - 1;
+                int texIndex = std::stoi(indices[1]);
+                texIndex = ResolveIndex(texIndex, static_cast<int>(data.texCoords.size()));
                 if (texIndex >= 0 && texIndex < static_cast<int>(data.texCoords.size())) {
                     vertex.texCoords = data.texCoords[texIndex];
                 }
             }
             
             if (indices.size() > 2 && !indices[2].empty()) {
-                int normalIndex = std::stoi(indices[2]) - 1;
+                int normalIndex = std::stoi(indices[2]);
+                normalIndex = ResolveIndex(normalIndex, static_cast<int>(data.normals.size()));
                 if (normalIndex >= 0 && normalIndex < static_cast<int>(data.normals.size())) {
                     vertex.normal = data.normals[normalIndex];
                 }
             }
             
+            if (!data.currentMaterial.empty()) {
+                auto it = data.materials.find(data.currentMaterial);
+                if (it != data.materials.end()) {
+                    vertex.color = it->second.Kd;
+                }
+            }
             faceVertexData.push_back(vertex);
         }
         
@@ -189,6 +225,59 @@ namespace GameEngine {
         
         return mesh;
     }
+
+        
+
+    bool OBJLoader::LoadMTL(const std::string& objDir, const std::string& mtlFile, std::unordered_map<std::string, MaterialDesc>& out) {
+        try {
+            std::filesystem::path mtlPath = std::filesystem::path(objDir) / mtlFile;
+            std::ifstream file(mtlPath.string());
+            if (!file.is_open()) {
+                Logger::Warning("Failed to open MTL: " + mtlPath.string());
+                return false;
+            }
+            std::string line;
+            std::string current;
+            while (std::getline(file, line)) {
+                line = TrimString(line);
+                if (line.empty() || line[0] == '#') continue;
+                if (StartsWith(line, "newmtl ")) {
+                    current = TrimString(line.substr(7));
+                    out[current] = MaterialDesc{};
+                } else if (StartsWith(line, "Kd ")) {
+                    if (!current.empty()) {
+                        std::vector<std::string> t = SplitString(TrimString(line.substr(3)), ' ');
+                        if (t.size() >= 3) {
+                            out[current].Kd = Vector3(std::stof(t[0]), std::stof(t[1]), std::stof(t[2]));
+                        }
+                    }
+                } else if (StartsWith(line, "Ks ")) {
+                    if (!current.empty()) {
+                        std::vector<std::string> t = SplitString(TrimString(line.substr(3)), ' ');
+                        if (t.size() >= 3) {
+                            out[current].Ks = Vector3(std::stof(t[0]), std::stof(t[1]), std::stof(t[2]));
+                        }
+                    }
+                } else if (StartsWith(line, "Ns ")) {
+                    if (!current.empty()) {
+                        std::string v = TrimString(line.substr(3));
+                        out[current].Ns = std::stof(v);
+                    }
+                } else if (StartsWith(line, "map_Kd ")) {
+                    if (!current.empty()) {
+                        out[current].map_Kd = TrimString(line.substr(7));
+                    }
+                }
+            }
+            file.close();
+            Logger::Info("Loaded MTL with " + std::to_string(out.size()) + " materials: " + mtlPath.string());
+            return true;
+        } catch (const std::exception& e) {
+            Logger::Warning(std::string("Exception parsing MTL: ") + e.what());
+            return false;
+        }
+    }
+
     
     std::vector<std::string> OBJLoader::SplitString(const std::string& str, char delimiter) {
         std::vector<std::string> tokens;
@@ -217,13 +306,36 @@ namespace GameEngine {
     
     bool OBJLoader::IsValidFloat(const std::string& str) {
         if (str.empty()) return false;
-        
         try {
             (void)std::stof(str);
             return true;
-        }
-        catch (const std::exception&) {
+        } catch (const std::exception&) {
             return false;
+        }
+    }
+    
+    bool OBJLoader::StartsWith(const std::string& s, const char* prefix) {
+        size_t n = std::char_traits<char>::length(prefix);
+        return s.size() >= n && std::equal(prefix, prefix + n, s.begin());
+    }
+    
+    int OBJLoader::ResolveIndex(int idx, int size) {
+        if (idx > 0) return idx - 1;
+        if (idx < 0) return size + idx;
+        return -1;
+    }
+    
+    void OBJLoader::ComputeMissingNormals(OBJData& data) {
+        if (!data.vertices.empty()) {
+            for (size_t i = 0; i + 2 < data.vertices.size(); i += 3) {
+                Vector3 a = data.vertices[i + 0].position;
+                Vector3 b = data.vertices[i + 1].position;
+                Vector3 c = data.vertices[i + 2].position;
+                Vector3 n = (b - a).Cross(c - a).Normalized();
+                data.vertices[i + 0].normal = n;
+                data.vertices[i + 1].normal = n;
+                data.vertices[i + 2].normal = n;
+            }
         }
     }
 }

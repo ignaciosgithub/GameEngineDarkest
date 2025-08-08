@@ -1,3 +1,6 @@
+#include "../../Core/Components/ColliderComponent.h"
+#include "../../Core/Components/TransformComponent.h"
+
 #pragma once
 
 #include "../../Core/Math/Vector3.h"

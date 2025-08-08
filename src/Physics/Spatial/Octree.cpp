@@ -1,3 +1,6 @@
+#include "../../Core/Components/ColliderComponent.h"
+#include "../../Core/Components/TransformComponent.h"
+
 #include "Octree.h"
 #include "../RigidBody/RigidBody.h"
 #include "../../Core/Logging/Logger.h"
@@ -188,11 +191,25 @@ int OctreeNode::GetChildIndex(const Vector3& point) const {
 }
 
 AABB OctreeNode::GetBodyAABB(RigidBody* body) const {
+    if (!body) {
+        return AABB(Vector3::Zero, Vector3::Zero);
+    }
+
+    auto* transformComp = body->GetTransformComponent();
+    auto* colliderComp = body->GetColliderComponent();
+
+    if (transformComp && colliderComp && colliderComp->HasCollider()) {
+        Vector3 minWS, maxWS;
+        auto shape = colliderComp->GetColliderShape();
+        Vector3 worldPos = transformComp->transform.GetPosition();
+        Quaternion worldRot = transformComp->transform.GetRotation();
+
+        shape->GetAABB(worldPos, worldRot, minWS, maxWS);
+        return AABB(minWS, maxWS);
+    }
+
     Vector3 pos = body->GetPosition();
-    
-    Vector3 size = Vector3(1.0f, 1.0f, 1.0f);
-    
-    Vector3 halfSize = size * 0.5f;
+    Vector3 halfSize(0.5f, 0.5f, 0.5f);
     return AABB(pos - halfSize, pos + halfSize);
 }
 

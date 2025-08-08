@@ -117,6 +117,7 @@ private:
     std::vector<Sphere> m_spheres;
     std::vector<Triangle> m_triangles;
     std::vector<BVHNode> m_bvhNodes;
+    std::vector<int> m_triangleIndices;
     
     Vector3 m_cameraPos;
     Vector3 m_cameraTarget;

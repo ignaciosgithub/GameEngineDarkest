@@ -37,10 +37,13 @@ private:
     void CompositePass();
     void RenderFullscreenQuad();
 
+    void RenderShadowPass(World* world);
+
     std::shared_ptr<Shader> m_forwardShader;
     std::shared_ptr<Shader> m_transparentShader;
     std::shared_ptr<Shader> m_effectsShader;
     std::shared_ptr<Shader> m_compositeShader;
+    std::shared_ptr<Shader> m_depthShader;
     
     std::shared_ptr<FrameBuffer> m_framebuffer;
     std::shared_ptr<Texture> m_colorTexture;

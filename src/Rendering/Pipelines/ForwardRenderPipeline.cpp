@@ -18,6 +18,8 @@ ForwardRenderPipeline::~ForwardRenderPipeline() {
     Cleanup();
 }
 
+
+
 bool ForwardRenderPipeline::Initialize(int width, int height) {
     if (m_initialized) {
         return true;
@@ -84,6 +86,11 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform int lightTypes[32];
         uniform float lightRanges[32];
         uniform vec3 viewPos;
+
+        uniform int hasShadow;
+        uniform sampler2D shadowMap;
+        uniform mat4 lightSpaceMatrix;
+        uniform float shadowBias;
         
         float saturate(float x) { return clamp(x, 0.0, 1.0); }
         
@@ -113,6 +120,19 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         
         vec3 FresnelSchlick(float cosTheta, vec3 F0) {
             return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+        }
+
+        float ComputeShadow(vec3 worldPos, vec3 N, vec3 L) {
+            if (hasShadow == 0) return 0.0;
+            vec4 lightSpacePos = lightSpaceMatrix * vec4(worldPos, 1.0);
+            vec3 projCoords = lightSpacePos.xyz / max(lightSpacePos.w, 1e-5);
+            projCoords = projCoords * 0.5 + 0.5;
+            if (projCoords.z > 1.0 || projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0)
+                return 0.0;
+            float currentDepth = projCoords.z;
+            float closestDepth = texture(shadowMap, projCoords.xy).r;
+            float bias = max(shadowBias * (1.0 - dot(N, L)), shadowBias * 0.2);
+            return currentDepth - bias > closestDepth ? 1.0 : 0.0;
         }
         
         void main() {
@@ -153,8 +173,13 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
                 vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
                 float NdotL = max(dot(N, L), 0.0);
                 
+                float shadow = 0.0;
+                if (lightTypes[i] == 0 && hasShadow == 1) {
+                    shadow = ComputeShadow(FragPos, N, L);
+                }
+                
                 vec3 radiance = lightColors[i] * lightIntensities[i] * attenuation;
-                Lo += (kD * albedo / 3.14159265 + specular) * radiance * NdotL;
+                Lo += (1.0 - shadow) * (kD * albedo / 3.14159265 + specular) * radiance * NdotL;
             }
             
             vec3 ambient = vec3(0.03) * albedo * ao;
@@ -266,6 +291,8 @@ void ForwardRenderPipeline::Render(World* world) {
     if (!m_initialized || !world) {
         return;
     }
+
+    RenderShadowPass(world);
     
     m_framebuffer->Bind();
     
@@ -425,6 +452,35 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     Matrix4 invViewMatrix = m_renderData.viewMatrix.Inverted();
     Vector3 cameraPosition = Vector3(invViewMatrix.m[12], invViewMatrix.m[13], invViewMatrix.m[14]);
     m_forwardShader->SetVector3("viewPos", cameraPosition);
+
+    int hasShadow = 0;
+    Matrix4 lightSpace;
+    int shadowTexUnit = 5;
+    {
+        LightManager lm2;
+        lm2.CollectLights(world);
+        Light* dirShadowLight = nullptr;
+        for (auto* l : lm2.GetActiveLights()) {
+            if (l && l->GetType() == LightType::Directional && l->GetCastShadows()) {
+                dirShadowLight = l;
+                break;
+            }
+        }
+        if (dirShadowLight && dirShadowLight->GetShadowMap()) {
+            dirShadowLight->InitializeShadowMap();
+            auto sm = dirShadowLight->GetShadowMap();
+            auto fb = dirShadowLight->GetShadowFramebuffer();
+            if (sm && fb) {
+                hasShadow = 1;
+                lightSpace = dirShadowLight->GetLightSpaceMatrix();
+                sm->Bind(shadowTexUnit);
+                m_forwardShader->SetInt("shadowMap", shadowTexUnit);
+                m_forwardShader->SetMatrix4("lightSpaceMatrix", lightSpace);
+                m_forwardShader->SetFloat("shadowBias", dirShadowLight->GetShadowBias());
+            }
+        }
+    }
+    m_forwardShader->SetInt("hasShadow", hasShadow);
     
     int entitiesRendered = 0;
     
@@ -556,6 +612,73 @@ void ForwardRenderPipeline::CompositePass() {
     RenderFullscreenQuad();
     
     glEnable(GL_DEPTH_TEST);
+}
+
+void ForwardRenderPipeline::RenderShadowPass(World* world) {
+    if (!world) return;
+
+    LightManager lm;
+    lm.CollectLights(world);
+
+    Light* dirShadowLight = nullptr;
+    for (auto* l : lm.GetActiveLights()) {
+        if (l && l->GetType() == LightType::Directional && l->GetCastShadows()) {
+            dirShadowLight = l;
+            break;
+        }
+    }
+    if (!dirShadowLight) return;
+
+    dirShadowLight->InitializeShadowMap();
+    auto fb = dirShadowLight->GetShadowFramebuffer();
+    auto sm = dirShadowLight->GetShadowMap();
+    if (!fb || !sm) return;
+
+    int size = dirShadowLight->GetShadowMapSize();
+    fb->Bind();
+    glViewport(0, 0, size, size);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    if (!m_depthShader) {
+        m_depthShader = std::make_shared<Shader>();
+        std::string vsrc = R"(
+            #version 330 core
+            layout (location = 0) in vec3 aPos;
+            uniform mat4 model;
+            uniform mat4 lightSpaceMatrix;
+            void main() {
+                gl_Position = lightSpaceMatrix * model * vec4(aPos, 1.0);
+            }
+        )";
+        std::string fsrc = R"(
+            #version 330 core
+            void main() { }
+        )";
+        m_depthShader->LoadFromSource(vsrc, fsrc);
+    }
+
+    m_depthShader->Use();
+    Matrix4 lightSpace = dirShadowLight->GetLightSpaceMatrix();
+    m_depthShader->SetMatrix4("lightSpaceMatrix", lightSpace);
+
+    static Mesh cubeMesh = Mesh::CreateCube(1.0f);
+    static bool uploaded = false;
+    if (!uploaded) { cubeMesh.Upload(); uploaded = true; }
+
+    for (const auto& entity : world->GetEntities()) {
+        if (world->HasComponent<TransformComponent>(entity)) {
+            auto* tc = world->GetComponent<TransformComponent>(entity);
+            if (!tc) continue;
+            Matrix4 model = tc->transform.GetLocalToWorldMatrix();
+            m_depthShader->SetMatrix4("model", model);
+            if (!cubeMesh.GetVertices().empty()) {
+                cubeMesh.Draw();
+            }
+        }
+    }
+
+    fb->Unbind();
+    glViewport(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight);
 }
 
 void ForwardRenderPipeline::RenderFullscreenQuad() {

@@ -1,3 +1,6 @@
+#include "../../Core/Components/ColliderComponent.h"
+#include "../../Core/Components/TransformComponent.h"
+
 #include "Octree.h"
 #include "../RigidBody/RigidBody.h"
 #include "../../Core/Logging/Logger.h"

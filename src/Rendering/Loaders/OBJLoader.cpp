@@ -213,6 +213,15 @@ namespace GameEngine {
         }
         
         mesh.Upload();
+        
+        Logger::Debug("Created mesh from OBJ data with " + std::to_string(data.vertices.size()) + 
+                     " vertices and " + std::to_string(data.indices.size()) + " indices");
+        
+        return mesh;
+    }
+
+        
+
     bool OBJLoader::LoadMTL(const std::string& objDir, const std::string& mtlFile, std::unordered_map<std::string, MaterialDesc>& out) {
         try {
             std::filesystem::path mtlPath = std::filesystem::path(objDir) / mtlFile;
@@ -263,12 +272,6 @@ namespace GameEngine {
         }
     }
 
-        
-        Logger::Debug("Created mesh from OBJ data with " + std::to_string(data.vertices.size()) + 
-                     " vertices and " + std::to_string(data.indices.size()) + " indices");
-        
-        return mesh;
-    }
     
     std::vector<std::string> OBJLoader::SplitString(const std::string& str, char delimiter) {
         std::vector<std::string> tokens;

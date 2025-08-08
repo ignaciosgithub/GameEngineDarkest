@@ -59,8 +59,8 @@ void PhysicsSystem::UpdateColliderPhysicsIntegration(World* world) {
                     rigidBodyComp->SetColliderComponent(colliderComp);
                     Logger::Debug("Linked ColliderComponent to RigidBody for entity: " + std::to_string(entity.GetID()));
                 }
-                if (!rigidBodyComp->GetTransformComponent()) {
-                    rigidBodyComp->SetTransformComponent(transformComp);
+                if (!rigidBody->GetTransformComponent()) {
+                    rigidBody->SetTransformComponent(transformComp);
                     Logger::Debug("Linked TransformComponent to RigidBody for entity: " + std::to_string(entity.GetID()));
                 }
             }

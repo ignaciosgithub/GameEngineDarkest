@@ -584,7 +584,7 @@ bool CollisionDetection::SphereVsBox(RigidBody* bodyA, RigidBody* bodyB, Collisi
     Vector3 he = TransformHalfExtents(boxCollider->GetHalfExtents(), boxScale);
     
     Quaternion boxRotation = box->GetTransformComponent() ? box->GetTransformComponent()->transform.GetWorldRotation() : Quaternion::Identity();
-    Quaternion invBoxRot = boxRotation.Inverted();
+    Quaternion invBoxRot = boxRotation.Inverse();
     
     Vector3 sphereLocal = invBoxRot.RotateVector(spherePos - boxPos);
     Vector3 pLocal(
@@ -599,37 +599,11 @@ bool CollisionDetection::SphereVsBox(RigidBody* bodyA, RigidBody* bodyB, Collisi
         Vector3 localNormal = dist > 0.0f ? (deltaLocal / dist) : Vector3::Up;
         Vector3 worldNormal = boxRotation.RotateVector(localNormal);
         info.hasCollision = true;
-        info.normal = worldNormal;
+        info.normal = (sphere == bodyB) ? -worldNormal : worldNormal;
         info.penetration = sphereRadius - dist;
         info.contactPoint = boxPos + boxRotation.RotateVector(pLocal);
         return true;
     }
-    return false;
-    closestPoint.x = std::max(boxMin.x, std::min(spherePos.x, boxMax.x));
-    closestPoint.y = std::max(boxMin.y, std::min(spherePos.y, boxMax.y));
-    closestPoint.z = std::max(boxMin.z, std::min(spherePos.z, boxMax.z));
-    
-    Vector3 direction = spherePos - closestPoint;
-    float distance = direction.Length();
-    
-    if (distance < sphereRadius) {
-        info.hasCollision = true;
-        info.penetration = sphereRadius - distance;
-        
-        if (distance > 0.0f) {
-            info.normal = direction / distance;
-        } else {
-            info.normal = Vector3::Up; // Default normal when sphere center is inside box
-        }
-        
-        if (sphere == bodyB) {
-            info.normal = -info.normal;
-        }
-        
-        info.contactPoint = closestPoint;
-        return true;
-    }
-    
     return false;
 }
 

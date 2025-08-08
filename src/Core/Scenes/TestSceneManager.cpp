@@ -218,29 +218,7 @@ void TestSceneManager::ReplaceScene() {
         m_sceneEntities.push_back(preservedCameraEntity);
     }
 }
-void TestSceneManager::ReplaceScene() {
-    std::vector<Entity> toDestroy;
-    bool preservedCamera = false;
-    Entity preservedCameraEntity;
-    for (const auto& entity : m_world->GetEntities()) {
-        if (!preservedCamera && m_world->HasComponent<CameraComponent>(entity)) {
-            preservedCamera = true;
-            preservedCameraEntity = entity;
-            continue;
-        }
-        toDestroy.push_back(entity);
-    }
-    for (Entity e : toDestroy) {
-        if (e.IsValid()) {
-            m_world->DestroyEntity(e);
-        }
-    }
-    m_sceneEntities.clear();
-    m_sceneMaterials.clear();
-    if (preservedCamera) {
-        m_sceneEntities.push_back(preservedCameraEntity);
-    }
-}
+
 void TestSceneManager::ClearCurrentScene() {
     Logger::Debug("Clearing current test scene");
     

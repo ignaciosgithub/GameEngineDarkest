@@ -82,7 +82,11 @@ void PhysicsWorld::FixedUpdate(float fixedDeltaTime) {
     IntegrateVelocities(fixedDeltaTime);
     
     DetectCollisions();
-    ResolveCollisions();
+    
+    const int solverIterations = 8;
+    for (int it = 0; it < solverIterations; ++it) {
+        ResolveCollisions();
+    }
     
     IntegratePositions(fixedDeltaTime);
     

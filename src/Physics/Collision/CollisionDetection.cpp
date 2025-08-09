@@ -813,66 +813,79 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
     }
     
     if ((colliderA && colliderA->IsTrigger()) || (colliderB && colliderB->IsTrigger())) {
-        Logger::Debug("Trigger collision detected - skipping physics resolution");
         return;
     }
     
     if (!bodyA || !bodyB) {
-        if (bodyA && !bodyB && info.colliderB) {
-            Vector3 separation = info.normal * info.penetration;
-            if (!bodyA->IsStatic()) {
-                bodyA->SetPosition(bodyA->GetPosition() - separation);
-                Logger::Debug("Resolved RigidBody vs static ColliderComponent collision");
+        RigidBody* rb = bodyA ? bodyA : bodyB;
+        if (!rb) return;
+        if (!rb->IsStatic()) {
+            const float slop = 0.01f;
+            const float percent = 0.2f;
+            float corr = std::max(info.penetration - slop, 0.0f) * percent;
+            Vector3 n = bodyA ? info.normal : -info.normal;
+            rb->SetPosition(rb->GetPosition() - corr * n);
+            float e = rb->GetRestitution();
+            if (bodyA ? info.colliderB : info.colliderA) {
+                e = std::min(e, (bodyA ? info.colliderB : info.colliderA)->GetRestitution());
             }
-            return;
-        } else if (!bodyA && bodyB && info.colliderA) {
-            Vector3 separation = info.normal * info.penetration;
-            if (!bodyB->IsStatic()) {
-                bodyB->SetPosition(bodyB->GetPosition() + separation);
-                Logger::Debug("Resolved static ColliderComponent vs RigidBody collision");
+            Vector3 v = rb->GetVelocity();
+            float vn = v.Dot(n);
+            if (vn < 0.0f) {
+                float restitutionThreshold = 0.5f;
+                if (std::fabs(vn) < restitutionThreshold) e = 0.0f;
+                float jn = -(1.0f + e) * vn;
+                rb->SetVelocity(v - jn * n);
             }
-            return;
         }
-        Logger::Debug("ColliderComponent-only collision detected - no physics resolution needed");
         return;
     }
     
-    float totalInvMass = bodyA->GetInverseMass() + bodyB->GetInverseMass();
-    if (totalInvMass <= 0.0f) return; // Both objects are static
+    float invMassA = bodyA->GetInverseMass();
+    float invMassB = bodyB->GetInverseMass();
+    float invMassSum = invMassA + invMassB;
+    if (invMassSum <= 0.0f) return;
     
-    Vector3 separation = info.normal * info.penetration;
-    float separationA = bodyA->GetInverseMass() / totalInvMass;
-    float separationB = bodyB->GetInverseMass() / totalInvMass;
+    const float slop = 0.01f;
+    const float percent = 0.2f;
+    float corr = std::max(info.penetration - slop, 0.0f) * percent / invMassSum;
+    Vector3 p = corr * info.normal;
+    if (!bodyA->IsStatic()) bodyA->SetPosition(bodyA->GetPosition() - invMassA * p);
+    if (!bodyB->IsStatic()) bodyB->SetPosition(bodyB->GetPosition() + invMassB * p);
     
-    if (!bodyA->IsStatic()) {
-        bodyA->SetPosition(bodyA->GetPosition() - separation * separationA);
+    Vector3 vRel = bodyB->GetVelocity() - bodyA->GetVelocity();
+    float vn = vRel.Dot(info.normal);
+    if (vn > 0.0f) return;
+    
+    float e = std::min(bodyA->GetRestitution(), bodyB->GetRestitution());
+    if (colliderA) e = std::min(e, colliderA->GetRestitution());
+    if (colliderB) e = std::min(e, colliderB->GetRestitution());
+    float restitutionThreshold = 0.5f;
+    if (std::fabs(vn) < restitutionThreshold) e = 0.0f;
+    
+    float jn = -(1.0f + e) * vn / invMassSum;
+    Vector3 impulseN = jn * info.normal;
+    if (!bodyA->IsStatic()) bodyA->SetVelocity(bodyA->GetVelocity() - invMassA * impulseN);
+    if (!bodyB->IsStatic()) bodyB->SetVelocity(bodyB->GetVelocity() + invMassB * impulseN);
+    
+    vRel = bodyB->GetVelocity() - bodyA->GetVelocity();
+    vn = vRel.Dot(info.normal);
+    Vector3 vt = vRel - vn * info.normal;
+    float vtLen = vt.Length();
+    if (vtLen > 1e-5f) {
+        Vector3 t = vt / vtLen;
+        float jt = -vRel.Dot(t) / invMassSum;
+        float muA = bodyA->GetFriction(), muB = bodyB->GetFriction();
+        if (colliderA) muA = std::min(muA, colliderA->GetFriction());
+        if (colliderB) muB = std::min(muB, colliderB->GetFriction());
+        float mu = std::min(muA, muB);
+        float maxFriction = mu * jn;
+        if (jt > maxFriction) jt = maxFriction;
+        if (jt < -maxFriction) jt = -maxFriction;
+        Vector3 impulseT = jt * t;
+        if (!bodyA->IsStatic()) bodyA->SetVelocity(bodyA->GetVelocity() - invMassA * impulseT);
+        if (!bodyB->IsStatic()) bodyB->SetVelocity(bodyB->GetVelocity() + invMassB * impulseT);
     }
-    if (!bodyB->IsStatic()) {
-        bodyB->SetPosition(bodyB->GetPosition() + separation * separationB);
-    }
-    
-    Vector3 relativeVelocity = bodyB->GetVelocity() - bodyA->GetVelocity();
-    float velocityAlongNormal = relativeVelocity.Dot(info.normal);
-    
-    if (velocityAlongNormal > 0) return;
-    
-    float restitution = std::min(bodyA->GetRestitution(), bodyB->GetRestitution());
-    if (colliderA && colliderB) {
-        restitution = std::min(colliderA->GetRestitution(), colliderB->GetRestitution());
-    }
-    
-    float impulseScalar = -(1 + restitution) * velocityAlongNormal / totalInvMass;
-    
-    Vector3 impulse = info.normal * impulseScalar;
-    
-    if (!bodyA->IsStatic()) {
-        bodyA->SetVelocity(bodyA->GetVelocity() - impulse * bodyA->GetInverseMass());
-    }
-    if (!bodyB->IsStatic()) {
-        bodyB->SetVelocity(bodyB->GetVelocity() + impulse * bodyB->GetInverseMass());
-    }
-    
-    Logger::Debug("Resolved collision between RigidBodies with penetration: " + std::to_string(info.penetration));
 }
 
 bool CollisionDetection::ConvexHullVsConvexHull(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info) {

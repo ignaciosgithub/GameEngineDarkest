@@ -6,6 +6,8 @@
 #include <vector>
 
 namespace GameEngine {
+    class TransformComponent;
+
     class ColliderComponent : public Component<ColliderComponent> {
     public:
         ColliderComponent();
@@ -39,11 +41,17 @@ namespace GameEngine {
         // Mesh-to-collider generation using vertex data
         void GenerateFromMesh(class MeshComponent* meshComponent, ColliderShapeType type = ColliderShapeType::ConvexHull);
         void ClearCollider();
+
+        // Owning transform
+        void SetOwnerTransform(TransformComponent* t) { m_ownerTransform = t; }
+        TransformComponent* GetOwnerTransform() const { return m_ownerTransform; }
         
     private:
         std::shared_ptr<ColliderShape> m_colliderShape;
         bool m_isTrigger = false;
         float m_restitution = 0.5f;
         float m_friction = 0.5f;
+
+        TransformComponent* m_ownerTransform = nullptr;
     };
 }

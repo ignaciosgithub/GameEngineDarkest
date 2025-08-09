@@ -260,6 +260,35 @@ void InspectorPanel::DrawRigidBodyComponent(World* world, Entity entity) {
         if (ImGui::Button("Remove RigidBody") && rigidBody->GetRigidBody()) {
             Logger::Info("RigidBody removal requested");
         }
+        
+        RigidBody* rb = rigidBody->GetRigidBody();
+        if (rb) {
+            const char* bodyTypes[] = {"Static (Immovable)", "Kinematic", "Dynamic"};
+            int typeIdx = static_cast<int>(rb->GetBodyType());
+            if (ImGui::Combo("Body Type", &typeIdx, bodyTypes, 3)) {
+                rb->SetBodyType(static_cast<RigidBodyType>(typeIdx));
+            }
+            
+            float mass = rb->GetMass();
+            if (ImGui::DragFloat("Mass", &mass, 0.1f, 0.0f, 10000.0f)) {
+                rb->SetMass(mass);
+            }
+            
+            float damping = rb->GetDamping();
+            if (ImGui::DragFloat("Damping", &damping, 0.001f, 0.0f, 1.0f, "%.3f")) {
+                rb->SetDamping(damping);
+            }
+            
+            float restitutionRB = rb->GetRestitution();
+            if (ImGui::SliderFloat("RB Restitution", &restitutionRB, 0.0f, 1.0f)) {
+                rb->SetRestitution(restitutionRB);
+            }
+            
+            float frictionRB = rb->GetFriction();
+            if (ImGui::SliderFloat("RB Friction", &frictionRB, 0.0f, 1.0f)) {
+                rb->SetFriction(frictionRB);
+            }
+        }
     }
 }
 

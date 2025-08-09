@@ -193,9 +193,8 @@ void PhysicsWorld::DetectCollisions() {
 
 void PhysicsWorld::ResolveCollisions() {
     for (const auto& collision : m_collisions) {
-        if (collision.hasCollision && collision.bodyA && collision.bodyB) {
-            CollisionDetection::ResolveCollision(collision.bodyA, collision.bodyB, collision);
-        }
+        if (!collision.hasCollision) continue;
+        CollisionDetection::ResolveCollision(collision.bodyA, collision.bodyB, collision);
     }
 }
 

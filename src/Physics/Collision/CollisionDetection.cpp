@@ -824,7 +824,7 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
             const float percent = 0.2f;
             float corr = std::max(info.penetration - slop, 0.0f) * percent;
             Vector3 n = bodyA ? info.normal : -info.normal;
-            rb->SetPosition(rb->GetPosition() - corr * n);
+            rb->SetPosition(rb->GetPosition() + corr * n);
             float e = rb->GetRestitution();
             if (bodyA ? info.colliderB : info.colliderA) {
                 e = std::min(e, (bodyA ? info.colliderB : info.colliderA)->GetRestitution());
@@ -835,8 +835,15 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
                 float restitutionThreshold = 0.5f;
                 if (std::fabs(vn) < restitutionThreshold) e = 0.0f;
                 float jn = -(1.0f + e) * vn;
-                rb->SetVelocity(v - jn * n);
+                rb->SetVelocity(v + jn * n);
             }
+            Vector3 v2 = rb->GetVelocity();
+            float vn2 = v2.Dot(n);
+            if (std::fabs(vn2) < 0.02f) {
+                v2 = v2 - vn2 * n;
+                rb->SetVelocity(v2);
+            }
+
         }
         return;
     }

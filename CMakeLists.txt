@@ -126,3 +126,4 @@ target_link_libraries(GameEngine INTERFACE
 #     NAMESPACE GameEngine::
 #     DESTINATION lib/cmake/GameEngine
 # )
+add_subdirectory(tests/physics_headless)

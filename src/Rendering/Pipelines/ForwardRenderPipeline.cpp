@@ -2,6 +2,7 @@
 #include "../../Core/Logging/Logger.h"
 #include "../../Core/ECS/World.h"
 #include "../../Core/Components/TransformComponent.h"
+#include "../../Core/Components/MeshComponent.h"
 #include "../Meshes/Mesh.h"
 #include "../Core/OpenGLHeaders.h"
 #include "../Core/stb_image_write.h"
@@ -91,6 +92,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform sampler2D shadowMap;
         uniform mat4 lightSpaceMatrix;
         uniform float shadowBias;
+        uniform float shadowTexelSize;
         
         float saturate(float x) { return clamp(x, 0.0, 1.0); }
         
@@ -130,9 +132,18 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
             if (projCoords.z > 1.0 || projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0)
                 return 0.0;
             float currentDepth = projCoords.z;
-            float closestDepth = texture(shadowMap, projCoords.xy).r;
             float bias = max(shadowBias * (1.0 - dot(N, L)), shadowBias * 0.2);
-            return currentDepth - bias > closestDepth ? 1.0 : 0.0;
+
+            float shadow = 0.0;
+            for (int x = -1; x <= 1; ++x) {
+                for (int y = -1; y <= 1; ++y) {
+                    vec2 offset = vec2(x, y) * shadowTexelSize;
+                    float closestDepth = texture(shadowMap, projCoords.xy + offset).r;
+                    shadow += (currentDepth - bias > closestDepth) ? 1.0 : 0.0;
+                }
+            }
+            shadow /= 9.0;
+            return shadow;
         }
         
         void main() {
@@ -274,6 +285,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
             vec3 ambient = vec3(0.03) * albedo * ao;
             vec3 color = ambient + Lo;
             color = color / (color + vec3(1.0));
+
             color = pow(color, vec3(1.0/2.2));
             FragColor = vec4(color, alpha);
         }
@@ -281,7 +293,6 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
     
     m_transparentShader->LoadFromSource(vertexShaderSource, transparentFragmentSource);
     m_effectsShader->LoadFromSource(vertexShaderSource, fragmentShaderSource);
-    
     m_initialized = true;
     Logger::Info("Forward rendering pipeline initialized successfully");
     return true;
@@ -298,6 +309,24 @@ void ForwardRenderPipeline::Render(World* world) {
     
     glViewport(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight);
     Logger::Debug("ForwardRenderPipeline: Set viewport to " + std::to_string(m_renderData.viewportWidth) + "x" + std::to_string(m_renderData.viewportHeight));
+    {
+        std::string depthVS = R"(
+            #version 330 core
+            layout (location = 0) in vec3 aPos;
+            uniform mat4 model;
+            uniform mat4 lightSpaceMatrix;
+            void main() {
+                gl_Position = lightSpaceMatrix * vec4(aPos, 1.0);
+            }
+        )";
+        std::string depthFS = R"(
+            #version 330 core
+            void main() { }
+        )";
+        m_depthShader = std::make_shared<Shader>();
+        m_depthShader->LoadFromSource(depthVS, depthFS);
+    }
+
     
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -415,6 +444,43 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     if (!m_forwardShader || !world) {
         return;
     }
+    m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
+    
+    int hasShadowUniform = 0;
+    Matrix4 shadowLightSpace;
+    float shadowBiasValue = 0.005f;
+    float shadowTexelSize = 0.0f;
+    std::shared_ptr<Texture> shadowDepthTex;
+
+    if (world) {
+        auto entities = world->GetEntities();
+        for (auto e : entities) {
+            if (world->HasComponent<LightComponent>(e)) {
+                auto lc = world->GetComponent<LightComponent>(e);
+                if (lc && lc->light.GetType() == LightType::Directional && lc->light.GetCastShadows()) {
+                    lc->light.InitializeShadowMap();
+                    auto fb = lc->light.GetShadowFramebuffer();
+                    if (fb) {
+                        shadowDepthTex = fb->GetDepthTexture();
+                        hasShadowUniform = shadowDepthTex ? 1 : 0;
+                        shadowLightSpace = lc->light.GetLightSpaceMatrix();
+                        shadowBiasValue = lc->light.GetShadowBias();
+                        shadowTexelSize = 1.0f / static_cast<float>(lc->light.GetData().shadowMapSize);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    m_forwardShader->SetInt("hasShadow", hasShadowUniform);
+    if (hasShadowUniform && shadowDepthTex) {
+        shadowDepthTex->Bind(5);
+        m_forwardShader->SetInt("shadowMap", 5);
+        m_forwardShader->SetMatrix4("lightSpaceMatrix", shadowLightSpace);
+        m_forwardShader->SetFloat("shadowBias", shadowBiasValue);
+        m_forwardShader->SetFloat("shadowTexelSize", shadowTexelSize);
+    }
     
     m_forwardShader->Use();
     
@@ -477,6 +543,8 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
                 m_forwardShader->SetInt("shadowMap", shadowTexUnit);
                 m_forwardShader->SetMatrix4("lightSpaceMatrix", lightSpace);
                 m_forwardShader->SetFloat("shadowBias", dirShadowLight->GetShadowBias());
+                float texelSize = 1.0f / static_cast<float>(dirShadowLight->GetShadowMapSize());
+                m_forwardShader->SetFloat("shadowTexelSize", texelSize);
             }
         }
     }
@@ -613,7 +681,6 @@ void ForwardRenderPipeline::CompositePass() {
     
     glEnable(GL_DEPTH_TEST);
 }
-
 void ForwardRenderPipeline::RenderShadowPass(World* world) {
     if (!world) return;
 
@@ -634,10 +701,13 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
     auto sm = dirShadowLight->GetShadowMap();
     if (!fb || !sm) return;
 
-    int size = dirShadowLight->GetShadowMapSize();
+    int sz = dirShadowLight->GetData().shadowMapSize;
     fb->Bind();
-    glViewport(0, 0, size, size);
+    glViewport(0, 0, sz, sz);
     glClear(GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_FRONT);
 
     if (!m_depthShader) {
         m_depthShader = std::make_shared<Shader>();
@@ -661,25 +731,24 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
     Matrix4 lightSpace = dirShadowLight->GetLightSpaceMatrix();
     m_depthShader->SetMatrix4("lightSpaceMatrix", lightSpace);
 
-    static Mesh cubeMesh = Mesh::CreateCube(1.0f);
-    static bool uploaded = false;
-    if (!uploaded) { cubeMesh.Upload(); uploaded = true; }
+    for (const auto& e : world->GetEntities()) {
+        auto* t = world->GetComponent<TransformComponent>(e);
+        auto* mc = world->GetComponent<MeshComponent>(e);
+        if (!t || !mc) continue;
+        auto mesh = mc->GetMesh();
+        if (!mesh) continue;
 
-    for (const auto& entity : world->GetEntities()) {
-        if (world->HasComponent<TransformComponent>(entity)) {
-            auto* tc = world->GetComponent<TransformComponent>(entity);
-            if (!tc) continue;
-            Matrix4 model = tc->transform.GetLocalToWorldMatrix();
-            m_depthShader->SetMatrix4("model", model);
-            if (!cubeMesh.GetVertices().empty()) {
-                cubeMesh.Draw();
-            }
-        }
+        Matrix4 model = t->transform.GetLocalToWorldMatrix();
+        m_depthShader->SetMatrix4("model", model);
+        mesh->Draw();
     }
 
     fb->Unbind();
+    glCullFace(GL_BACK);
     glViewport(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight);
 }
+
+
 
 void ForwardRenderPipeline::RenderFullscreenQuad() {
     static unsigned int quadVAO = 0;
@@ -697,7 +766,7 @@ void ForwardRenderPipeline::RenderFullscreenQuad() {
         glGenBuffers(1, &quadVBO);
         glBindVertexArray(quadVAO);
         glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(1);

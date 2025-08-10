@@ -89,11 +89,15 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform vec3 viewPos;
 
         uniform int hasShadow;
-        uniform int shadowLightType; // 0 = Directional, 2 = Spot
+        uniform int shadowLightType; // 0 = Directional, 1 = Point, 2 = Spot
         uniform sampler2D shadowMap;
+        uniform samplerCube shadowCubeMap;
         uniform mat4 lightSpaceMatrix;
         uniform float shadowBias;
         uniform float shadowTexelSize;
+        uniform vec3 shadowLightPos;
+        uniform float shadowNear;
+        uniform float shadowFar;
         
         float saturate(float x) { return clamp(x, 0.0, 1.0); }
         
@@ -146,6 +150,31 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
             shadow /= 9.0;
             return shadow;
         }
+        float LinearizeDepth(float depth, float nearP, float farP) {
+            float z = depth * 2.0 - 1.0;
+            return (2.0 * nearP * farP) / (farP + nearP - z * (farP - nearP));
+        }
+        float ComputeShadowPoint(vec3 worldPos) {
+            vec3 Lvec = worldPos - shadowLightPos;
+            float dist = length(Lvec);
+            float bias = shadowBias;
+            float shadow = 0.0;
+            int samples = 4;
+            vec3 dir = normalize(Lvec);
+            vec3 offsets[4] = vec3[](
+                vec3( 1,  1,  1),
+                vec3(-1,  1, -1),
+                vec3( 1, -1, -1),
+                vec3(-1, -1,  1)
+            );
+            for (int i = 0; i < samples; ++i) {
+                vec3 probe = dir + offsets[i] * 0.01;
+                float depthSample = texture(shadowCubeMap, probe).r;
+                float sampleDist = LinearizeDepth(depthSample, shadowNear, shadowFar);
+                shadow += (dist - bias > sampleDist) ? 1.0 : 0.0;
+            }
+            return shadow / float(samples);
+        }
         
         void main() {
             vec3 N = normalize(Normal);
@@ -187,7 +216,11 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
                 
                 float shadow = 0.0;
                 if (hasShadow == 1 && lightTypes[i] == shadowLightType) {
-                    shadow = ComputeShadow(FragPos, N, L);
+                    if (shadowLightType == 1) {
+                        shadow = ComputeShadowPoint(FragPos);
+                    } else {
+                        shadow = ComputeShadow(FragPos, N, L);
+                    }
                 }
                 
                 vec3 radiance = lightColors[i] * lightIntensities[i] * attenuation;
@@ -453,37 +486,72 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     float shadowBiasValue = 0.005f;
     float shadowTexelSize = 0.0f;
     std::shared_ptr<Texture> shadowDepthTex;
+    Vector3 shadowLightPosUniform = Vector3(0,0,0);
+    float shadowNearUniform = 0.1f;
+    float shadowFarUniform = 100.0f;
 
     if (world) {
         auto entities = world->GetEntities();
+        Light* chosen = nullptr;
+        LightType chosenType = LightType::Directional;
         for (auto e : entities) {
             if (world->HasComponent<LightComponent>(e)) {
                 auto lc = world->GetComponent<LightComponent>(e);
-                if (lc && lc->light.GetCastShadows() && (lc->light.GetType() == LightType::Directional || lc->light.GetType() == LightType::Spot)) {
-                    lc->light.InitializeShadowMap();
-                    auto fb = lc->light.GetShadowFramebuffer();
-                    if (fb) {
-                        shadowDepthTex = fb->GetDepthTexture();
-                        hasShadowUniform = shadowDepthTex ? 1 : 0;
-                        shadowLightSpace = lc->light.GetLightSpaceMatrix();
-                        shadowBiasValue = lc->light.GetShadowBias();
-                        shadowTexelSize = 1.0f / static_cast<float>(lc->light.GetData().shadowMapSize);
-                        shadowLightTypeUniform = (lc->light.GetType() == LightType::Directional) ? 0 : 2;
-                    }
-                    break;
+                if (lc && lc->light.GetCastShadows() && lc->light.GetType() == LightType::Directional) { chosen = &lc->light; chosenType = LightType::Directional; break; }
+            }
+        }
+        if (!chosen) {
+            for (auto e : entities) {
+                if (world->HasComponent<LightComponent>(e)) {
+                    auto lc = world->GetComponent<LightComponent>(e);
+                    if (lc && lc->light.GetCastShadows() && lc->light.GetType() == LightType::Spot) { chosen = &lc->light; chosenType = LightType::Spot; break; }
+                }
+            }
+        }
+        if (!chosen) {
+            for (auto e : entities) {
+                if (world->HasComponent<LightComponent>(e)) {
+                    auto lc = world->GetComponent<LightComponent>(e);
+                    if (lc && lc->light.GetCastShadows() && lc->light.GetType() == LightType::Point) { chosen = &lc->light; chosenType = LightType::Point; break; }
+                }
+            }
+        }
+        if (chosen) {
+            chosen->InitializeShadowMap();
+            auto sm = chosen->GetShadowMap();
+            auto fb = chosen->GetShadowFramebuffer();
+            if (sm && fb) {
+                hasShadowUniform = 1;
+                shadowBiasValue = chosen->GetShadowBias();
+                shadowTexelSize = 1.0f / static_cast<float>(chosen->GetData().shadowMapSize);
+                if (chosenType == LightType::Point) {
+                    shadowLightTypeUniform = 1;
+                    shadowLightPosUniform = chosen->GetPosition();
+                    shadowNearUniform = chosen->GetData().shadowNearPlane;
+                    shadowFarUniform = chosen->GetData().shadowFarPlane;
+                    sm->Bind(5);
+                    m_forwardShader->SetInt("shadowCubeMap", 5);
+                } else {
+                    shadowLightTypeUniform = (chosenType == LightType::Directional) ? 0 : 2;
+                    shadowLightSpace = chosen->GetLightSpaceMatrix();
+                    sm->Bind(5);
+                    m_forwardShader->SetInt("shadowMap", 5);
                 }
             }
         }
     }
 
     m_forwardShader->SetInt("hasShadow", hasShadowUniform);
-    if (hasShadowUniform && shadowDepthTex) {
-        shadowDepthTex->Bind(5);
-        m_forwardShader->SetInt("shadowMap", 5);
+    if (hasShadowUniform) {
         m_forwardShader->SetInt("shadowLightType", shadowLightTypeUniform);
         m_forwardShader->SetMatrix4("lightSpaceMatrix", shadowLightSpace);
         m_forwardShader->SetFloat("shadowBias", shadowBiasValue);
         m_forwardShader->SetFloat("shadowTexelSize", shadowTexelSize);
+        m_forwardShader->SetVector3("shadowLightPos", shadowLightPosUniform);
+        m_forwardShader->SetFloat("shadowNear", shadowNearUniform);
+        m_forwardShader->SetFloat("shadowFar", shadowFarUniform);
+        m_forwardShader->SetInt("shadowMap", 5);
+        m_forwardShader->SetInt("shadowCubeMap", 5);
     }
     
     m_forwardShader->Use();
@@ -714,6 +782,14 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
             }
         }
     }
+    if (!shadowLight) {
+        for (auto* l : lm.GetActiveLights()) {
+            if (l && l->GetType() == LightType::Point && l->GetCastShadows()) {
+                shadowLight = l;
+                break;
+            }
+        }
+    }
     if (!shadowLight) return;
 
     shadowLight->InitializeShadowMap();
@@ -722,9 +798,6 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
     if (!fb || !sm) return;
 
     int sz = shadowLight->GetData().shadowMapSize;
-    fb->Bind();
-    glViewport(0, 0, sz, sz);
-    glClear(GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
@@ -748,22 +821,63 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
     }
 
     m_depthShader->Use();
-    Matrix4 lightSpace = shadowLight->GetLightSpaceMatrix();
-    m_depthShader->SetMatrix4("lightSpaceMatrix", lightSpace);
 
-    for (const auto& e : world->GetEntities()) {
-        auto* t = world->GetComponent<TransformComponent>(e);
-        auto* mc = world->GetComponent<MeshComponent>(e);
-        if (!t || !mc) continue;
-        auto mesh = mc->GetMesh();
-        if (!mesh) continue;
+    if (shadowLight->GetType() == LightType::Point) {
+        static const Vector3 dirs[6] = {
+            Vector3(1,0,0), Vector3(-1,0,0), Vector3(0,1,0),
+            Vector3(0,-1,0), Vector3(0,0,1), Vector3(0,0,-1)
+        };
+        static const Vector3 ups[6] = {
+            Vector3(0,-1,0), Vector3(0,-1,0), Vector3(0,0,1),
+            Vector3(0,0,-1), Vector3(0,-1,0), Vector3(0,-1,0)
+        };
+        Matrix4 proj = shadowLight->GetProjectionMatrix();
+        Vector3 lp = shadowLight->GetPosition();
+        for (int face = 0; face < 6; ++face) {
+            fb->Bind();
+            fb->AttachDepthCubeFace(sm, face);
+            glViewport(0, 0, sz, sz);
+            glClear(GL_DEPTH_BUFFER_BIT);
 
-        Matrix4 model = t->transform.GetLocalToWorldMatrix();
-        m_depthShader->SetMatrix4("model", model);
-        mesh->Draw();
+            Matrix4 view = Matrix4::LookAt(lp, lp + dirs[face], ups[face]);
+            Matrix4 lightSpace = proj * view;
+            m_depthShader->SetMatrix4("lightSpaceMatrix", lightSpace);
+
+            for (const auto& e : world->GetEntities()) {
+                auto* t = world->GetComponent<TransformComponent>(e);
+                auto* mc = world->GetComponent<MeshComponent>(e);
+                if (!t || !mc) continue;
+                auto mesh = mc->GetMesh();
+                if (!mesh) continue;
+
+                Matrix4 model = t->transform.GetLocalToWorldMatrix();
+                m_depthShader->SetMatrix4("model", model);
+                mesh->Draw();
+            }
+        }
+        fb->Unbind();
+    } else {
+        fb->Bind();
+        glViewport(0, 0, sz, sz);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        Matrix4 lightSpace = shadowLight->GetLightSpaceMatrix();
+        m_depthShader->SetMatrix4("lightSpaceMatrix", lightSpace);
+
+        for (const auto& e : world->GetEntities()) {
+            auto* t = world->GetComponent<TransformComponent>(e);
+            auto* mc = world->GetComponent<MeshComponent>(e);
+            if (!t || !mc) continue;
+            auto mesh = mc->GetMesh();
+            if (!mesh) continue;
+
+            Matrix4 model = t->transform.GetLocalToWorldMatrix();
+            m_depthShader->SetMatrix4("model", model);
+            mesh->Draw();
+        }
+        fb->Unbind();
     }
 
-    fb->Unbind();
     glCullFace(GL_BACK);
     glViewport(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight);
 }

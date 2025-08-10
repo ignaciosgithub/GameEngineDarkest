@@ -106,6 +106,13 @@ void FrameBuffer::CreateAttachments() {
     }
 }
 
+void FrameBuffer::AttachDepthCubeFace(const std::shared_ptr<Texture>& texture, int faceIndex) {
+    Bind();
+    if (texture) {
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIndex, texture->GetID(), 0);
+    }
+}
+
 void FrameBuffer::AttachTexture(const std::shared_ptr<Texture>& texture, unsigned int attachment) {
     if (texture) {
         glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, texture->GetID(), 0);

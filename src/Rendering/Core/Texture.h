@@ -38,6 +38,7 @@ namespace GameEngine {
     public:
         Texture();
         ~Texture();
+        void CreateEmptyCubeDepth(int size, TextureFormat format);
 
         bool LoadFromFile(const std::string& path);
         bool LoadFromMemory(const unsigned char* data, int width, int height, int channels);
@@ -85,6 +86,7 @@ namespace GameEngine {
         bool m_isAtlas = false;
         std::map<std::string, AtlasRegion> m_atlasRegions;
         
+        bool m_isCube = false;
         unsigned int GetGLFormat(TextureFormat format) const;
         unsigned int GetGLInternalFormat(TextureFormat format) const;
         unsigned int GetGLType(TextureFormat format) const;

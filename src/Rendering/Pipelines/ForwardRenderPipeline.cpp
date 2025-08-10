@@ -89,6 +89,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform vec3 viewPos;
 
         uniform int hasShadow;
+        uniform int shadowLightType; // 0 = Directional, 2 = Spot
         uniform sampler2D shadowMap;
         uniform mat4 lightSpaceMatrix;
         uniform float shadowBias;
@@ -185,7 +186,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
                 float NdotL = max(dot(N, L), 0.0);
                 
                 float shadow = 0.0;
-                if (lightTypes[i] == 0 && hasShadow == 1) {
+                if (hasShadow == 1 && lightTypes[i] == shadowLightType) {
                     shadow = ComputeShadow(FragPos, N, L);
                 }
                 
@@ -447,6 +448,7 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
     int hasShadowUniform = 0;
+    int shadowLightTypeUniform = 0;
     Matrix4 shadowLightSpace;
     float shadowBiasValue = 0.005f;
     float shadowTexelSize = 0.0f;
@@ -457,7 +459,7 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
         for (auto e : entities) {
             if (world->HasComponent<LightComponent>(e)) {
                 auto lc = world->GetComponent<LightComponent>(e);
-                if (lc && lc->light.GetType() == LightType::Directional && lc->light.GetCastShadows()) {
+                if (lc && lc->light.GetCastShadows() && (lc->light.GetType() == LightType::Directional || lc->light.GetType() == LightType::Spot)) {
                     lc->light.InitializeShadowMap();
                     auto fb = lc->light.GetShadowFramebuffer();
                     if (fb) {
@@ -466,6 +468,7 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
                         shadowLightSpace = lc->light.GetLightSpaceMatrix();
                         shadowBiasValue = lc->light.GetShadowBias();
                         shadowTexelSize = 1.0f / static_cast<float>(lc->light.GetData().shadowMapSize);
+                        shadowLightTypeUniform = (lc->light.GetType() == LightType::Directional) ? 0 : 2;
                     }
                     break;
                 }
@@ -477,6 +480,7 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     if (hasShadowUniform && shadowDepthTex) {
         shadowDepthTex->Bind(5);
         m_forwardShader->SetInt("shadowMap", 5);
+        m_forwardShader->SetInt("shadowLightType", shadowLightTypeUniform);
         m_forwardShader->SetMatrix4("lightSpaceMatrix", shadowLightSpace);
         m_forwardShader->SetFloat("shadowBias", shadowBiasValue);
         m_forwardShader->SetFloat("shadowTexelSize", shadowTexelSize);
@@ -525,25 +529,33 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     {
         LightManager lm2;
         lm2.CollectLights(world);
-        Light* dirShadowLight = nullptr;
+        Light* shadowedLight = nullptr;
+        int shadowTypeInt = 0;
         for (auto* l : lm2.GetActiveLights()) {
             if (l && l->GetType() == LightType::Directional && l->GetCastShadows()) {
-                dirShadowLight = l;
-                break;
+                shadowedLight = l; shadowTypeInt = 0; break;
             }
         }
-        if (dirShadowLight && dirShadowLight->GetShadowMap()) {
-            dirShadowLight->InitializeShadowMap();
-            auto sm = dirShadowLight->GetShadowMap();
-            auto fb = dirShadowLight->GetShadowFramebuffer();
+        if (!shadowedLight) {
+            for (auto* l : lm2.GetActiveLights()) {
+                if (l && l->GetType() == LightType::Spot && l->GetCastShadows()) {
+                    shadowedLight = l; shadowTypeInt = 2; break;
+                }
+            }
+        }
+        if (shadowedLight && shadowedLight->GetShadowMap()) {
+            shadowedLight->InitializeShadowMap();
+            auto sm = shadowedLight->GetShadowMap();
+            auto fb = shadowedLight->GetShadowFramebuffer();
             if (sm && fb) {
                 hasShadow = 1;
-                lightSpace = dirShadowLight->GetLightSpaceMatrix();
+                lightSpace = shadowedLight->GetLightSpaceMatrix();
                 sm->Bind(shadowTexUnit);
                 m_forwardShader->SetInt("shadowMap", shadowTexUnit);
+                m_forwardShader->SetInt("shadowLightType", shadowTypeInt);
                 m_forwardShader->SetMatrix4("lightSpaceMatrix", lightSpace);
-                m_forwardShader->SetFloat("shadowBias", dirShadowLight->GetShadowBias());
-                float texelSize = 1.0f / static_cast<float>(dirShadowLight->GetShadowMapSize());
+                m_forwardShader->SetFloat("shadowBias", shadowedLight->GetShadowBias());
+                float texelSize = 1.0f / static_cast<float>(shadowedLight->GetShadowMapSize());
                 m_forwardShader->SetFloat("shadowTexelSize", texelSize);
             }
         }
@@ -687,21 +699,29 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
     LightManager lm;
     lm.CollectLights(world);
 
-    Light* dirShadowLight = nullptr;
+    Light* shadowLight = nullptr;
     for (auto* l : lm.GetActiveLights()) {
         if (l && l->GetType() == LightType::Directional && l->GetCastShadows()) {
-            dirShadowLight = l;
+            shadowLight = l;
             break;
         }
     }
-    if (!dirShadowLight) return;
+    if (!shadowLight) {
+        for (auto* l : lm.GetActiveLights()) {
+            if (l && l->GetType() == LightType::Spot && l->GetCastShadows()) {
+                shadowLight = l;
+                break;
+            }
+        }
+    }
+    if (!shadowLight) return;
 
-    dirShadowLight->InitializeShadowMap();
-    auto fb = dirShadowLight->GetShadowFramebuffer();
-    auto sm = dirShadowLight->GetShadowMap();
+    shadowLight->InitializeShadowMap();
+    auto fb = shadowLight->GetShadowFramebuffer();
+    auto sm = shadowLight->GetShadowMap();
     if (!fb || !sm) return;
 
-    int sz = dirShadowLight->GetData().shadowMapSize;
+    int sz = shadowLight->GetData().shadowMapSize;
     fb->Bind();
     glViewport(0, 0, sz, sz);
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -728,7 +748,7 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
     }
 
     m_depthShader->Use();
-    Matrix4 lightSpace = dirShadowLight->GetLightSpaceMatrix();
+    Matrix4 lightSpace = shadowLight->GetLightSpaceMatrix();
     m_depthShader->SetMatrix4("lightSpaceMatrix", lightSpace);
 
     for (const auto& e : world->GetEntities()) {

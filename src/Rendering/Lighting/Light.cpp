@@ -39,20 +39,25 @@ bool Light::InitializeShadowMap() {
         Logger::Warning("Shadow map already initialized");
         return true;
     }
-    
+
     if (!m_data.castShadows) {
         Logger::Info("Light does not cast shadows, skipping shadow map initialization");
         return true;
     }
-    
+
     Logger::Info("Initializing shadow map with size: " + std::to_string(m_data.shadowMapSize));
-    
-    m_shadowMap = std::make_shared<Texture>();
-    m_shadowMap->CreateEmpty(m_data.shadowMapSize, m_data.shadowMapSize, TextureFormat::Depth24);
-    
+
     m_shadowFramebuffer = std::make_shared<FrameBuffer>(m_data.shadowMapSize, m_data.shadowMapSize);
-    m_shadowFramebuffer->AddDepthAttachment(TextureFormat::Depth24);
-    
+
+    if (m_type == LightType::Point) {
+        m_shadowMap = std::make_shared<Texture>();
+        m_shadowMap->CreateEmptyCubeDepth(m_data.shadowMapSize, TextureFormat::Depth24);
+    } else {
+        m_shadowMap = std::make_shared<Texture>();
+        m_shadowMap->CreateEmpty(m_data.shadowMapSize, m_data.shadowMapSize, TextureFormat::Depth24);
+        m_shadowFramebuffer->AddDepthAttachment(TextureFormat::Depth24);
+    }
+
     m_shadowMapInitialized = true;
     Logger::Info("Shadow map initialized successfully");
     return true;

@@ -23,6 +23,7 @@ namespace GameEngine {
         
         void AddColorAttachment(TextureFormat format);
         void AddDepthAttachment(TextureFormat format = TextureFormat::Depth24);
+        void AttachDepthCubeFace(const std::shared_ptr<Texture>& texture, int faceIndex);
         
         void Resize(int width, int height);
         bool IsComplete() const;

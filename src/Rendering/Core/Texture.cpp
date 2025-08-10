@@ -132,15 +132,46 @@ void Texture::CreateEmpty(int width, int height, TextureFormat format) {
     
     Logger::Info("Texture created empty: " + std::to_string(width) + "x" + std::to_string(height) + " with ID: " + std::to_string(m_textureID));
 }
+void Texture::CreateEmptyCubeDepth(int size, TextureFormat format) {
+    m_width = size;
+    m_height = size;
+    m_format = format;
+    m_isCube = true;
+
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_textureID);
+    GLenum internalFormat = GetGLInternalFormat(format);
+    GLenum dataFormat = GetGLFormat(format);
+    GLenum dataType = GetGLType(format);
+
+    for (int face = 0; face < 6; ++face) {
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, 0, internalFormat, size, size, 0, dataFormat, dataType, nullptr);
+    }
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+}
 
 void Texture::Bind(unsigned int slot) const {
     glActiveTexture(GL_TEXTURE0 + slot);
-    glBindTexture(GL_TEXTURE_2D, m_textureID);
+    if (m_isCube) {
+        glBindTexture(GL_TEXTURE_CUBE_MAP, m_textureID);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, m_textureID);
+    }
     Logger::Debug("Texture bound to slot " + std::to_string(slot) + " with ID: " + std::to_string(m_textureID));
 }
 
 void Texture::Unbind() const {
-    glBindTexture(GL_TEXTURE_2D, 0);
+    if (m_isCube) {
+        glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
     Logger::Debug("Texture unbound");
 }
 

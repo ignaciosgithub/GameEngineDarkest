@@ -318,7 +318,6 @@ For detailed troubleshooting, see [WINDOWS_BUILD_INSTRUCTIONS.md](WINDOWS_BUILD_
   - Define M_PI in files where missing
   - Ensure GLAD is included before any OpenGL headers
   - Add explicit casts to resolve warnings-as-errors for size_t→GLsizei, double→float
-
   - Prefer secure CRT alternatives (e.g., strcpy_s, localtime_s) where needed
 - Headless Linux: Running without DISPLAY will fail GLFW initialization; this is expected in CI/headless environments (see LINUX_BUILD_STATUS.md)
 

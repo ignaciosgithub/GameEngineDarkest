@@ -139,11 +139,14 @@ A modular 3D/2D game engine built with C++20, featuring Unity-comparable functio
 
 ## 🎮 Usage
 
-### Demo Controls
-- **WASD**: Camera movement (forward/left/back/right)
-- **Mouse**: Look around (first-person camera)
-- **1-5**: Switch between rendering pipeline test scenes
-- **ESC**: Exit application
+### Controls
+- WASD: Intended FPS-style movement (W/S forward/back, A/D strafe left/right)
+- Mouse: Look around (first-person camera)
+- 1-5: Switch between rendering/pipeline test scenes
+- ESC: Exit application
+
+Known issue
+- A/D may rotate instead of strafing in current builds. This is actively being addressed (see branch: fix-wasd-controls-and-json-saving). The intended behavior is standard FPS strafing.
 
 ### Demo Features
 - **Scene 1**: Forward rendering with colorful cubes
@@ -151,6 +154,50 @@ A modular 3D/2D game engine built with C++20, featuring Unity-comparable functio
 - **Scene 3**: Raytracing pipeline demonstration
 - **Scene 4**: 3D physics simulation with collision detection
 - **Scene 5**: 2D physics world with rigid body dynamics
+
+## 🧰 Unity-like Editor
+
+The engine includes an ImGui-based editor focused on a Unity-like workflow.
+
+Panels
+- Hierarchy: Manage scene objects and parent/child relationships
+- Inspector: View and edit selected entity components and properties
+- Viewport: Scene view with camera controls and gizmos
+- Console: Engine logs and diagnostics
+- Project: File browser for assets and project files
+
+Play and Edit Modes
+- Edit Mode: Modify scenes, components, and assets
+- Play Mode: Run the simulation to test gameplay logic
+- Switching: Toggle between Edit and Play using the engine UI (PlayModeManager)
+
+Project Workflow (JSON)
+- Create: Create a new project directory with default structure
+- Open: Launch the editor with a project path argument to load an existing project
+  - Example: editor/GameEngineEditor &lt;path-to-project&gt;
+- Save: Save current project settings and scene data to JSON
+
+Asset Import
+- OBJ import supported via the Project panel
+- Imported meshes and textures integrate with the engine asset pipeline
+
+Default Scene
+- Camera, cube, and light are set up as a simple starting point for quick iteration
+
+## 🧩 External C++ Scripting (Hot Reload)
+
+Write gameplay logic as external C++ scripts that are compiled to DLL/SO and hot-reloaded at runtime.
+
+Quick start
+- Templates and examples: Scripts/ScriptTemplate.cpp, Scripts/ExampleCubeRotator.cpp
+- Build helpers: Scripts/BUILD_SCRIPT_LINUX.sh, Scripts/ScriptTemplate.vcxproj
+- Integration and API docs: see VISUAL_STUDIO_INTEGRATION.md
+
+Runtime behavior
+- The engine watches the Scripts/ directory for compiled modules and loads them
+- Implement IExternalScript with OnStart, OnUpdate, OnDestroy to control entities and components
+
+
 
 ## 🏗️ Architecture
 
@@ -190,13 +237,17 @@ The project uses CMake with vcpkg for dependency management. All required depend
 ```
 GameEngineDarkest/
 ├── src/
-│   ├── Core/           # ECS, Math, Platform abstraction
-│   ├── Rendering/      # Graphics pipelines and rendering
-│   ├── Physics/        # 3D and 2D physics systems
-│   └── UI/             # Engine interface and tools
-├── demo/               # Demo application
-├── docs/               # Documentation and guides
-└── CMakeLists.txt      # Build configuration
+│   ├── Core/            # ECS, Math, Platform, Input, Resources, Editor runtime (PlayModeManager), Project
+│   ├── Rendering/       # Pipelines (Forward/Deferred/Raytracing), Shaders, Framebuffers, Materials, Lights
+│   ├── Physics/         # 3D and 2D physics, Colliders, Spatial structures
+│   └── UI/              # ImGui renderer and panels (Hierarchy, Inspector, Viewport, Console, Project)
+├── editor/              # Editor application entry (GameEngineEditor)
+├── demo/                # Demo applications (GameEngineDemo, GameObjectDemo)
+├── Scripts/             # External scripting templates, examples, and build helpers
+├── scripts/             # Build scripts (e.g., Windows build helper)
+├── docs/                # Documentation and guides
+├── *.md                 # Additional documentation (build guides, phase docs)
+└── CMakeLists.txt       # Build configuration (root and per-module)
 ```
 
 ### Contributing
@@ -219,6 +270,11 @@ GameEngineDarkest/
 - [x] 2D physics system
 - [x] WASD camera navigation
 - [x] Engine UI framework
+- [x] Editor panels (Hierarchy, Inspector, Viewport, Console, Project)
+- [x] Project JSON create/load/save (via ProjectManager and EngineUI)
+- [x] OBJ model import support
+- [x] Shadow mapping (directional, spot, and point/cubemap)
+
 
 ### In Progress 🚧
 - [ ] Advanced lighting models (PBR)
@@ -255,6 +311,17 @@ GameEngineDarkest/
 
 For detailed troubleshooting, see [WINDOWS_BUILD_INSTRUCTIONS.md](WINDOWS_BUILD_INSTRUCTIONS.md).
 
+## ⚠️ Known Issues
+
+- FPS controls: A/D may rotate instead of strafing in some builds. Work in progress on branch fix-wasd-controls-and-json-saving.
+- Windows (MSVC):
+  - Define M_PI in files where missing
+  - Ensure GLAD is included before any OpenGL headers
+  - Add explicit casts to resolve warnings-as-errors for size_t→GLsizei, double→float
+
+  - Prefer secure CRT alternatives (e.g., strcpy_s, localtime_s) where needed
+- Headless Linux: Running without DISPLAY will fail GLFW initialization; this is expected in CI/headless environments (see LINUX_BUILD_STATUS.md)
+
 ## 📚 Documentation
 
 - [Phase 0: Meta-Planning](PHASE_0_META_PLANNING.md) - Project overview and architecture
@@ -262,6 +329,8 @@ For detailed troubleshooting, see [WINDOWS_BUILD_INSTRUCTIONS.md](WINDOWS_BUILD_
 - [Phase 3: Physics](PHASE_3_PHYSICS.md) - 3D physics implementation
 - [Phase 4: 2D Physics](PHASE_4_2D_PHYSICS.md) - 2D physics system
 - [Windows Build Guide](WINDOWS_BUILD_INSTRUCTIONS.md) - Detailed Windows setup
+- [Linux Build Status](LINUX_BUILD_STATUS.md) - Current Linux build and runtime notes
+- [Visual Studio Integration](VISUAL_STUDIO_INTEGRATION.md) - External C++ scripting and hot reload
 
 ## 📄 License
 

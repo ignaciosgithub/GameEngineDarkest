@@ -242,6 +242,16 @@ GameEngineDarkest/
 - Ensure Visual Studio 2022 is installed with C++ workload
 - Verify vcpkg path is correct in CMake command
 - Check that Windows SDK is available
+- If you see “Could not find a package configuration file provided by ‘glfw3’ … glfw3Config.cmake”:
+  - Do a clean configure and pass the vcpkg toolchain and triplet explicitly:
+    - From project root:
+      - rmdir /S /Q build (or delete the build folder manually)
+      - cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/Users/YourUser/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows
+      - cmake --build build --config Release -j
+  - Verify the config file exists:
+    - C:\Users\YourUser\vcpkg\installed\x64-windows\share\glfw3\glfw3Config.cmake
+  - As a last resort, point CMake directly:
+    - add -Dglfw3_DIR=C:/Users/YourUser/vcpkg/installed/x64-windows/share/glfw3
 
 **Runtime Crashes**
 - Update graphics drivers to latest version

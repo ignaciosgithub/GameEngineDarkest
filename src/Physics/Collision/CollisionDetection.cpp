@@ -753,6 +753,10 @@ bool CollisionDetection::BoxVsBox(RigidBody* bodyA, RigidBody* bodyB, CollisionI
     if (n.LengthSquared() > 0.0f) n = n.Normalized();
     info.normal = n;
     info.contactPoint = cA + (cB - cA) * 0.5f;
+    if ((cB - cA).Dot(info.normal) < 0.0f) {
+        info.normal = -info.normal;
+    }
+
     return true;
 }
 
@@ -829,21 +833,23 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
             if (bodyA ? info.colliderB : info.colliderA) {
                 e = std::min(e, (bodyA ? info.colliderB : info.colliderA)->GetRestitution());
             }
-            Vector3 v = rb->GetVelocity();
-            float vn = v.Dot(n);
+            Vector3 vPoint = rb->GetPointVelocity(info.contactPoint);
+            float vn = vPoint.Dot(n);
             if (vn < 0.0f) {
                 float restitutionThreshold = 0.5f;
                 if (std::fabs(vn) < restitutionThreshold) e = 0.0f;
                 float jn = -(1.0f + e) * vn;
-                rb->SetVelocity(v + jn * n);
+                Vector3 impulseN = jn * n;
+                rb->AddImpulseAtPosition(impulseN, info.contactPoint);
+                Vector3 vAfter = rb->GetPointVelocity(info.contactPoint);
+                float vn2 = vAfter.Dot(n);
+                if (std::fabs(vn2) < 0.02f) {
+                    Vector3 vLin = rb->GetVelocity();
+                    float vnLin = vLin.Dot(n);
+                    vLin = vLin - vnLin * n;
+                    rb->SetVelocity(vLin);
+                }
             }
-            Vector3 v2 = rb->GetVelocity();
-            float vn2 = v2.Dot(n);
-            if (std::fabs(vn2) < 0.02f) {
-                v2 = v2 - vn2 * n;
-                rb->SetVelocity(v2);
-            }
-
         }
         return;
     }
@@ -860,7 +866,9 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
     if (!bodyA->IsStatic()) bodyA->SetPosition(bodyA->GetPosition() - invMassA * p);
     if (!bodyB->IsStatic()) bodyB->SetPosition(bodyB->GetPosition() + invMassB * p);
     
-    Vector3 vRel = bodyB->GetVelocity() - bodyA->GetVelocity();
+    Vector3 vA = bodyA->GetPointVelocity(info.contactPoint);
+    Vector3 vB = bodyB->GetPointVelocity(info.contactPoint);
+    Vector3 vRel = vB - vA;
     float vn = vRel.Dot(info.normal);
     if (vn > 0.0f) return;
     
@@ -872,10 +880,12 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
     
     float jn = -(1.0f + e) * vn / invMassSum;
     Vector3 impulseN = jn * info.normal;
-    if (!bodyA->IsStatic()) bodyA->SetVelocity(bodyA->GetVelocity() - invMassA * impulseN);
-    if (!bodyB->IsStatic()) bodyB->SetVelocity(bodyB->GetVelocity() + invMassB * impulseN);
+    if (!bodyA->IsStatic()) bodyA->AddImpulseAtPosition(-impulseN, info.contactPoint);
+    if (!bodyB->IsStatic()) bodyB->AddImpulseAtPosition(impulseN, info.contactPoint);
     
-    vRel = bodyB->GetVelocity() - bodyA->GetVelocity();
+    vA = bodyA->GetPointVelocity(info.contactPoint);
+    vB = bodyB->GetPointVelocity(info.contactPoint);
+    vRel = vB - vA;
     vn = vRel.Dot(info.normal);
     Vector3 vt = vRel - vn * info.normal;
     float vtLen = vt.Length();
@@ -890,9 +900,31 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
         if (jt > maxFriction) jt = maxFriction;
         if (jt < -maxFriction) jt = -maxFriction;
         Vector3 impulseT = jt * t;
-        if (!bodyA->IsStatic()) bodyA->SetVelocity(bodyA->GetVelocity() - invMassA * impulseT);
-        if (!bodyB->IsStatic()) bodyB->SetVelocity(bodyB->GetVelocity() + invMassB * impulseT);
+        if (!bodyA->IsStatic()) bodyA->AddImpulseAtPosition(-impulseT, info.contactPoint);
+        if (!bodyB->IsStatic()) bodyB->AddImpulseAtPosition(impulseT, info.contactPoint);
     }
+    {
+        Vector3 n = info.normal;
+        if (!bodyA->IsStatic()) {
+            Vector3 vAp = bodyA->GetPointVelocity(info.contactPoint);
+            float vnA = vAp.Dot(n);
+            if (std::fabs(vnA) < 0.02f) {
+                Vector3 vLinA = bodyA->GetVelocity();
+                float vnLinA = vLinA.Dot(n);
+                bodyA->SetVelocity(vLinA - vnLinA * n);
+            }
+        }
+        if (!bodyB->IsStatic()) {
+            Vector3 vBp = bodyB->GetPointVelocity(info.contactPoint);
+            float vnB = vBp.Dot(n);
+            if (std::fabs(vnB) < 0.02f) {
+                Vector3 vLinB = bodyB->GetVelocity();
+                float vnLinB = vLinB.Dot(n);
+                bodyB->SetVelocity(vLinB - vnLinB * n);
+            }
+        }
+    }
+
 }
 
 bool CollisionDetection::ConvexHullVsConvexHull(RigidBody* bodyA, RigidBody* bodyB, CollisionInfo& info) {

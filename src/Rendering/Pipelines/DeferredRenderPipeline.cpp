@@ -1,6 +1,7 @@
 #include "DeferredRenderPipeline.h"
 #include "../../Core/ECS/World.h"
 #include "../../Core/Components/TransformComponent.h"
+#include "../../Core/Components/MeshComponent.h"
 #include "../../Core/Logging/Logger.h"
 #include "../Meshes/Mesh.h"
 #include "../Core/OpenGLHeaders.h"
@@ -371,14 +372,14 @@ void DeferredRenderPipeline::ShadowPass(World* world) {
             m_geometryShader->SetMatrix4("uView", lightView);
             m_geometryShader->SetMatrix4("uProjection", lightProjection);
             
-            static Mesh cubeMesh = Mesh::CreateCube(1.0f);
             for (const auto& entity : world->GetEntities()) {
-                if (world->HasComponent<TransformComponent>(entity)) {
+                if (world->HasComponent<TransformComponent>(entity) && world->HasComponent<MeshComponent>(entity)) {
                     auto* transformComp = world->GetComponent<TransformComponent>(entity);
-                    if (transformComp) {
+                    auto* meshComp = world->GetComponent<MeshComponent>(entity);
+                    if (transformComp && meshComp && meshComp->HasMesh() && meshComp->IsVisible()) {
                         Matrix4 modelMatrix = transformComp->transform.GetLocalToWorldMatrix();
                         m_geometryShader->SetMatrix4("uModel", modelMatrix);
-                        cubeMesh.Draw();
+                        meshComp->GetMesh()->Draw();
                     }
                 }
             }
@@ -397,50 +398,29 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
         m_geometryShader->SetMatrix4("uProjection", m_renderData.projectionMatrix);
     }
     
-    static Mesh cubeMesh = Mesh::CreateCube(1.0f);
-    static bool meshUploaded = false;
-    if (!meshUploaded) {
-        Logger::Debug("DeferredRenderPipeline: Attempting to upload cube mesh...");
-        cubeMesh.Upload();
-        meshUploaded = true;
-        Logger::Debug("DeferredRenderPipeline: Cube mesh upload completed, meshUploaded = true");
-    }
-    
     if (world) {
         int entityCount = 0;
         for (const auto& entity : world->GetEntities()) {
-            if (world->HasComponent<TransformComponent>(entity)) {
+            if (world->HasComponent<TransformComponent>(entity) && world->HasComponent<MeshComponent>(entity)) {
                 auto* transformComp = world->GetComponent<TransformComponent>(entity);
-                if (transformComp) {
+                auto* meshComp = world->GetComponent<MeshComponent>(entity);
+                if (transformComp && meshComp && meshComp->HasMesh() && meshComp->IsVisible()) {
                     Matrix4 modelMatrix = transformComp->transform.GetLocalToWorldMatrix();
                     
                     if (m_geometryShader) {
                         m_geometryShader->SetMatrix4("uModel", modelMatrix);
-                        m_geometryShader->SetFloat("uMetallic", 0.1f);
-                        m_geometryShader->SetFloat("uRoughness", 0.6f);
+                        m_geometryShader->SetFloat("uMetallic", meshComp->GetMetallic());
+                        m_geometryShader->SetFloat("uRoughness", meshComp->GetRoughness());
                     }
                     
-                    cubeMesh.Draw();
+                    meshComp->GetMesh()->Draw();
                     entityCount++;
                 }
             }
         }
-        Logger::Debug("DeferredRenderPipeline: Rendered " + std::to_string(entityCount) + " entities from World");
+        Logger::Debug("DeferredRenderPipeline: Rendered " + std::to_string(entityCount) + " mesh entities from World");
     } else {
-        Logger::Warning("DeferredRenderPipeline: World is null, falling back to hardcoded cubes");
-        for (int x = -2; x <= 2; ++x) {
-            for (int z = -2; z <= 2; ++z) {
-                Matrix4 modelMatrix = Matrix4::Translation(Vector3(x * 3.0f, 0.0f, z * 3.0f));
-                
-                if (m_geometryShader) {
-                    m_geometryShader->SetMatrix4("uModel", modelMatrix);
-                    m_geometryShader->SetFloat("uMetallic", 0.1f);
-                    m_geometryShader->SetFloat("uRoughness", 0.6f);
-                }
-                
-                cubeMesh.Draw();
-            }
-        }
+        Logger::Warning("DeferredRenderPipeline: World is null; skipping geometry draw");
     }
 }
 

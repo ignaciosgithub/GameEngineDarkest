@@ -633,27 +633,17 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     int entitiesRendered = 0;
     
     for (const auto& entity : world->GetEntities()) {
-        if (world->HasComponent<TransformComponent>(entity)) {
+        if (world->HasComponent<TransformComponent>(entity) && world->HasComponent<MeshComponent>(entity)) {
             auto* transformComp = world->GetComponent<TransformComponent>(entity);
-            if (transformComp) {
+            auto* meshComp = world->GetComponent<MeshComponent>(entity);
+            if (transformComp && meshComp && meshComp->HasMesh() && meshComp->IsVisible()) {
                 Matrix4 modelMatrix = transformComp->transform.GetLocalToWorldMatrix();
                 Vector3 position = transformComp->transform.GetPosition();
                 Logger::Debug("Entity position: (" + std::to_string(position.x) + ", " + std::to_string(position.y) + ", " + std::to_string(position.z) + ")");
                 m_forwardShader->SetMatrix4("model", modelMatrix);
                 
-                static Mesh cubeMesh = Mesh::CreateCube(1.0f);
-                static bool meshUploaded = false;
-                if (!meshUploaded) {
-                    Logger::Debug("ForwardRenderPipeline: Attempting to upload cube mesh...");
-                    cubeMesh.Upload();
-                    meshUploaded = true;
-                    Logger::Debug("ForwardRenderPipeline: Cube mesh upload completed, meshUploaded = true");
-                }
-                
-                if (!cubeMesh.GetVertices().empty()) {
-                    cubeMesh.Draw();
-                    entitiesRendered++;
-                }
+                meshComp->GetMesh()->Draw();
+                entitiesRendered++;
             }
         }
     }

@@ -377,6 +377,88 @@ static bool runStaticParityScenario(bool verbose) {
 
     return pass1 && pass2;
 }
+static bool runAngularDampingDecayTest(bool verbose) {
+    PhysicsWorld world;
+    world.Initialize();
+    TransformComponent groundTr;
+    std::unique_ptr<ColliderComponent> groundCollider;
+    SetupGroundStaticCollider(world, 0.0f, 0.9f, groundTr, groundCollider);
+
+    auto rb = std::make_unique<RigidBody>();
+    rb->SetBodyType(RigidBodyType::Dynamic);
+    rb->SetMass(1.0f);
+    rb->SetDamping(0.01f);
+    rb->SetAngularDamping(0.2f);
+    rb->SetRestitution(0.0f);
+    rb->SetFriction(0.9f);
+    rb->SetPosition(Vector3(0.0f, 3.0f, 0.0f));
+
+    auto boxCol = std::make_unique<ColliderComponent>();
+    boxCol->SetBoxCollider(Vector3(0.5f, 0.5f, 0.5f));
+    TransformComponent boxTr;
+    boxTr.transform.SetPosition(rb->GetPosition());
+    boxCol->SetOwnerTransform(&boxTr);
+    rb->SetColliderComponent(boxCol.get());
+
+    world.AddRigidBody(rb.get());
+
+    rb->SetAngularVelocity(Vector3(0.0f, 5.0f, 0.0f));
+    const float dt = 1.0f / 120.0f;
+    const int steps = 360;
+    for (int i = 0; i < steps; ++i) {
+        world.Update(dt);
+        boxTr.transform.SetPosition(rb->GetPosition());
+    }
+    float omega = rb->GetAngularVelocity().Length();
+    if (verbose) {
+        std::cout << "AngularDampingDecay: omega=" << omega << std::endl;
+    }
+    world.Shutdown();
+    return omega < 5.0f;
+}
+
+static bool runFlatDropNoRotationTest(bool verbose) {
+    PhysicsWorld world;
+    world.Initialize();
+    TransformComponent groundTr;
+    std::unique_ptr<ColliderComponent> groundCollider;
+    SetupGroundStaticCollider(world, 0.0f, 0.9f, groundTr, groundCollider);
+
+    auto rb = std::make_unique<RigidBody>();
+    rb->SetBodyType(RigidBodyType::Dynamic);
+    rb->SetMass(1.0f);
+    rb->SetDamping(0.01f);
+    rb->SetRestitution(0.0f);
+    rb->SetFriction(0.9f);
+    rb->SetPosition(Vector3(0.0f, 3.0f, 0.0f));
+    rb->SetVelocity(Vector3(0.0f, 0.0f, 0.0f));
+    rb->SetAngularVelocity(Vector3(0.0f, 0.0f, 0.0f));
+
+    auto boxCol = std::make_unique<ColliderComponent>();
+    boxCol->SetBoxCollider(Vector3(0.5f, 0.5f, 0.5f));
+    TransformComponent boxTr;
+    boxTr.transform.SetPosition(rb->GetPosition());
+    boxCol->SetOwnerTransform(&boxTr);
+    rb->SetColliderComponent(boxCol.get());
+
+    world.AddRigidBody(rb.get());
+
+    const float dt = 1.0f / 120.0f;
+    const int steps = 480;
+    float maxAng = 0.0f;
+    for (int i = 0; i < steps; ++i) {
+        world.Update(dt);
+        boxTr.transform.SetPosition(rb->GetPosition());
+        float ang = rb->GetAngularVelocity().Length();
+        if (ang > maxAng) maxAng = ang;
+    }
+    float finalAng = rb->GetAngularVelocity().Length();
+    if (verbose) {
+        std::cout << "FlatDropNoRotation: maxAng=" << maxAng << " finalAng=" << finalAng << std::endl;
+    }
+    world.Shutdown();
+    return finalAng < 0.02f;
+}
 
 int main(int argc, char** argv) { (void)argc; (void)argv;
     bool verbose = true;
@@ -405,6 +487,12 @@ int main(int argc, char** argv) { (void)argc; (void)argv;
 
     bool passStaticParity = runStaticParityScenario(verbose);
     if (!passStaticParity) allPass = false;
+
+    bool passAngDamp = runAngularDampingDecayTest(verbose);
+    if (!passAngDamp) allPass = false;
+
+    bool passFlatNoRot = runFlatDropNoRotationTest(verbose);
+    if (!passFlatNoRot) allPass = false;
 
     return allPass ? 0 : 1;
 }

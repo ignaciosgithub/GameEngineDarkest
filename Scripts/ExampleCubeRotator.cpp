@@ -26,7 +26,11 @@ public:
         if (transform) {
             Vector3 currentRotation = transform->transform.GetRotation().ToEulerAngles();
             currentRotation.y += deltaTime * m_rotationSpeed;
-            transform->transform.SetRotation(Quaternion::FromEulerAngles(currentRotation));
+            transform->transform.SetRotation(Quaternion::FromEulerAngles(
+                currentRotation.y, // pitch (Y)
+                currentRotation.z, // yaw   (Z)
+                currentRotation.x  // roll  (X)
+            ));
         }
     }
     

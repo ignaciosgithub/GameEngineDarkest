@@ -74,6 +74,9 @@ namespace GameEngine {
         float GetDamping() const { return m_damping; }
         void SetDamping(float damping) { m_damping = damping; }
         
+        float GetAngularDamping() const { return m_angularDamping; }
+        void SetAngularDamping(float damping) { m_angularDamping = damping; }
+        
         // Body state checks
         bool IsStatic() const { return m_bodyType == RigidBodyType::Static; }
         bool IsKinematic() const { return m_bodyType == RigidBodyType::Kinematic; }
@@ -122,6 +125,7 @@ namespace GameEngine {
         float m_invMass = 1.0f;
         RigidBodyType m_bodyType = RigidBodyType::Dynamic;
         float m_damping = 0.01f;
+        float m_angularDamping = 0.05f;
         
         // Physics material
         PhysicsMaterial* m_material = nullptr;

@@ -87,12 +87,15 @@ void RigidBody::IntegrateVelocity(float deltaTime) {
     Vector3 acceleration = m_force * GetInverseMass();
     m_velocity = m_velocity + acceleration * deltaTime;
     
-    float damping = 0.99f;
-    m_velocity = m_velocity * damping;
+    float linDamp = 1.0f - m_damping * deltaTime;
+    if (linDamp < 0.0f) linDamp = 0.0f;
+    m_velocity = m_velocity * linDamp;
     
     if (!m_freezeRotation) {
         m_angularVelocity = m_angularVelocity + m_torque * deltaTime;
-        m_angularVelocity = m_angularVelocity * damping;
+        float angDamp = 1.0f - m_angularDamping * deltaTime;
+        if (angDamp < 0.0f) angDamp = 0.0f;
+        m_angularVelocity = m_angularVelocity * angDamp;
     }
     
     float speed = m_velocity.Length() + m_angularVelocity.Length();

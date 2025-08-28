@@ -840,7 +840,15 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
                 if (std::fabs(vn) < restitutionThreshold) e = 0.0f;
                 float jn = -(1.0f + e) * vn;
                 Vector3 impulseN = jn * n;
-                rb->AddImpulseAtPosition(impulseN, info.contactPoint);
+                Vector3 vPointPre = rb->GetPointVelocity(info.contactPoint);
+                float vnPre = vPointPre.Dot(n);
+                Vector3 vtPre = vPointPre - vnPre * n;
+                bool applyAtCOM = vtPre.Length() < 1e-3f;
+                if (applyAtCOM) {
+                    rb->AddImpulse(impulseN);
+                } else {
+                    rb->AddImpulseAtPosition(impulseN, info.contactPoint);
+                }
                 Vector3 vAfter = rb->GetPointVelocity(info.contactPoint);
                 float vn2 = vAfter.Dot(n);
                 if (std::fabs(vn2) < 0.02f) {
@@ -880,8 +888,20 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
     
     float jn = -(1.0f + e) * vn / invMassSum;
     Vector3 impulseN = jn * info.normal;
-    if (!bodyA->IsStatic()) bodyA->AddImpulseAtPosition(-impulseN, info.contactPoint);
-    if (!bodyB->IsStatic()) bodyB->AddImpulseAtPosition(impulseN, info.contactPoint);
+    Vector3 vA_pre = bodyA->GetPointVelocity(info.contactPoint);
+    Vector3 vB_pre = bodyB->GetPointVelocity(info.contactPoint);
+    Vector3 vRelPre = vB_pre - vA_pre;
+    float vnPre = vRelPre.Dot(info.normal);
+    Vector3 vtPre = vRelPre - vnPre * info.normal;
+    float vtPreLen = vtPre.Length();
+    bool applyAtCOM = vtPreLen < 1e-3f;
+    if (applyAtCOM) {
+        if (!bodyA->IsStatic()) bodyA->AddImpulse(-impulseN);
+        if (!bodyB->IsStatic()) bodyB->AddImpulse(impulseN);
+    } else {
+        if (!bodyA->IsStatic()) bodyA->AddImpulseAtPosition(-impulseN, info.contactPoint);
+        if (!bodyB->IsStatic()) bodyB->AddImpulseAtPosition(impulseN, info.contactPoint);
+    }
     
     vA = bodyA->GetPointVelocity(info.contactPoint);
     vB = bodyB->GetPointVelocity(info.contactPoint);

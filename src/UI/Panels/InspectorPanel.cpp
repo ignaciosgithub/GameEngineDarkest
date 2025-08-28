@@ -124,14 +124,30 @@ void InspectorPanel::DrawTransformComponent(World* world, Entity entity) {
     
     if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
         Vector3 position = transform->transform.GetPosition();
-        Vector3 rotation = transform->transform.GetRotation().ToEulerAngles();
+        Vector3 eulerRad = transform->transform.GetRotation().ToEulerAngles();
         Vector3 scale = transform->transform.GetScale();
+        
+        const float RAD2DEG = 180.0f / 3.14159265358979323846f;
+        const float DEG2RAD = 1.0f / RAD2DEG;
+        Vector3 eulerDeg(eulerRad.x * RAD2DEG, eulerRad.y * RAD2DEG, eulerRad.z * RAD2DEG);
         
         if (ImGui::DragFloat3("Position", &position.x, 0.1f)) {
             transform->transform.SetPosition(position);
         }
-        if (ImGui::DragFloat3("Rotation", &rotation.x, 1.0f)) {
-            transform->transform.SetRotation(Quaternion::FromEulerAngles(rotation.x, rotation.y, rotation.z));
+        if (ImGui::DragFloat3("Rotation (deg: X=Roll, Y=Pitch, Z=Yaw)", &eulerDeg.x, 0.5f)) {
+            auto wrapDeg = [](float a) {
+                while (a > 180.0f) a -= 360.0f;
+                while (a <= -180.0f) a += 360.0f;
+                return a;
+            };
+            eulerDeg.x = wrapDeg(eulerDeg.x);
+            eulerDeg.y = wrapDeg(eulerDeg.y);
+            eulerDeg.z = wrapDeg(eulerDeg.z);
+            
+            Vector3 eulerRadNew(eulerDeg.x * DEG2RAD, eulerDeg.y * DEG2RAD, eulerDeg.z * DEG2RAD);
+            Quaternion q = Quaternion::FromEulerAngles(eulerRadNew.y, eulerRadNew.z, eulerRadNew.x);
+            q.Normalize();
+            transform->transform.SetRotation(q);
         }
         if (ImGui::DragFloat3("Scale", &scale.x, 0.1f)) {
             transform->transform.SetScale(scale);

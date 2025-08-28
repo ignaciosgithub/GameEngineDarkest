@@ -32,7 +32,11 @@ public:
             // Example: rotate the entity
             Vector3 rotation = transform->transform.GetRotation().ToEulerAngles();
             rotation.y += deltaTime;
-            transform->transform.SetRotation(Quaternion::FromEulerAngles(rotation));
+            transform->transform.SetRotation(Quaternion::FromEulerAngles(
+                rotation.y, // pitch (Y)
+                rotation.z, // yaw   (Z)
+                rotation.x  // roll  (X)
+            ));
         }
     }
     

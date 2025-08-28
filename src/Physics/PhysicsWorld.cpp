@@ -229,18 +229,8 @@ void PhysicsWorld::RemoveStaticCollider(ColliderComponent* collider) {
 void PhysicsWorld::IntegrateVelocities(float deltaTime) {
     for (RigidBody* body : m_rigidBodies) {
         if (body && !body->IsStatic()) {
-            Vector3 acceleration = m_gravity;
-            
-            if (body->GetMass() > 0.0f) {
-                acceleration += body->GetForce() / body->GetMass();
-            }
-            
-            Vector3 velocity = body->GetVelocity() + acceleration * deltaTime;
-            body->SetVelocity(velocity);
-            
-            velocity *= (1.0f - body->GetDamping() * deltaTime);
-            body->SetVelocity(velocity);
-            
+            body->AddForce(m_gravity * body->GetMass());
+            body->IntegrateVelocity(deltaTime);
             body->ClearForces();
         }
     }
@@ -250,12 +240,10 @@ void PhysicsWorld::IntegratePositions(float deltaTime) {
     for (RigidBody* body : m_rigidBodies) {
         if (body && !body->IsStatic()) {
             Vector3 oldPosition = body->GetPosition();
-            Vector3 position = oldPosition + body->GetVelocity() * deltaTime;
-            body->SetPosition(position);
-            
+            body->IntegratePosition(deltaTime);
             if (m_octree && m_useSpatialPartitioning) {
-                Vector3 displacement = position - oldPosition;
-                if (displacement.Length() > 0.1f) { // Threshold for spatial update
+                Vector3 displacement = body->GetPosition() - oldPosition;
+                if (displacement.Length() > 0.1f) {
                     m_octree->Update(body);
                 }
             }

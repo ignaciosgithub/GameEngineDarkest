@@ -833,6 +833,8 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
             if (bodyA ? info.colliderB : info.colliderA) {
                 e = std::min(e, (bodyA ? info.colliderB : info.colliderA)->GetRestitution());
             }
+            if (e < 0.0f) e = 0.0f;
+            if (e > 1.0f) e = 1.0f;
             Vector3 vPoint = rb->GetPointVelocity(info.contactPoint);
             float vn = vPoint.Dot(n);
             if (vn < 0.0f) {
@@ -883,6 +885,8 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
     float e = std::min(bodyA->GetRestitution(), bodyB->GetRestitution());
     if (colliderA) e = std::min(e, colliderA->GetRestitution());
     if (colliderB) e = std::min(e, colliderB->GetRestitution());
+    if (e < 0.0f) e = 0.0f;
+    if (e > 1.0f) e = 1.0f;
     float restitutionThreshold = 0.5f;
     if (std::fabs(vn) < restitutionThreshold) e = 0.0f;
     
@@ -911,14 +915,18 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
     float vtLen = vt.Length();
     if (vtLen > 1e-5f) {
         Vector3 t = vt / vtLen;
-        float jt = -vRel.Dot(t) / invMassSum;
         float muA = bodyA->GetFriction(), muB = bodyB->GetFriction();
         if (colliderA) muA = std::min(muA, colliderA->GetFriction());
         if (colliderB) muB = std::min(muB, colliderB->GetFriction());
         float mu = std::min(muA, muB);
-        float maxFriction = mu * jn;
-        if (jt > maxFriction) jt = maxFriction;
-        if (jt < -maxFriction) jt = -maxFriction;
+        float jt_unclamped = -vRel.Dot(t) / invMassSum;
+        float maxStick = mu * jn;
+        float jt;
+        if (std::fabs(jt_unclamped) <= maxStick) {
+            jt = jt_unclamped;
+        } else {
+            jt = (jt_unclamped > 0.0f) ? maxStick : -maxStick;
+        }
         Vector3 impulseT = jt * t;
         if (!bodyA->IsStatic()) bodyA->AddImpulseAtPosition(-impulseT, info.contactPoint);
         if (!bodyB->IsStatic()) bodyB->AddImpulseAtPosition(impulseT, info.contactPoint);

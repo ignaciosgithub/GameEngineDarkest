@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cmath>
 #include <vector>
 #include <cmath>
 #include <string>
@@ -11,6 +12,8 @@
 #include "Core/Components/TransformComponent.h"
 #include "Core/Math/Quaternion.h"
 #include "Core/Math/Vector3.h"
+
+#include <algorithm>
 
 using namespace GameEngine;
 
@@ -241,6 +244,95 @@ static bool runRotatedBounceScenario(const std::string& name, float restitution,
         return contactEver && bounces > 0 && energyDecreasing;
     }
 }
+static bool runEdgeLandingTipsToFlat(bool verbose) {
+    PhysicsWorld world;
+    world.Initialize();
+
+    TransformComponent groundTr;
+    std::unique_ptr<ColliderComponent> groundCollider;
+    SetupGroundStaticCollider(world, 0.2f, 0.8f, groundTr, groundCollider);
+
+    auto rb = std::make_unique<RigidBody>();
+    rb->SetBodyType(RigidBodyType::Dynamic);
+    rb->SetMass(1.0f);
+    rb->SetDamping(0.02f);
+    rb->SetAngularDamping(0.05f);
+    rb->SetRestitution(0.2f);
+    rb->SetFriction(0.6f);
+    rb->SetPosition(Vector3(0.0f, 4.0f, 0.0f));
+    rb->SetVelocity(Vector3(0.0f, 0.0f, 0.0f));
+
+    auto boxCol = std::make_unique<ColliderComponent>();
+    boxCol->SetBoxCollider(Vector3(0.5f, 0.5f, 0.5f));
+    TransformComponent boxTr;
+    Quaternion initialRot = Quaternion::FromAxisAngle(Vector3(0.0f, 0.0f, 1.0f), 0.17f);
+    boxTr.transform.SetPosition(rb->GetPosition());
+    boxTr.transform.SetRotation(initialRot);
+    boxCol->SetOwnerTransform(&boxTr);
+    boxCol->SetRestitution(0.2f);
+    boxCol->SetFriction(0.6f);
+
+    rb->SetColliderComponent(boxCol.get());
+    rb->SetRotation(initialRot);
+
+    world.AddRigidBody(rb.get());
+
+    const float dt = 1.0f / 60.0f;
+    const int steps = 900;
+
+    float groundTop = GroundTopY() + 0.5f;
+
+    bool contactEver = false;
+    bool sawOmega = false;
+    float maxOmega = 0.0f;
+    bool afterFirstContact = false;
+    int framesSinceFirstContact = 0;
+
+    float initialTilt = std::fabs(initialRot.ToEulerAngles().z);
+    float finalTilt = initialTilt;
+
+    for (int i = 0; i < steps; ++i) {
+        world.Update(dt);
+        boxTr.transform.SetPosition(rb->GetPosition());
+        boxTr.transform.SetRotation(rb->GetRotation());
+
+        float y = rb->GetPosition().y;
+        if (y <= groundTop + 0.01f) {
+            if (!afterFirstContact) {
+                afterFirstContact = true;
+                framesSinceFirstContact = 0;
+            }
+            contactEver = true;
+        }
+
+        if (afterFirstContact) {
+            framesSinceFirstContact++;
+            float omega = rb->GetAngularVelocity().Length();
+            if (framesSinceFirstContact < 180 && omega > 0.05f) sawOmega = true;
+            if (omega > maxOmega) maxOmega = omega;
+        }
+
+        Vector3 eul = rb->GetRotation().ToEulerAngles();
+        finalTilt = std::fabs(eul.z);
+    }
+
+    bool pass = true;
+    if (!contactEver) pass = false;
+    if (!sawOmega) pass = false;
+    if (finalTilt > 0.03f) pass = false;
+    if (std::fabs(rb->GetAngularVelocity().Length()) > 0.05f) pass = false;
+
+    if (verbose) {
+        std::cout << "EdgeLandingTipsToFlat: contact=" << (contactEver ? "yes" : "no")
+                  << " finalTilt=" << finalTilt
+                  << " angVel=" << rb->GetAngularVelocity().Length()
+                  << " maxOmega=" << maxOmega
+                  << " sawOmega=" << (sawOmega ? "yes" : "no")
+                  << " pass=" << (pass ? "yes" : "no") << std::endl;
+    }
+    return pass;
+}
+
 
 static bool runTorqueFromContactScenario(bool verbose) {
     PhysicsWorld world;
@@ -403,7 +495,7 @@ static bool runAngularDampingDecayTest(bool verbose) {
     world.AddRigidBody(rb.get());
 
     rb->SetAngularVelocity(Vector3(0.0f, 5.0f, 0.0f));
-    const float dt = 1.0f / 120.0f;
+    const float dt = 1.0f / 60.0f;
     const int steps = 360;
     for (int i = 0; i < steps; ++i) {
         world.Update(dt);
@@ -443,7 +535,7 @@ static bool runFlatDropNoRotationTest(bool verbose) {
 
     world.AddRigidBody(rb.get());
 
-    const float dt = 1.0f / 120.0f;
+    const float dt = 1.0f / 60.0f;
     const int steps = 480;
     float maxAng = 0.0f;
     for (int i = 0; i < steps; ++i) {
@@ -459,6 +551,75 @@ static bool runFlatDropNoRotationTest(bool verbose) {
     world.Shutdown();
     return finalAng < 0.02f;
 }
+static bool runFreeFallAnalyticCheck(bool verbose) {
+    PhysicsWorld world;
+    world.Initialize();
+
+    TransformComponent groundTr;
+    std::unique_ptr<ColliderComponent> groundCollider;
+    SetupGroundStaticCollider(world, 0.0f, 0.8f, groundTr, groundCollider);
+
+    auto rb = std::make_unique<RigidBody>();
+    rb->SetBodyType(RigidBodyType::Dynamic);
+    rb->SetMass(1.0f);
+    rb->SetDamping(0.0f);
+    rb->SetAngularDamping(0.0f);
+    rb->SetRestitution(0.0f);
+    rb->SetFriction(0.0f);
+
+    float y0 = 10.0f;
+    float v0 = 0.0f;
+    rb->SetPosition(Vector3(0.0f, y0, 0.0f));
+    rb->SetVelocity(Vector3(0.0f, v0, 0.0f));
+
+    auto boxCol = std::make_unique<ColliderComponent>();
+    boxCol->SetBoxCollider(Vector3(0.5f, 0.5f, 0.5f));
+    TransformComponent boxTr;
+    boxTr.transform.SetPosition(Vector3(0.0f, y0, 0.0f));
+    boxCol->SetOwnerTransform(&boxTr);
+
+    rb->SetColliderComponent(boxCol.get());
+    world.AddRigidBody(rb.get());
+
+    const float dt = 1.0f / 60.0f;
+    const float ay = -9.81f; // default gravity
+    const float groundTop = GroundTopY() + 0.5f + 1e-3f;
+
+    int steps = 0;
+    float maxPosErr = 0.0f;
+    float maxVelErr = 0.0f;
+
+    for (int i = 0; i < 2000; ++i) {
+        world.Update(dt);
+        steps++;
+
+        boxTr.transform.SetPosition(rb->GetPosition());
+
+        float y_sim = rb->GetPosition().y;
+        float v_sim = rb->GetVelocity().y;
+
+        float v_ana = v0 + ay * (steps * dt);
+        float y_ana = y0 + v0 * (steps * dt) + 0.5f * ay * dt * dt * steps * (steps + 1);
+
+        float posErr = std::fabs(y_sim - y_ana);
+        float velErr = std::fabs(v_sim - v_ana);
+        if (posErr > maxPosErr) maxPosErr = posErr;
+        if (velErr > maxVelErr) maxVelErr = velErr;
+
+        if (y_sim <= groundTop) break;
+    }
+
+    bool pass = (maxPosErr < 1e-3f) && (maxVelErr < 1e-3f);
+
+    if (verbose) {
+        std::cout << "FreeFallAnalytic: maxPosErr=" << maxPosErr
+                  << " maxVelErr=" << maxVelErr
+                  << " pass=" << (pass ? "yes" : "no") << std::endl;
+    }
+    world.Shutdown();
+    return pass;
+}
+
 
 int main(int argc, char** argv) { (void)argc; (void)argv;
     bool verbose = true;
@@ -493,6 +654,12 @@ int main(int argc, char** argv) { (void)argc; (void)argv;
 
     bool passFlatNoRot = runFlatDropNoRotationTest(verbose);
     if (!passFlatNoRot) allPass = false;
+    bool passEdgeTip = runEdgeLandingTipsToFlat(verbose);
+    if (!passEdgeTip) allPass = false;
+    bool passFreeFall = runFreeFallAnalyticCheck(verbose);
+    if (!passFreeFall) allPass = false;
+
+
 
     return allPass ? 0 : 1;
 }

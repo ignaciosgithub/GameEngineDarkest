@@ -3,7 +3,10 @@
 #include "../../Core/Components/ColliderComponent.h"
 #include "../../Core/Components/TransformComponent.h"
 #include "../../Core/Logging/Logger.h"
+#include "../Colliders/ColliderShape.h"
 #include <algorithm>
+#include <memory>
+#include <cmath>
 
 namespace GameEngine {
 
@@ -48,14 +51,12 @@ void RigidBody::AddImpulse(const Vector3& impulse) {
 
 void RigidBody::AddImpulseAtPosition(const Vector3& impulse, const Vector3& position) {
     if (!IsDynamic()) return;
-    
     AddImpulse(impulse);
-    
     Vector3 r = position - m_position;
     Vector3 angularImpulse = r.Cross(impulse);
-    
     if (!m_freezeRotation) {
-        m_angularVelocity = m_angularVelocity + angularImpulse * GetInverseMass();
+        if (m_inertiaDirty) RecomputeBodyInertia();
+        m_angularVelocity = m_angularVelocity + ApplyInvInertiaWorld(angularImpulse);
     }
 }
 
@@ -87,14 +88,14 @@ void RigidBody::IntegrateVelocity(float deltaTime) {
     Vector3 acceleration = m_force * GetInverseMass();
     m_velocity = m_velocity + acceleration * deltaTime;
     
-    float linDamp = 1.0f - m_damping * deltaTime;
-    if (linDamp < 0.0f) linDamp = 0.0f;
+    float linDamp = std::exp(-m_damping * deltaTime);
     m_velocity = m_velocity * linDamp;
     
     if (!m_freezeRotation) {
-        m_angularVelocity = m_angularVelocity + m_torque * deltaTime;
-        float angDamp = 1.0f - m_angularDamping * deltaTime;
-        if (angDamp < 0.0f) angDamp = 0.0f;
+        if (m_inertiaDirty) RecomputeBodyInertia();
+        Vector3 angAcc = ApplyInvInertiaWorld(m_torque);
+        m_angularVelocity = m_angularVelocity + angAcc * deltaTime;
+        float angDamp = std::exp(-m_angularDamping * deltaTime);
         m_angularVelocity = m_angularVelocity * angDamp;
     }
     
@@ -132,13 +133,88 @@ Vector3 RigidBody::GetPointVelocity(const Vector3& worldPoint) const {
     Vector3 r = worldPoint - m_position;
     return m_velocity + m_angularVelocity.Cross(r);
 }
+Vector3 RigidBody::ApplyInvInertiaWorld(const Vector3& angularImpulse) const {
+    Quaternion q = m_rotation;
+    Quaternion qInv = q.Inverse();
+    Vector3 L_body = qInv.RotateVector(angularImpulse);
+    Vector3 omega_body(L_body.x * m_invInertiaDiag.x,
+                       L_body.y * m_invInertiaDiag.y,
+                       L_body.z * m_invInertiaDiag.z);
+    return q.RotateVector(omega_body);
+}
+Vector3 RigidBody::InvInertiaWorldMultiply(const Vector3& v) const {
+    if (m_inertiaDirty) {
+        const_cast<RigidBody*>(this)->RecomputeBodyInertia();
+    }
+    return ApplyInvInertiaWorld(v);
+}
+
+void RigidBody::RecomputeBodyInertia() {
+    if (!IsDynamic()) {
+        m_inertiaDiag = Vector3(1.0f, 1.0f, 1.0f);
+        m_invInertiaDiag = Vector3(0.0f, 0.0f, 0.0f);
+        m_inertiaDirty = false;
+        return;
+    }
+    float m = GetMass();
+    if (m <= 0.0f) {
+        m_inertiaDiag = Vector3(1.0f, 1.0f, 1.0f);
+        m_invInertiaDiag = Vector3(0.0f, 0.0f, 0.0f);
+        m_inertiaDirty = false;
+        return;
+    }
+    Vector3 scale(1.0f, 1.0f, 1.0f);
+    if (m_transformComponent) {
+        scale = m_transformComponent->transform.GetWorldScale();
+    }
+    Vector3 I;
+    if (m_colliderComponent && m_colliderComponent->HasCollider()) {
+        auto shape = m_colliderComponent->GetColliderShape();
+        if (shape->GetType() == ColliderShapeType::Box) {
+            auto box = std::static_pointer_cast<BoxCollider>(shape);
+            Vector3 he = box->GetHalfExtents();
+            Vector3 e(2.0f * he.x * scale.x, 2.0f * he.y * scale.y, 2.0f * he.z * scale.z);
+            I.x = (m / 12.0f) * (e.y * e.y + e.z * e.z);
+            I.y = (m / 12.0f) * (e.x * e.x + e.z * e.z);
+            I.z = (m / 12.0f) * (e.x * e.x + e.y * e.y);
+        } else if (shape->GetType() == ColliderShapeType::Sphere) {
+            auto sph = std::static_pointer_cast<SphereCollider>(shape);
+            float r = sph->GetRadius();
+            float s = (scale.x + scale.y + scale.z) / 3.0f;
+            float Iall = (2.0f / 5.0f) * m * (r * s) * (r * s);
+            I = Vector3(Iall, Iall, Iall);
+        } else if (shape->GetType() == ColliderShapeType::Capsule) {
+            auto cap = std::static_pointer_cast<CapsuleCollider>(shape);
+            float r = cap->GetRadius() * 0.5f * (scale.x + scale.z);
+            float h = cap->GetHeight() * scale.y;
+            float Iyy = 0.5f * m * r * r;
+            float Ixx = (1.0f / 12.0f) * m * (3.0f * r * r + h * h);
+            float Izz = Ixx;
+            I = Vector3(Ixx, Iyy, Izz);
+        } else {
+            I = Vector3(m / 6.0f, m / 6.0f, m / 6.0f);
+        }
+    } else {
+        I = Vector3(m / 6.0f, m / 6.0f, m / 6.0f);
+    }
+    m_inertiaDiag = I;
+    m_invInertiaDiag = Vector3(
+        I.x > 1e-8f ? 1.0f / I.x : 0.0f,
+        I.y > 1e-8f ? 1.0f / I.y : 0.0f,
+        I.z > 1e-8f ? 1.0f / I.z : 0.0f
+    );
+    m_inertiaDirty = false;
+}
+
 
 void RigidBody::SetColliderComponent(ColliderComponent* colliderComponent) {
     m_colliderComponent = colliderComponent;
+    m_inertiaDirty = true;
 }
 
 void RigidBody::SetTransformComponent(class TransformComponent* transformComponent) {
     m_transformComponent = transformComponent;
+    m_inertiaDirty = true;
 }
 
 }

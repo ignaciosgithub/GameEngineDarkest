@@ -53,7 +53,7 @@ namespace GameEngine {
         
         // Mass and inertia
         float GetMass() const { return m_mass; }
-        void SetMass(float mass) { m_mass = mass; m_invMass = (mass > 0.0f) ? 1.0f / mass : 0.0f; }
+        void SetMass(float mass) { m_mass = mass; m_invMass = (mass > 0.0f) ? 1.0f / mass : 0.0f; m_inertiaDirty = true; }
         float GetInverseMass() const { return m_invMass; }
         
         // Body type
@@ -82,11 +82,20 @@ namespace GameEngine {
         bool IsKinematic() const { return m_bodyType == RigidBodyType::Kinematic; }
         bool IsDynamic() const { return m_bodyType == RigidBodyType::Dynamic; }
         
+        // Integration helpers
+        void IntegrateVelocity(float deltaTime);
+        void IntegratePosition(float deltaTime);
+        Vector3 GetPointVelocity(const Vector3& worldPoint) const;
+        
+        
         // Sleeping/activation
         bool IsSleeping() const { return m_sleeping; }
         void SetSleeping(bool sleeping) { m_sleeping = sleeping; }
         void WakeUp() { m_sleeping = false; }
         
+        // Inverse inertia in world space multiply
+        Vector3 InvInertiaWorldMultiply(const Vector3& v) const;
+
         // Constraints
         void SetFreezeRotation(bool freeze) { m_freezeRotation = freeze; }
         bool IsFreezeRotation() const { return m_freezeRotation; }
@@ -102,14 +111,11 @@ namespace GameEngine {
         void SetTransformComponent(class TransformComponent* transformComponent);
         class TransformComponent* GetTransformComponent() const { return m_transformComponent; }
         
-        // Integration
-        void IntegrateVelocity(float deltaTime);
-        void IntegratePosition(float deltaTime);
-        
-        // Utility
-        Vector3 GetPointVelocity(const Vector3& worldPoint) const;
         
     private:
+        void RecomputeBodyInertia();
+        Vector3 ApplyInvInertiaWorld(const Vector3& angularImpulse) const;
+        
         // Transform
         Vector3 m_position = Vector3::Zero;
         Quaternion m_rotation = Quaternion::Identity();
@@ -137,7 +143,7 @@ namespace GameEngine {
         // State
         bool m_sleeping = false;
         bool m_freezeRotation = false;
-        Vector3 m_freezePosition = Vector3::Zero; // 0 = free, 1 = frozen
+        Vector3 m_freezePosition = Vector3::Zero;
         
         // Sleep threshold
         float m_sleepThreshold = 0.1f;
@@ -149,5 +155,10 @@ namespace GameEngine {
         
         // Transform component reference for coordinate transformation
         class TransformComponent* m_transformComponent = nullptr;
+        
+        // Inertia tensor (body-space diagonal) and its inverse; recompute when dirty
+        Vector3 m_inertiaDiag = Vector3(1.0f, 1.0f, 1.0f);
+        Vector3 m_invInertiaDiag = Vector3(1.0f, 1.0f, 1.0f);
+        bool m_inertiaDirty = true;
     };
 }

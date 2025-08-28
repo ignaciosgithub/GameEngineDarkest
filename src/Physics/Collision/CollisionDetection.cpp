@@ -1,6 +1,16 @@
 #include "CollisionDetection.h"
 #include "../RigidBody/RigidBody.h"
 #include "../../Core/Components/ColliderComponent.h"
+#include "../../Core/Logging/Logger.h"
+#include <algorithm>
+#include <cfloat>
+#include <cmath>
+
+static constexpr float kRestitutionVelocityThreshold = 0.2f;
+
+#include "CollisionDetection.h"
+#include "../RigidBody/RigidBody.h"
+#include "../../Core/Components/ColliderComponent.h"
 #include "../../Core/Components/TransformComponent.h"
 #include "../Colliders/ColliderShape.h"
 #include "../Spatial/Octree.h"
@@ -10,6 +20,11 @@
 #include "../../Core/Logging/Logger.h"
 #include <cmath>
 #include <memory>
+
+#include <array>
+#include <algorithm>
+#include <vector>
+
 
 namespace GameEngine {
 
@@ -310,8 +325,19 @@ bool CollisionDetection::CheckCollision(ColliderComponent* colliderA, ColliderCo
             info.penetration = minPenetration;
             Vector3 n = bestAxis;
             if (n.LengthSquared() > 0.0f) n = n.Normalized();
+            if ((posA - posB).Dot(n) < 0.0f) n = -n;
             info.normal = n;
-            info.contactPoint = posA + (posB - posA) * 0.5f;
+
+            auto supportOnBox = [](const Vector3& c, const Vector3& e, const Vector3& ax0, const Vector3& ax1, const Vector3& ax2, const Vector3& dir) -> Vector3 {
+                float s0 = (dir.Dot(ax0) >= 0.0f) ? 1.0f : -1.0f;
+                float s1 = (dir.Dot(ax1) >= 0.0f) ? 1.0f : -1.0f;
+                float s2 = (dir.Dot(ax2) >= 0.0f) ? 1.0f : -1.0f;
+                return c + ax0 * (s0 * e.x) + ax1 * (s1 * e.y) + ax2 * (s2 * e.z);
+            };
+
+            Vector3 pA = supportOnBox(posA, eA, A0, A1, A2,  n);
+            Vector3 pB = supportOnBox(posB, eB, B0, B1, B2, -n);
+            info.contactPoint = (pA + pB) * 0.5f;
             hasCollision = true;
         }
     }
@@ -562,6 +588,7 @@ bool CollisionDetection::CheckCollision(RigidBody* rigidBody, ColliderComponent*
             info.penetration = minPenetration;
             Vector3 n = bestAxis;
             if (n.LengthSquared() > 0.0f) n = n.Normalized();
+            if ((cA - cB).Dot(n) < 0.0f) n = -n;
             info.normal = n;
             info.contactPoint = cA + (cB - cA) * 0.5f;
             hasCollision = true;
@@ -751,11 +778,21 @@ bool CollisionDetection::BoxVsBox(RigidBody* bodyA, RigidBody* bodyB, CollisionI
     info.penetration = minPenetration;
     Vector3 n = bestAxis;
     if (n.LengthSquared() > 0.0f) n = n.Normalized();
+
+    if ((cB - cA).Dot(n) < 0.0f) n = -n;
     info.normal = n;
-    info.contactPoint = cA + (cB - cA) * 0.5f;
-    if ((cB - cA).Dot(info.normal) < 0.0f) {
-        info.normal = -info.normal;
-    }
+
+    auto supportOnBox = [](const Vector3& c, const Vector3& e, const Vector3& ax0, const Vector3& ax1, const Vector3& ax2, const Vector3& dir) -> Vector3 {
+        float s0 = (dir.Dot(ax0) >= 0.0f) ? 1.0f : -1.0f;
+        float s1 = (dir.Dot(ax1) >= 0.0f) ? 1.0f : -1.0f;
+        float s2 = (dir.Dot(ax2) >= 0.0f) ? 1.0f : -1.0f;
+        return c + ax0 * (s0 * e.x) + ax1 * (s1 * e.y) + ax2 * (s2 * e.z);
+    };
+
+    Vector3 pA = supportOnBox(cA, eA, A0, A1, A2,  n);
+    Vector3 pB = supportOnBox(cB, eB, B0, B1, B2, -n);
+
+    info.contactPoint = (pA + pB) * 0.5f;
 
     return true;
 }
@@ -829,35 +866,116 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
             float corr = std::max(info.penetration - slop, 0.0f) * percent;
             Vector3 n = bodyA ? info.normal : -info.normal;
             rb->SetPosition(rb->GetPosition() + corr * n);
+
             float e = rb->GetRestitution();
-            if (bodyA ? info.colliderB : info.colliderA) {
-                e = std::min(e, (bodyA ? info.colliderB : info.colliderA)->GetRestitution());
+            ColliderComponent* otherCol = bodyA ? info.colliderB : info.colliderA;
+            if (otherCol) {
+                e = std::min(e, otherCol->GetRestitution());
             }
             if (e < 0.0f) e = 0.0f;
             if (e > 1.0f) e = 1.0f;
-            Vector3 vPoint = rb->GetPointVelocity(info.contactPoint);
-            float vn = vPoint.Dot(n);
-            if (vn < 0.0f) {
-                float restitutionThreshold = 0.5f;
-                if (std::fabs(vn) < restitutionThreshold) e = 0.0f;
-                float jn = -(1.0f + e) * vn;
-                Vector3 impulseN = jn * n;
-                Vector3 vPointPre = rb->GetPointVelocity(info.contactPoint);
-                float vnPre = vPointPre.Dot(n);
-                Vector3 vtPre = vPointPre - vnPre * n;
-                bool applyAtCOM = vtPre.Length() < 1e-3f;
-                if (applyAtCOM) {
-                    rb->AddImpulse(impulseN);
-                } else {
-                    rb->AddImpulseAtPosition(impulseN, info.contactPoint);
+
+            std::vector<Vector3> contacts;
+            if (rb->GetColliderComponent() && rb->GetColliderComponent()->HasCollider()) {
+                auto shape = rb->GetColliderComponent()->GetColliderShape();
+                if (shape && shape->GetType() == ColliderShapeType::Box) {
+                    auto box = std::static_pointer_cast<BoxCollider>(shape);
+                    Vector3 he = box->GetHalfExtents();
+                    Vector3 scale = rb->GetTransformComponent() ? rb->GetTransformComponent()->transform.GetWorldScale() : Vector3::One;
+                    Vector3 eScaled(he.x * scale.x, he.y * scale.y, he.z * scale.z);
+
+                    Quaternion q = rb->GetRotation();
+                    Vector3 A0 = q.RotateVector(Vector3(1,0,0));
+                    Vector3 A1 = q.RotateVector(Vector3(0,1,0));
+                    Vector3 A2 = q.RotateVector(Vector3(0,0,1));
+                    Vector3 c = rb->GetPosition();
+
+                    std::array<Vector3,8> corners = {
+                        c + A0* eScaled.x + A1* eScaled.y + A2* eScaled.z,
+                        c + A0* eScaled.x + A1* eScaled.y - A2* eScaled.z,
+                        c + A0* eScaled.x - A1* eScaled.y + A2* eScaled.z,
+                        c + A0* eScaled.x - A1* eScaled.y - A2* eScaled.z,
+                        c - A0* eScaled.x + A1* eScaled.y + A2* eScaled.z,
+                        c - A0* eScaled.x + A1* eScaled.y - A2* eScaled.z,
+                        c - A0* eScaled.x - A1* eScaled.y + A2* eScaled.z,
+                        c - A0* eScaled.x - A1* eScaled.y - A2* eScaled.z
+                    };
+                    float minDot = std::numeric_limits<float>::infinity();
+                    for (auto& p : corners) minDot = std::min(minDot, p.Dot(n));
+                    float tol = 1e-3f;
+                    std::vector<Vector3> extreme;
+                    for (auto& p : corners) {
+                        if (p.Dot(n) - minDot <= tol) extreme.push_back(p);
+                    }
+                    if (extreme.empty()) {
+                        contacts.push_back(info.contactPoint);
+                    } else if (extreme.size() == 1) {
+                        contacts.push_back(extreme[0]);
+                    } else {
+                        float bestD2 = -1.0f; Vector3 bestA, bestB;
+                        for (size_t i=0;i<extreme.size();++i)
+                            for (size_t j=i+1;j<extreme.size();++j) {
+                                float d2 = (extreme[i]-extreme[j]).LengthSquared();
+                                if (d2 > bestD2) { bestD2 = d2; bestA = extreme[i]; bestB = extreme[j]; }
+                            }
+                        contacts.push_back(bestA);
+                        contacts.push_back(bestB);
+                        contacts.push_back((bestA + bestB) * 0.5f);
+                    }
                 }
-                Vector3 vAfter = rb->GetPointVelocity(info.contactPoint);
-                float vn2 = vAfter.Dot(n);
-                if (std::fabs(vn2) < 0.02f) {
-                    Vector3 vLin = rb->GetVelocity();
-                    float vnLin = vLin.Dot(n);
-                    vLin = vLin - vnLin * n;
-                    rb->SetVelocity(vLin);
+            }
+            if (contacts.empty()) {
+                contacts.push_back(info.contactPoint);
+            }
+            const int iterations = 8;
+            for (int iter = 0; iter < iterations; ++iter) {
+                const Vector3& cpi = contacts[iter % contacts.size()];
+
+                Vector3 vPoint = rb->GetPointVelocity(cpi);
+                float vn = vPoint.Dot(n);
+                if (vn < 0.0f) {
+                    float restitutionThreshold = kRestitutionVelocityThreshold;
+                    float eUse = (std::fabs(vn) < restitutionThreshold) ? 0.0f : e;
+
+                    Vector3 r = cpi - rb->GetPosition();
+                    Vector3 rn = r.Cross(n);
+                    float effMassN = rb->GetInverseMass();
+                    Vector3 i_inv_rn = rb->InvInertiaWorldMultiply(rn);
+                    effMassN += n.Dot(i_inv_rn.Cross(r));
+                    if (effMassN < 1e-8f) effMassN = 1e-8f;
+                    float jn = -(1.0f + eUse) * vn / effMassN;
+                    Vector3 impulseN = jn * n;
+                    rb->AddImpulseAtPosition(impulseN, cpi);
+
+                    Vector3 vAfter = rb->GetPointVelocity(cpi);
+                    float vn2 = vAfter.Dot(n);
+                    Vector3 vt = vAfter - vn2 * n;
+                    float vtLen = vt.Length();
+                    if (vtLen > 1e-5f) {
+                        Vector3 t = vt / vtLen;
+                        float mu = rb->GetFriction();
+                        if (otherCol) {
+                            mu = std::min(mu, otherCol->GetFriction());
+                        }
+                        Vector3 rt = r.Cross(t);
+                        float effMassT = rb->GetInverseMass() + t.Dot(rb->InvInertiaWorldMultiply(rt).Cross(r));
+                        if (effMassT < 1e-8f) effMassT = 1e-8f;
+                        float jt_unclamped = -vAfter.Dot(t) / effMassT;
+                        float maxStick = jn * mu;
+                        float jt = std::clamp(jt_unclamped, -maxStick, maxStick);
+                        Vector3 impulseT = jt * t;
+                        rb->AddImpulseAtPosition(impulseT, cpi);
+                    }
+
+                    if (std::fabs(vn2) < 0.02f) {
+                        Vector3 vLin = rb->GetVelocity();
+                        float vnLin = vLin.Dot(n);
+                        vLin = vLin - vnLin * n;
+                        rb->SetVelocity(vLin);
+                    }
+                } else {
+                    Logger::Debug(std::string("One-body: skipping impulse, vn=") + std::to_string(vn) +
+                                  " n=(" + std::to_string(n.x) + "," + std::to_string(n.y) + "," + std::to_string(n.z) + ")");
                 }
             }
         }
@@ -868,6 +986,138 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
     float invMassB = bodyB->GetInverseMass();
     float invMassSum = invMassA + invMassB;
     if (invMassSum <= 0.0f) return;
+    if (bodyA->IsStatic() != bodyB->IsStatic()) {
+        RigidBody* rb = bodyA->IsStatic() ? bodyB : bodyA;
+        RigidBody* staticRB = bodyA->IsStatic() ? bodyA : bodyB;
+
+        Vector3 n = info.normal;
+        Vector3 cpSeed = info.contactPoint;
+
+        ColliderComponent* staticCol = staticRB ? staticRB->GetColliderComponent() : nullptr;
+        if (staticCol && rb) {
+            CollisionInfo tmp;
+            tmp.hasCollision = false;
+            tmp.bodyA = rb;
+            tmp.colliderB = staticCol;
+            if (CollisionDetection::CheckCollision(rb, staticCol, tmp) && tmp.hasCollision) {
+                n = tmp.normal;
+                cpSeed = tmp.contactPoint;
+            } else {
+                if (rb == bodyA) n = -n;
+            }
+        } else {
+            if (rb == bodyA) n = -n;
+        }
+
+        const float slop = 0.01f;
+        const float percent = 0.2f;
+        float corr = std::max(info.penetration - slop, 0.0f) * percent;
+        rb->SetPosition(rb->GetPosition() + corr * n);
+
+        float e = rb->GetRestitution();
+        if (colliderA) e = std::min(e, colliderA->GetRestitution());
+        if (colliderB) e = std::min(e, colliderB->GetRestitution());
+        if (e < 0.0f) e = 0.0f;
+        if (e > 1.0f) e = 1.0f;
+
+        std::vector<Vector3> contacts;
+        if (rb->GetColliderComponent() && rb->GetColliderComponent()->HasCollider()) {
+            auto shape = rb->GetColliderComponent()->GetColliderShape();
+            if (shape && shape->GetType() == ColliderShapeType::Box) {
+                auto box = std::static_pointer_cast<BoxCollider>(shape);
+                Vector3 he = box->GetHalfExtents();
+                Vector3 scale = rb->GetTransformComponent() ? rb->GetTransformComponent()->transform.GetWorldScale() : Vector3::One;
+                Vector3 eScaled(he.x * scale.x, he.y * scale.y, he.z * scale.z);
+
+                Quaternion q = rb->GetRotation();
+                Vector3 A0 = q.RotateVector(Vector3(1,0,0));
+                Vector3 A1 = q.RotateVector(Vector3(0,1,0));
+                Vector3 A2 = q.RotateVector(Vector3(0,0,1));
+                Vector3 c = rb->GetPosition();
+
+                std::array<Vector3,8> corners = {
+                    c + A0* eScaled.x + A1* eScaled.y + A2* eScaled.z,
+                    c + A0* eScaled.x + A1* eScaled.y - A2* eScaled.z,
+                    c + A0* eScaled.x - A1* eScaled.y + A2* eScaled.z,
+                    c + A0* eScaled.x - A1* eScaled.y - A2* eScaled.z,
+                    c - A0* eScaled.x + A1* eScaled.y + A2* eScaled.z,
+                    c - A0* eScaled.x + A1* eScaled.y - A2* eScaled.z,
+                    c - A0* eScaled.x - A1* eScaled.y + A2* eScaled.z,
+                    c - A0* eScaled.x - A1* eScaled.y - A2* eScaled.z
+                };
+                float minDot = std::numeric_limits<float>::infinity();
+                for (auto& p : corners) minDot = std::min(minDot, p.Dot(n));
+                float tol = 1e-3f;
+                std::vector<Vector3> extreme;
+                for (auto& p : corners) {
+                    if (p.Dot(n) - minDot <= tol) extreme.push_back(p);
+                }
+                if (extreme.empty()) {
+                    contacts.push_back(cpSeed);
+                } else if (extreme.size() == 1) {
+                    contacts.push_back(extreme[0]);
+                } else {
+                    float bestD2 = -1.0f; Vector3 bestA, bestB;
+                    for (size_t i=0;i<extreme.size();++i)
+                        for (size_t j=i+1;j<extreme.size();++j) {
+                            float d2 = (extreme[i]-extreme[j]).LengthSquared();
+                            if (d2 > bestD2) { bestD2 = d2; bestA = extreme[i]; bestB = extreme[j]; }
+                        }
+                    contacts.push_back(bestA);
+                    contacts.push_back(bestB);
+                    contacts.push_back((bestA + bestB) * 0.5f);
+                }
+            }
+        }
+        if (contacts.empty()) contacts.push_back(cpSeed);
+
+        const int iterations = 8;
+        for (int iter = 0; iter < iterations; ++iter) {
+            const Vector3& cpi = contacts[iter % contacts.size()];
+            Vector3 v = rb->GetPointVelocity(cpi);
+            float vn = v.Dot(n);
+            if (vn < 0.0f) {
+                float restitutionThreshold = kRestitutionVelocityThreshold;
+                float eUse = (std::fabs(vn) < restitutionThreshold) ? 0.0f : e;
+
+                Vector3 r = cpi - rb->GetPosition();
+                Vector3 rn = r.Cross(n);
+                float effMassN = rb->GetInverseMass();
+                effMassN += n.Dot(rb->InvInertiaWorldMultiply(rn).Cross(r));
+                if (effMassN < 1e-8f) effMassN = 1e-8f;
+                float jn = -(1.0f + eUse) * vn / effMassN;
+                Vector3 impulseN = jn * n;
+                rb->AddImpulseAtPosition(impulseN, cpi);
+
+                Vector3 vAfter = rb->GetPointVelocity(cpi);
+                float vn2 = vAfter.Dot(n);
+                Vector3 vt = vAfter - vn2 * n;
+                float vtLen = vt.Length();
+                if (vtLen > 1e-5f) {
+                    Vector3 t = vt / vtLen;
+                    float mu = rb->GetFriction();
+                    if (colliderA) mu = std::min(mu, colliderA->GetFriction());
+                    if (colliderB) mu = std::min(mu, colliderB->GetFriction());
+
+                    Vector3 rt = r.Cross(t);
+                    float effMassT = rb->GetInverseMass() + t.Dot(rb->InvInertiaWorldMultiply(rt).Cross(r));
+                    if (effMassT < 1e-8f) effMassT = 1e-8f;
+                    float jt_unclamped = -vAfter.Dot(t) / effMassT;
+                    float jt = std::clamp(jt_unclamped, -mu * jn, mu * jn);
+                    Vector3 impulseT = jt * t;
+                    rb->AddImpulseAtPosition(impulseT, cpi);
+                }
+
+                if (std::fabs(vn2) < 0.02f) {
+                    Vector3 vLin = rb->GetVelocity();
+                    float vnLin = vLin.Dot(n);
+                    rb->SetVelocity(vLin - vnLin * n);
+                }
+            }
+        }
+        return;
+    }
+
     
     const float slop = 0.01f;
     const float percent = 0.2f;
@@ -876,79 +1126,120 @@ void CollisionDetection::ResolveCollision(RigidBody* bodyA, RigidBody* bodyB, co
     if (!bodyA->IsStatic()) bodyA->SetPosition(bodyA->GetPosition() - invMassA * p);
     if (!bodyB->IsStatic()) bodyB->SetPosition(bodyB->GetPosition() + invMassB * p);
     
-    Vector3 vA = bodyA->GetPointVelocity(info.contactPoint);
-    Vector3 vB = bodyB->GetPointVelocity(info.contactPoint);
-    Vector3 vRel = vB - vA;
-    float vn = vRel.Dot(info.normal);
-    if (vn > 0.0f) return;
-    
-    float e = std::min(bodyA->GetRestitution(), bodyB->GetRestitution());
-    if (colliderA) e = std::min(e, colliderA->GetRestitution());
-    if (colliderB) e = std::min(e, colliderB->GetRestitution());
-    if (e < 0.0f) e = 0.0f;
-    if (e > 1.0f) e = 1.0f;
-    float restitutionThreshold = 0.5f;
-    if (std::fabs(vn) < restitutionThreshold) e = 0.0f;
-    
-    float jn = -(1.0f + e) * vn / invMassSum;
-    Vector3 impulseN = jn * info.normal;
-    Vector3 vA_pre = bodyA->GetPointVelocity(info.contactPoint);
-    Vector3 vB_pre = bodyB->GetPointVelocity(info.contactPoint);
-    Vector3 vRelPre = vB_pre - vA_pre;
-    float vnPre = vRelPre.Dot(info.normal);
-    Vector3 vtPre = vRelPre - vnPre * info.normal;
-    float vtPreLen = vtPre.Length();
-    bool applyAtCOM = vtPreLen < 1e-3f;
-    if (applyAtCOM) {
-        if (!bodyA->IsStatic()) bodyA->AddImpulse(-impulseN);
-        if (!bodyB->IsStatic()) bodyB->AddImpulse(impulseN);
-    } else {
-        if (!bodyA->IsStatic()) bodyA->AddImpulseAtPosition(-impulseN, info.contactPoint);
-        if (!bodyB->IsStatic()) bodyB->AddImpulseAtPosition(impulseN, info.contactPoint);
+    RigidBody* a = bodyA;
+    RigidBody* b = bodyB;
+    Vector3 n = info.normal;
+    if (a->IsStatic() && !b->IsStatic()) {
+        std::swap(a, b);
+        n = -n;
+        std::swap(invMassA, invMassB);
     }
-    
-    vA = bodyA->GetPointVelocity(info.contactPoint);
-    vB = bodyB->GetPointVelocity(info.contactPoint);
-    vRel = vB - vA;
-    vn = vRel.Dot(info.normal);
-    Vector3 vt = vRel - vn * info.normal;
-    float vtLen = vt.Length();
-    if (vtLen > 1e-5f) {
-        Vector3 t = vt / vtLen;
-        float muA = bodyA->GetFriction(), muB = bodyB->GetFriction();
-        if (colliderA) muA = std::min(muA, colliderA->GetFriction());
-        if (colliderB) muB = std::min(muB, colliderB->GetFriction());
-        float mu = std::min(muA, muB);
-        float jt_unclamped = -vRel.Dot(t) / invMassSum;
-        float maxStick = mu * jn;
-        float jt;
-        if (std::fabs(jt_unclamped) <= maxStick) {
-            jt = jt_unclamped;
-        } else {
-            jt = (jt_unclamped > 0.0f) ? maxStick : -maxStick;
+    if (((b->GetPosition() - a->GetPosition()).Dot(n)) < 0.0f) {
+        n = -n;
+    }
+
+    Vector3 upA = Vector3::Up;
+    Vector3 upB = Vector3::Up;
+    if (a->GetTransformComponent()) upA = a->GetTransformComponent()->transform.GetWorldRotation().RotateVector(Vector3::Up);
+    if (b->GetTransformComponent()) upB = b->GetTransformComponent()->transform.GetWorldRotation().RotateVector(Vector3::Up);
+    Vector3 tGuess = n.Cross((upA + upB) * 0.5f);
+    if (tGuess.LengthSquared() < 1e-6f) tGuess = n.Cross(Vector3(1.0f, 0.0f, 0.0f));
+    if (tGuess.LengthSquared() < 1e-6f) tGuess = n.Cross(Vector3(0.0f, 0.0f, 1.0f));
+    tGuess = tGuess.Normalized();
+
+    float offset = 0.2f;
+    Vector3 cp0 = info.contactPoint;
+    Vector3 cpA = cp0 - tGuess * offset;
+    Vector3 cpB = cp0 + tGuess * offset;
+
+    std::vector<Vector3> contacts;
+    contacts.push_back(cpA);
+    contacts.push_back(cpB);
+    const int iterations = 12;
+    for (int iter = 0; iter < iterations; ++iter) {
+        const Vector3& cpi = contacts[iter % contacts.size()];
+
+        Vector3 vA = a->GetPointVelocity(cpi);
+        Vector3 vB = b->GetPointVelocity(cpi);
+        Vector3 vRel = vB - vA;
+        float vn = vRel.Dot(n);
+        Logger::Debug(std::string("RBxRB: vn=") + std::to_string(vn) +
+                      " n=(" + std::to_string(n.x) + "," + std::to_string(n.y) + "," + std::to_string(n.z) + ")" +
+                      " aStatic=" + (a->IsStatic() ? std::string("yes") : std::string("no")) +
+                      " bStatic=" + (b->IsStatic() ? std::string("yes") : std::string("no")));
+        if (vn > 0.0f) {
+            Logger::Debug("RBxRB: skipping normal impulse because vn>0");
+            continue;
         }
-        Vector3 impulseT = jt * t;
-        if (!bodyA->IsStatic()) bodyA->AddImpulseAtPosition(-impulseT, info.contactPoint);
-        if (!bodyB->IsStatic()) bodyB->AddImpulseAtPosition(impulseT, info.contactPoint);
+
+        float e = std::min(a->GetRestitution(), b->GetRestitution());
+        if (colliderA) e = std::min(e, colliderA->GetRestitution());
+        if (colliderB) e = std::min(e, colliderB->GetRestitution());
+        if (e < 0.0f) e = 0.0f;
+        if (e > 1.0f) e = 1.0f;
+        float restitutionThreshold = kRestitutionVelocityThreshold;
+        if (std::fabs(vn) < restitutionThreshold) e = 0.0f;
+
+        Vector3 rA = cpi - a->GetPosition();
+        Vector3 rB = cpi - b->GetPosition();
+        Vector3 rnA = rA.Cross(n);
+        Vector3 rnB = rB.Cross(n);
+        float effMassN = invMassSum;
+        if (!a->IsStatic()) effMassN += n.Dot(a->InvInertiaWorldMultiply(rnA).Cross(rA));
+        if (!b->IsStatic()) effMassN += n.Dot(b->InvInertiaWorldMultiply(rnB).Cross(rB));
+        if (effMassN < 1e-8f) effMassN = 1e-8f;
+        float jn = -(1.0f + e) * vn / effMassN;
+        Logger::Debug(std::string("RBxRB: applying jn=") + std::to_string(jn));
+        Vector3 impulseN = jn * n;
+        if (!a->IsStatic()) a->AddImpulseAtPosition(-impulseN, cpi);
+        if (!b->IsStatic()) b->AddImpulseAtPosition( impulseN, cpi);
+
+        vA = a->GetPointVelocity(cpi);
+        vB = b->GetPointVelocity(cpi);
+        vRel = vB - vA;
+        float vn2 = vRel.Dot(n);
+        Vector3 vt = vRel - vn2 * n;
+        float vtLen = vt.Length();
+        if (vtLen > 1e-5f) {
+            Vector3 t = vt / vtLen;
+            float mu = std::min(a->GetFriction(), b->GetFriction());
+            if (colliderA) mu = std::min(mu, colliderA->GetFriction());
+            if (colliderB) mu = std::min(mu, colliderB->GetFriction());
+
+            Vector3 rtA = rA.Cross(t);
+            Vector3 rtB = rB.Cross(t);
+            float effMassT = invMassSum;
+            if (!a->IsStatic()) effMassT += t.Dot(a->InvInertiaWorldMultiply(rtA).Cross(rA));
+            if (!b->IsStatic()) effMassT += t.Dot(b->InvInertiaWorldMultiply(rtB).Cross(rB));
+            if (effMassT < 1e-8f) effMassT = 1e-8f;
+
+            float jt_unclamped = -vRel.Dot(t) / effMassT;
+            float maxStick = mu * jn;
+            float jt = std::clamp(jt_unclamped, -maxStick, maxStick);
+            Vector3 impulseT = jt * t;
+            if (!a->IsStatic()) a->AddImpulseAtPosition(-impulseT, cpi);
+            if (!b->IsStatic()) b->AddImpulseAtPosition( impulseT, cpi);
+        }
     }
+
     {
-        Vector3 n = info.normal;
-        if (!bodyA->IsStatic()) {
-            Vector3 vAp = bodyA->GetPointVelocity(info.contactPoint);
-            float vnA = vAp.Dot(n);
+        Vector3 nClamp = n;
+        if (!a->IsStatic()) {
+            Vector3 vAp = a->GetPointVelocity(info.contactPoint);
+            float vnA = vAp.Dot(nClamp);
             if (std::fabs(vnA) < 0.02f) {
-                Vector3 vLinA = bodyA->GetVelocity();
-                float vnLinA = vLinA.Dot(n);
-                bodyA->SetVelocity(vLinA - vnLinA * n);
+                Vector3 vLinA = a->GetVelocity();
+                float vnLinA = vLinA.Dot(nClamp);
+                a->SetVelocity(vLinA - vnLinA * nClamp);
             }
         }
-        if (!bodyB->IsStatic()) {
-            Vector3 vBp = bodyB->GetPointVelocity(info.contactPoint);
-            float vnB = vBp.Dot(n);
+        if (!b->IsStatic()) {
+            Vector3 vBp = b->GetPointVelocity(info.contactPoint);
+            float vnB = vBp.Dot(nClamp);
             if (std::fabs(vnB) < 0.02f) {
-                Vector3 vLinB = bodyB->GetVelocity();
-                float vnLinB = vLinB.Dot(n);
-                bodyB->SetVelocity(vLinB - vnLinB * n);
+                Vector3 vLinB = b->GetVelocity();
+                float vnLinB = vLinB.Dot(nClamp);
+                b->SetVelocity(vLinB - vnLinB * nClamp);
             }
         }
     }

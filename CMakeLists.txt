@@ -26,7 +26,7 @@ if(WIN32)
     find_package(GTest CONFIG REQUIRED)
     find_package(OpenAL CONFIG)
     find_package(assimp CONFIG)
-    find_package(nfd CONFIG REQUIRED)
+    find_package(nfd CONFIG QUIET)
     
     # Set variables for compatibility
     set(GLFW_LIBRARIES glfw)
@@ -35,7 +35,12 @@ if(WIN32)
     set(GTEST_LIBRARIES GTest::gtest GTest::gtest_main)
     set(OPENAL_LIBRARIES OpenAL::OpenAL)
     set(ASSIMP_LIBRARIES assimp::assimp)
-    set(NFD_LIBRARIES nfd::nfd)
+    if(nfd_FOUND)
+        set(NFD_LIBRARIES nfd::nfd)
+    else()
+        set(NFD_LIBRARIES "")
+        message(STATUS "nativefiledialog-extended not found on Windows, file browser functionality will be disabled")
+    endif()
     
     # Create ImGui alias for Windows compatibility
     if(TARGET imgui::imgui)

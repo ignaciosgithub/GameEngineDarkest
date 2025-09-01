@@ -12,8 +12,6 @@ add_library(UI STATIC
 target_include_directories(UI PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
-    ${IMGUI_INCLUDE_DIR}
-    /usr/include/imgui
 )
 
 target_link_libraries(UI PUBLIC
@@ -21,7 +19,11 @@ target_link_libraries(UI PUBLIC
     Rendering
     Physics
     ${NFD_LIBRARIES}
+    glad::glad
+    glfw
 )
+target_compile_definitions(UI PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
+
 
 # Platform-specific ImGui linking
 if(WIN32)

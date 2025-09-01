@@ -1,13 +1,8 @@
 #include "ImGuiRenderer.h"
 #include "../Core/Logging/Logger.h"
 #include <imgui.h>
-#ifdef _WIN32
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
-#else
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
-#endif
 #include <GLFW/glfw3.h>
 
 namespace GameEngine {

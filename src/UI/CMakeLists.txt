@@ -12,6 +12,7 @@ add_library(UI STATIC
 target_include_directories(UI PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
+    ${IMGUI_INCLUDE_DIR}
     /usr/include/imgui
 )
 
@@ -30,11 +31,7 @@ if(WIN32)
         target_link_libraries(UI PUBLIC imgui)
     endif()
 else()
-    # Use system-installed ImGui on Linux
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(IMGUI REQUIRED imgui)
-    target_include_directories(UI PUBLIC ${IMGUI_INCLUDE_DIRS})
-    target_link_libraries(UI PUBLIC ${IMGUI_LIBRARIES})
+    target_link_libraries(UI PUBLIC imgui)
 endif()
 
 target_compile_features(UI PUBLIC cxx_std_20)

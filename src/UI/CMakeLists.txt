@@ -19,9 +19,13 @@ target_link_libraries(UI PUBLIC
     Rendering
     Physics
     ${NFD_LIBRARIES}
-    glad::glad
-    glfw
 )
+if(TARGET glad::glad)
+    target_link_libraries(UI PUBLIC glad::glad)
+endif()
+if(TARGET glfw)
+    target_link_libraries(UI PUBLIC glfw)
+endif()
 target_compile_definitions(UI PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
 
 

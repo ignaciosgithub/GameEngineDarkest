@@ -24,7 +24,12 @@ bool RenderManager::Initialize(int width, int height) {
     m_raytracingPipeline = std::make_unique<RaytracingPipeline>();
     m_raytracingPipeline->Initialize(width, height);
     
-    SetPipeline(RenderPipelineType::Deferred);
+    const char* forceForward = std::getenv("GE_FORCE_FORWARD");
+    if (forceForward && std::string(forceForward) == "1") {
+        SetPipeline(RenderPipelineType::Forward);
+    } else {
+        SetPipeline(RenderPipelineType::Deferred);
+    }
     
     Logger::Info("Render Manager initialized successfully");
     return true;

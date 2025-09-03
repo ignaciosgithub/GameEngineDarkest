@@ -551,8 +551,11 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
         m_forwardShader->SetVector3("shadowLightPos", shadowLightPosUniform);
         m_forwardShader->SetFloat("shadowNear", shadowNearUniform);
         m_forwardShader->SetFloat("shadowFar", shadowFarUniform);
-        m_forwardShader->SetInt("shadowMap", 5);
-        m_forwardShader->SetInt("shadowCubeMap", 5);
+        if (shadowLightTypeUniform == 1) {
+            m_forwardShader->SetInt("shadowCubeMap", 5);
+        } else {
+            m_forwardShader->SetInt("shadowMap", 5);
+        }
     }
     
     m_forwardShader->Use();
@@ -571,6 +574,16 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
     LightManager lightManager;
+    GLint validateStatus = 0;
+    glValidateProgram(m_forwardShader->GetProgramID());
+    glGetProgramiv(m_forwardShader->GetProgramID(), GL_VALIDATE_STATUS, &validateStatus);
+    if (validateStatus == GL_FALSE) {
+        char infoLog[1024];
+        glGetProgramInfoLog(m_forwardShader->GetProgramID(), 1024, nullptr, infoLog);
+        Logger::Error(std::string("Forward shader validation failed: ") + infoLog);
+    } else {
+        Logger::Debug("Forward shader validated OK");
+    }
     lightManager.CollectLights(world);
     lightManager.ApplyBrightnessLimits();
     

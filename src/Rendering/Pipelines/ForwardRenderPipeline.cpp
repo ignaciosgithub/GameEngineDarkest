@@ -478,6 +478,7 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     if (!m_forwardShader || !world) {
         return;
     }
+    m_forwardShader->Use();
     m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
     int hasShadowUniform = 0;

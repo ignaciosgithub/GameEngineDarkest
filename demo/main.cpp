@@ -85,7 +85,7 @@ int main() {
             {
                 GameEngine::Entity cam = world->CreateEntity();
                 world->AddComponent<GameEngine::TransformComponent>(cam,
-                    GameEngine::Vector3(6.0f, 4.0f, 8.0f),
+                    GameEngine::Vector3(0.0f, 4.0f, 8.0f),
                     GameEngine::Quaternion(),
                     GameEngine::Vector3(1.0f, 1.0f, 1.0f));
                 auto* camera = world->AddComponent<GameEngine::CameraComponent>(cam);

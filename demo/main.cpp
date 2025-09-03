@@ -4,6 +4,7 @@
 #include "Core/GameObject/GameObject.h"
 #include "Core/Math/Vector3.h"
 #include <iostream>
+#include <cmath>
 #include "Core/Components/MeshComponent.h"
 #include "Core/Components/ColliderComponent.h"
 #include "Core/Components/RigidBodyComponent.h"
@@ -85,7 +86,7 @@ int main() {
             {
                 GameEngine::Entity cam = world->CreateEntity();
                 world->AddComponent<GameEngine::TransformComponent>(cam,
-                    GameEngine::Vector3(6.0f, 4.0f, 8.0f),
+                    GameEngine::Vector3(0.0f, 4.0f, 8.0f),
                     GameEngine::Quaternion(),
                     GameEngine::Vector3(1.0f, 1.0f, 1.0f));
                 auto* camera = world->AddComponent<GameEngine::CameraComponent>(cam);
@@ -93,6 +94,10 @@ int main() {
                     camera->fieldOfView = 45.0f;
                     camera->nearPlane = 0.1f;
                     camera->farPlane = 100.0f;
+                }
+                if (auto* t = world->GetComponent<GameEngine::TransformComponent>(cam)) {
+                    float pitchDown = -std::atan2(4.0f, 8.0f);
+                    t->transform.SetRotation(GameEngine::Quaternion::FromAxisAngle(GameEngine::Vector3::Right, pitchDown));
                 }
             }
             {

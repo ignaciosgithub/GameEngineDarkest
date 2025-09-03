@@ -78,10 +78,18 @@ void Mesh::Draw() const {
     Logger::Debug("Mesh::Draw() - Starting draw call");
 
     Bind();
-
+ 
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
         Logger::Error("OpenGL error after VAO bind: " + std::to_string(error));
+    }
+    GLint eboBound = 0;
+    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &eboBound);
+    if (eboBound == 0 && m_indexBuffer) {
+        Logger::Warning("No EBO bound to VAO at draw time; rebinding index buffer");
+        m_indexBuffer->Bind();
+        glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &eboBound);
+        Logger::Debug(std::string("EBO after rebind: ") + std::to_string(eboBound));
     }
 
     GLint currentProgram;

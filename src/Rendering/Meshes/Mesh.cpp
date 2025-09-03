@@ -38,8 +38,14 @@ void Mesh::Upload() {
     
     m_vertexBuffer->SetData(m_vertices.data(), m_vertices.size() * sizeof(Vertex));
     
-    std::vector<unsigned int> layout = {3, 3, 3};
-    m_vertexArray->AddVertexBuffer(*m_vertexBuffer, layout);
+    m_vertexArray->Bind();
+    m_vertexBuffer->Bind();
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, static_cast<GLsizei>(sizeof(Vertex)), (void*)offsetof(Vertex, position));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, static_cast<GLsizei>(sizeof(Vertex)), (void*)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, static_cast<GLsizei>(sizeof(Vertex)), (void*)offsetof(Vertex, color));
     
     if (!m_indices.empty()) {
         m_indexBuffer = std::make_unique<Buffer>(BufferType::Index);

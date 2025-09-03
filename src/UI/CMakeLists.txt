@@ -43,6 +43,14 @@ if(WIN32)
         target_link_libraries(UI PUBLIC imgui)
     endif()
 else()
+# Fallback include for ImGui backends on Windows if imported targets don't expose backends include dir
+if(WIN32 AND TARGET imgui::imgui AND NOT TARGET imgui::imgui_glfw)
+    get_target_property(_imgui_inc imgui::imgui INTERFACE_INCLUDE_DIRECTORIES)
+    if(_imgui_inc)
+        target_include_directories(UI PUBLIC "${_imgui_inc}/backends")
+    endif()
+endif()
+
     target_link_libraries(UI PUBLIC imgui)
 endif()
 

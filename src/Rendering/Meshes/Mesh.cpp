@@ -64,33 +64,36 @@ void Mesh::Bind() const {
 }
 
 void Mesh::Draw() const {
+    if (!m_uploaded) {
+        const_cast<Mesh*>(this)->Upload();
+    }
     if (!m_uploaded || !m_vertexArray) {
         Logger::Warning("Mesh not uploaded or vertex array not available");
         return;
     }
-    
+
     Logger::Debug("Mesh::Draw() - Starting draw call");
-    
+
     Bind();
-    
+
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
         Logger::Error("OpenGL error after VAO bind: " + std::to_string(error));
     }
-    
+
     GLint currentProgram;
     glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
     Logger::Debug("Current shader program: " + std::to_string(currentProgram));
-    
+
     if (currentProgram == 0) {
         Logger::Error("No shader program bound during mesh draw!");
         return;
     }
-    
+
     if (m_indexBuffer && !m_indices.empty()) {
         Logger::Debug("Drawing mesh with " + std::to_string(m_indices.size()) + " indices using glDrawElements");
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(m_indices.size()), GL_UNSIGNED_INT, 0);
-        
+
         error = glGetError();
         if (error != GL_NO_ERROR) {
             Logger::Error("OpenGL error after glDrawElements: " + std::to_string(error));

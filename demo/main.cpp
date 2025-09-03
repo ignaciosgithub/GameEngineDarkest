@@ -8,6 +8,8 @@
 #include "Core/Components/ColliderComponent.h"
 #include "Core/Components/RigidBodyComponent.h"
 #include "Rendering/Lighting/Light.h"
+#include "Core/Components/CameraComponent.h"
+
 
 
 int main() {
@@ -53,7 +55,7 @@ int main() {
             {
                 GameEngine::Entity ground = world->CreateEntity();
                 world->AddComponent<GameEngine::TransformComponent>(ground, GameEngine::Vector3(0.0f, -1.0f, 0.0f),
-                                                                    GameEngine::Quaternion(), GameEngine::Vector3(20.0f, 1.0f, 20.0f));
+                                                                    GameEngine::Quaternion(), GameEngine::Vector3(40.0f, 1.0f, 40.0f));
                 auto* mesh = world->AddComponent<GameEngine::MeshComponent>(ground, "plane");
                 if (mesh) mesh->SetColor(GameEngine::Vector3(0.6f, 0.6f, 0.6f));
                 auto* col = world->AddComponent<GameEngine::ColliderComponent>(ground);
@@ -63,7 +65,7 @@ int main() {
             }
             {
                 GameEngine::Entity cube = world->CreateEntity();
-                world->AddComponent<GameEngine::TransformComponent>(cube, GameEngine::Vector3(0.0f, 0.0f, 0.0f),
+                world->AddComponent<GameEngine::TransformComponent>(cube, GameEngine::Vector3(0.0f, 0.5f, 0.0f),
                                                                     GameEngine::Quaternion(), GameEngine::Vector3(1.0f, 1.0f, 1.0f));
                 auto* mesh = world->AddComponent<GameEngine::MeshComponent>(cube, "cube");
                 if (mesh) mesh->SetColor(GameEngine::Vector3(0.85f, 0.85f, 0.9f));
@@ -72,14 +74,39 @@ int main() {
             }
             {
                 GameEngine::Entity light = world->CreateEntity();
-                world->AddComponent<GameEngine::TransformComponent>(light, GameEngine::Vector3(0.0f, 3.0f, 2.5f));
+                world->AddComponent<GameEngine::TransformComponent>(light, GameEngine::Vector3(1.5f, 3.0f, 2.0f));
                 auto* lc = world->AddComponent<GameEngine::LightComponent>(light, GameEngine::LightType::Point);
-                lc->light.SetPosition(GameEngine::Vector3(0.0f, 3.0f, 2.5f));
+                lc->light.SetPosition(GameEngine::Vector3(1.5f, 3.0f, 2.0f));
                 lc->light.SetColor(GameEngine::Vector3(1.0f, 0.95f, 0.8f));
-                lc->light.SetIntensity(2.2f);
-                lc->light.SetRange(12.0f);
+                lc->light.SetIntensity(2.8f);
+                lc->light.SetRange(15.0f);
                 lc->light.SetCastShadows(true);
             }
+            {
+                GameEngine::Entity cam = world->CreateEntity();
+                world->AddComponent<GameEngine::TransformComponent>(cam,
+                    GameEngine::Vector3(6.0f, 4.0f, 8.0f),
+                    GameEngine::Quaternion(),
+                    GameEngine::Vector3(1.0f, 1.0f, 1.0f));
+                auto* camera = world->AddComponent<GameEngine::CameraComponent>(cam);
+                if (camera) {
+                    camera->fieldOfView = 45.0f;
+                    camera->nearPlane = 0.1f;
+                    camera->farPlane = 100.0f;
+                }
+            }
+            {
+                GameEngine::Entity sun = world->CreateEntity();
+                world->AddComponent<GameEngine::TransformComponent>(sun, GameEngine::Vector3(0.0f, 0.0f, 0.0f));
+                auto* dl = world->AddComponent<GameEngine::LightComponent>(sun, GameEngine::LightType::Directional);
+                if (dl) {
+                    dl->light.SetDirection(GameEngine::Vector3(-0.4f, -1.0f, -0.3f));
+                    dl->light.SetColor(GameEngine::Vector3(1.0f, 1.0f, 1.0f));
+                    dl->light.SetIntensity(0.2f);
+                    dl->light.SetCastShadows(false);
+                }
+            }
+
         }
 
         

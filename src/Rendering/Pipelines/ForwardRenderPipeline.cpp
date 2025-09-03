@@ -591,10 +591,11 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     Vector3 cameraPosition = Vector3(invViewMatrix.m[12], invViewMatrix.m[13], invViewMatrix.m[14]);
     m_forwardShader->SetVector3("viewPos", cameraPosition);
 
+    // hasShadow and shadow bindings were already configured above for the chosen light (including point lights).
     int hasShadow = 0;
-    Matrix4 lightSpace;
-    int shadowTexUnit = 5;
-    {
+    if (hasShadowUniform) {
+        hasShadow = 1;
+    } else {
         LightManager lm2;
         lm2.CollectLights(world);
         Light* shadowedLight = nullptr;
@@ -611,20 +612,39 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
                 }
             }
         }
+        if (!shadowedLight) {
+            for (auto* l : lm2.GetActiveLights()) {
+                if (l && l->GetType() == LightType::Point && l->GetCastShadows()) {
+                    shadowedLight = l; shadowTypeInt = 1; break;
+                }
+            }
+        }
         if (shadowedLight && shadowedLight->GetShadowMap()) {
             shadowedLight->InitializeShadowMap();
             auto sm = shadowedLight->GetShadowMap();
             auto fb = shadowedLight->GetShadowFramebuffer();
             if (sm && fb) {
                 hasShadow = 1;
-                lightSpace = shadowedLight->GetLightSpaceMatrix();
-                sm->Bind(shadowTexUnit);
-                m_forwardShader->SetInt("shadowMap", shadowTexUnit);
-                m_forwardShader->SetInt("shadowLightType", shadowTypeInt);
-                m_forwardShader->SetMatrix4("lightSpaceMatrix", lightSpace);
-                m_forwardShader->SetFloat("shadowBias", shadowedLight->GetShadowBias());
-                float texelSize = 1.0f / static_cast<float>(shadowedLight->GetShadowMapSize());
-                m_forwardShader->SetFloat("shadowTexelSize", texelSize);
+                if (shadowTypeInt == 1) {
+                    sm->Bind(5);
+                    m_forwardShader->SetInt("shadowCubeMap", 5);
+                    m_forwardShader->SetInt("shadowLightType", 1);
+                    m_forwardShader->SetVector3("shadowLightPos", shadowedLight->GetPosition());
+                    m_forwardShader->SetFloat("shadowNear", shadowedLight->GetData().shadowNearPlane);
+                    m_forwardShader->SetFloat("shadowFar", shadowedLight->GetData().shadowFarPlane);
+                    m_forwardShader->SetFloat("shadowBias", shadowedLight->GetShadowBias());
+                    float texelSize = 1.0f / static_cast<float>(shadowedLight->GetShadowMapSize());
+                    m_forwardShader->SetFloat("shadowTexelSize", texelSize);
+                } else {
+                    Matrix4 lightSpace = shadowedLight->GetLightSpaceMatrix();
+                    sm->Bind(5);
+                    m_forwardShader->SetInt("shadowMap", 5);
+                    m_forwardShader->SetInt("shadowLightType", shadowTypeInt);
+                    m_forwardShader->SetMatrix4("lightSpaceMatrix", lightSpace);
+                    m_forwardShader->SetFloat("shadowBias", shadowedLight->GetShadowBias());
+                    float texelSize = 1.0f / static_cast<float>(shadowedLight->GetShadowMapSize());
+                    m_forwardShader->SetFloat("shadowTexelSize", texelSize);
+                }
             }
         }
     }

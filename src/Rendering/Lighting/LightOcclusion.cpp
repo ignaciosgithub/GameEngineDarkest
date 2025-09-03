@@ -6,6 +6,8 @@
 #include "../../Physics/Collision/ContinuousCollisionDetection.h"
 #include <algorithm>
 #include <cmath>
+#include "../../Physics/Spatial/Octree.h"
+
 
 namespace GameEngine {
 
@@ -97,7 +99,7 @@ bool LightOcclusion::RaycastForOcclusion(const Vector3& start, const Vector3& en
     float totalLen = (end - start).Length();
     hit.distance = totalLen;
 
-    auto occludingBodies = GetOccludingBodies(nullptr);
+    auto occludingBodies = GetOccludingBodiesForSegment(start, end);
 
     float closestDistance = totalLen;
     bool foundHit = false;
@@ -148,6 +150,7 @@ std::vector<RigidBody*> LightOcclusion::GetOccludingBodies(World* /* world */) {
     std::vector<RigidBody*> occludingBodies;
     if (!m_physicsWorld) return occludingBodies;
     const auto& bodies = m_physicsWorld->GetRigidBodies();
+
     occludingBodies.reserve(bodies.size());
     for (RigidBody* b : bodies) {
         if (b && IsBodyOccluding(b)) occludingBodies.push_back(b);
@@ -251,6 +254,37 @@ std::vector<Vector3> LightOcclusion::GenerateSamplePoints(const Vector3& lightPo
     }
     
     return samplePoints;
+}
+
+std::vector<RigidBody*> LightOcclusion::GetOccludingBodiesForSegment(const Vector3& start, const Vector3& end) {
+    std::vector<RigidBody*> result;
+    if (!m_physicsWorld) return result;
+
+    const Octree* oct = m_physicsWorld->GetOctree();
+    if (!oct) {
+        const auto& bodies = m_physicsWorld->GetRigidBodies();
+        result.reserve(bodies.size());
+        for (RigidBody* b : bodies) {
+            if (b && IsBodyOccluding(b)) result.push_back(b);
+        }
+        return result;
+    }
+
+    Vector3 segMin(std::min(start.x, end.x), std::min(start.y, end.y), std::min(start.z, end.z));
+    Vector3 segMax(std::max(start.x, end.x), std::max(start.y, end.y), std::max(start.z, end.z));
+    const float pad = 0.05f;
+    segMin = segMin - Vector3(pad, pad, pad);
+    segMax = segMax + Vector3(pad, pad, pad);
+    AABB query(segMin, segMax);
+
+    std::vector<RigidBody*> candidates;
+    oct->Query(query, candidates);
+
+    result.reserve(candidates.size());
+    for (RigidBody* b : candidates) {
+        if (b && IsBodyOccluding(b)) result.push_back(b);
+    }
+    return result;
 }
 
 }

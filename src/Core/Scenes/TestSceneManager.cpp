@@ -2,6 +2,11 @@
 #include "../Components/TransformComponent.h"
 #include "../Components/CameraComponent.h"
 #include "../Logging/Logger.h"
+#include "../Components/MeshComponent.h"
+#include "../Components/ColliderComponent.h"
+#include "../Components/RigidBodyComponent.h"
+#include "../../Rendering/Lighting/Light.h"
+
 #include "../../Rendering/Meshes/Mesh.h"
 #include <cmath>
 
@@ -235,6 +240,16 @@ void TestSceneManager::ClearCurrentScene() {
 void TestSceneManager::AddTestCube(const Vector3& position, const Vector3& scale, Material* /*material*/) {
     Entity entity = m_world->CreateEntity();
     m_world->AddComponent<TransformComponent>(entity, position, Quaternion(), scale);
+
+    auto* meshComp = m_world->AddComponent<MeshComponent>(entity, "cube");
+    if (meshComp) {
+        meshComp->SetColor(Vector3(0.85f, 0.85f, 0.9f));
+    }
+
+    auto* collider = m_world->AddComponent<ColliderComponent>(entity);
+    if (collider) {
+        collider->SetBoxCollider(Vector3(1.0f, 1.0f, 1.0f));
+    }
     
     m_sceneEntities.push_back(entity);
     
@@ -255,6 +270,21 @@ void TestSceneManager::AddTestSphere(const Vector3& position, float radius, Mate
 void TestSceneManager::AddTestPlane(const Vector3& position, const Vector3& scale) {
     Entity entity = m_world->CreateEntity();
     m_world->AddComponent<TransformComponent>(entity, position, Quaternion(), scale);
+
+    auto* meshComp = m_world->AddComponent<MeshComponent>(entity, "plane");
+    if (meshComp) {
+        meshComp->SetColor(Vector3(0.6f, 0.6f, 0.6f));
+    }
+
+    auto* collider = m_world->AddComponent<ColliderComponent>(entity);
+    if (collider) {
+        collider->SetBoxCollider(Vector3(1.0f, 0.1f, 1.0f));
+    }
+
+    auto* rb = m_world->AddComponent<RigidBodyComponent>(entity);
+    if (rb && rb->GetRigidBody()) {
+        rb->GetRigidBody()->SetMass(0.0f);
+    }
     
     m_sceneEntities.push_back(entity);
     
@@ -270,6 +300,7 @@ Entity TestSceneManager::CreateDirectionalLight(const Vector3& direction, const 
     lightComp->light.SetDirection(direction);
     lightComp->light.SetColor(color);
     lightComp->light.SetIntensity(intensity);
+    lightComp->light.SetCastShadows(true);
     
     m_sceneEntities.push_back(entity);
     
@@ -286,6 +317,7 @@ Entity TestSceneManager::CreatePointLight(const Vector3& position, const Vector3
     lightComp->light.SetColor(color);
     lightComp->light.SetIntensity(intensity);
     lightComp->light.SetRange(range);
+    lightComp->light.SetCastShadows(true);
     
     m_sceneEntities.push_back(entity);
     
@@ -304,6 +336,7 @@ Entity TestSceneManager::CreateSpotLight(const Vector3& position, const Vector3&
     lightComp->light.SetColor(color);
     lightComp->light.SetIntensity(intensity);
     lightComp->light.SetSpotAngles(30.0f, 45.0f);
+    lightComp->light.SetCastShadows(true);
     
     m_sceneEntities.push_back(entity);
     

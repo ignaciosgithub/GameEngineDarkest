@@ -40,6 +40,7 @@ void Mesh::Upload() {
     
     m_vertexArray->Bind();
     m_vertexBuffer->Bind();
+    for (GLuint i = 3; i < 8; ++i) { glDisableVertexAttribArray(i); }
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, static_cast<GLsizei>(sizeof(Vertex)), (void*)offsetof(Vertex, position));
     glEnableVertexAttribArray(1);
@@ -103,6 +104,15 @@ void Mesh::Draw() const {
 
     if (m_indexBuffer && !m_indices.empty()) {
         Logger::Debug("Drawing mesh with " + std::to_string(m_indices.size()) + " indices using glDrawElements");
+        GLint ab = 0, eb = 0;
+        glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &ab);
+        glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &eb);
+        Logger::Debug(std::string("GL_ARRAY_BUFFER_BINDING=") + std::to_string(ab) + ", GL_ELEMENT_ARRAY_BUFFER_BINDING=" + std::to_string(eb));
+        GLint enabled0 = 0, enabled1 = 0, enabled2 = 0;
+        glGetVertexAttribiv(0, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &enabled0);
+        glGetVertexAttribiv(1, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &enabled1);
+        glGetVertexAttribiv(2, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &enabled2);
+        Logger::Debug(std::string("Attribs enabled: 0=") + std::to_string(enabled0) + " 1=" + std::to_string(enabled1) + " 2=" + std::to_string(enabled2));
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(m_indices.size()), GL_UNSIGNED_INT, 0);
 
         error = glGetError();

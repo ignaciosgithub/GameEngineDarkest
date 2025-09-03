@@ -4,6 +4,11 @@
 #include "Core/GameObject/GameObject.h"
 #include "Core/Math/Vector3.h"
 #include <iostream>
+#include "Core/Components/MeshComponent.h"
+#include "Core/Components/ColliderComponent.h"
+#include "Core/Components/RigidBodyComponent.h"
+#include "Rendering/Lighting/Light.h"
+
 
 int main() {
     try {
@@ -44,6 +49,42 @@ int main() {
         GameEngine::Logger::Info("Testing parent-child relationships and transform inheritance:");
         
         auto* world = engine.GetWorld();
+        if (world) {
+            {
+                GameEngine::Entity ground = world->CreateEntity();
+                world->AddComponent<GameEngine::TransformComponent>(ground, GameEngine::Vector3(0.0f, -1.0f, 0.0f),
+                                                                    GameEngine::Quaternion(), GameEngine::Vector3(20.0f, 1.0f, 20.0f));
+                auto* mesh = world->AddComponent<GameEngine::MeshComponent>(ground, "plane");
+                if (mesh) mesh->SetColor(GameEngine::Vector3(0.6f, 0.6f, 0.6f));
+                auto* col = world->AddComponent<GameEngine::ColliderComponent>(ground);
+                if (col) col->SetBoxCollider(GameEngine::Vector3(1.0f, 0.1f, 1.0f));
+                auto* rb = world->AddComponent<GameEngine::RigidBodyComponent>(ground);
+                if (rb && rb->GetRigidBody()) rb->GetRigidBody()->SetMass(0.0f);
+            }
+            {
+                GameEngine::Entity cube = world->CreateEntity();
+                world->AddComponent<GameEngine::TransformComponent>(cube, GameEngine::Vector3(0.0f, 0.0f, 0.0f),
+                                                                    GameEngine::Quaternion(), GameEngine::Vector3(1.0f, 1.0f, 1.0f));
+                auto* mesh = world->AddComponent<GameEngine::MeshComponent>(cube, "cube");
+                if (mesh) mesh->SetColor(GameEngine::Vector3(0.85f, 0.85f, 0.9f));
+                auto* col = world->AddComponent<GameEngine::ColliderComponent>(cube);
+                if (col) col->SetBoxCollider(GameEngine::Vector3(1.0f, 1.0f, 1.0f));
+            }
+            {
+                GameEngine::Entity light = world->CreateEntity();
+                world->AddComponent<GameEngine::TransformComponent>(light, GameEngine::Vector3(0.0f, 3.0f, 2.5f));
+                auto* lc = world->AddComponent<GameEngine::LightComponent>(light, GameEngine::LightType::Point);
+                lc->light.SetPosition(GameEngine::Vector3(0.0f, 3.0f, 2.5f));
+                lc->light.SetColor(GameEngine::Vector3(1.0f, 0.95f, 0.8f));
+                lc->light.SetIntensity(2.2f);
+                lc->light.SetRange(12.0f);
+                lc->light.SetCastShadows(true);
+            }
+        }
+
+        
+        
+
         if (world) {
             GameEngine::Scene scene(world, "HierarchyTestScene");
             

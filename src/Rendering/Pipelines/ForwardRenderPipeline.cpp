@@ -88,18 +88,17 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform float lightRanges[32];
         uniform vec3 viewPos;
 
-        uniform int hasShadow;
-        uniform int shadowLightType; // 0 = Directional, 1 = Point, 2 = Spot
-        uniform sampler2D shadowMap;
-        uniform samplerCube shadowCubeMap;
-        uniform mat4 lightSpaceMatrix;
-        uniform float shadowBias;
-        uniform float shadowTexelSize;
-        uniform vec3 shadowLightPos;
-        uniform float shadowNear;
-        uniform float shadowFar;
-        
-        float saturate(float x) { return clamp(x, 0.0, 1.0); }
+        uniform int lightHasShadow[32];
+        uniform int shadowType[32];                 // 0 = Directional, 1 = Point, 2 = Spot
+        uniform sampler2D shadowMaps2D[8];
+        uniform samplerCube shadowMapsCube[8];
+        uniform int shadowSamplerIndex[32];         // index into shadowMaps2D or shadowMapsCube
+        uniform mat4 lightSpaceMatrices[32];        // for dir/spot
+        uniform float shadowBiases[32];
+        uniform float shadowTexelSizes[32];         // 1.0 / mapSize for dir/spot
+        uniform vec3 shadowLightPositions[32];      // for point
+        uniform float shadowNearPlanes[32];         // for point
+        uniform float shadowFarPlanes[32];          // for point
         
         float DistributionGGX(vec3 N, vec3 H, float roughness) {
             float a      = roughness * roughness;
@@ -129,35 +128,33 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
             return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
         }
 
-        float ComputeShadow(vec3 worldPos, vec3 N, vec3 L) {
-            if (hasShadow == 0) return 0.0;
-            vec4 lightSpacePos = lightSpaceMatrix * vec4(worldPos, 1.0);
-            vec3 projCoords = lightSpacePos.xyz / max(lightSpacePos.w, 1e-5);
-            projCoords = projCoords * 0.5 + 0.5;
-            if (projCoords.z > 1.0 || projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0)
-                return 0.0;
-            float currentDepth = projCoords.z;
-            float bias = max(shadowBias * (1.0 - dot(N, L)), shadowBias * 0.2);
-
+        float ComputeShadowDir(int li, vec3 worldPos, vec3 N, vec3 L) {
+            vec4 lsp = lightSpaceMatrices[li] * vec4(worldPos, 1.0);
+            vec3 proj = lsp.xyz / max(lsp.w, 1e-5);
+            proj = proj * 0.5 + 0.5;
+            if (proj.z > 1.0 || proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0) return 0.0;
+            float currentDepth = proj.z;
+            float bias = max(shadowBiases[li] * (1.0 - dot(N, L)), shadowBiases[li] * 0.2);
             float shadow = 0.0;
+            int idx = shadowSamplerIndex[li];
             for (int x = -1; x <= 1; ++x) {
                 for (int y = -1; y <= 1; ++y) {
-                    vec2 offset = vec2(x, y) * shadowTexelSize;
-                    float closestDepth = texture(shadowMap, projCoords.xy + offset).r;
+                    vec2 offset = vec2(x, y) * shadowTexelSizes[li];
+                    float closestDepth = texture(shadowMaps2D[idx], proj.xy + offset).r;
                     shadow += (currentDepth - bias > closestDepth) ? 1.0 : 0.0;
                 }
             }
-            shadow /= 9.0;
-            return shadow;
+            return shadow / 9.0;
         }
         float LinearizeDepth(float depth, float nearP, float farP) {
             float z = depth * 2.0 - 1.0;
             return (2.0 * nearP * farP) / (farP + nearP - z * (farP - nearP));
         }
-        float ComputeShadowPoint(vec3 worldPos) {
-            vec3 Lvec = worldPos - shadowLightPos;
+        float ComputeShadowPoint(int li, vec3 worldPos) {
+            vec3 Lvec = worldPos - shadowLightPositions[li];
             float dist = length(Lvec);
-            float bias = shadowBias;
+            int idx = shadowSamplerIndex[li];
+            float bias = shadowBiases[li];
             float shadow = 0.0;
             int samples = 4;
             vec3 dir = normalize(Lvec);
@@ -169,8 +166,8 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
             );
             for (int i = 0; i < samples; ++i) {
                 vec3 probe = dir + offsets[i] * 0.01;
-                float depthSample = texture(shadowCubeMap, probe).r;
-                float sampleDist = LinearizeDepth(depthSample, shadowNear, shadowFar);
+                float depthSample = texture(shadowMapsCube[idx], probe).r;
+                float sampleDist = LinearizeDepth(depthSample, shadowNearPlanes[li], shadowFarPlanes[li]);
                 shadow += (dist - bias > sampleDist) ? 1.0 : 0.0;
             }
             return shadow / float(samples);
@@ -181,8 +178,8 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
             vec3 V = normalize(viewPos - FragPos);
             
             vec3 albedo = clamp(Color, 0.0, 1.0);
-            float metallic = 0.0;   // can be driven from component later
-            float roughness = 0.5;  // can be driven from component later
+            float metallic = 0.0;
+            float roughness = 0.5;
             float ao = 1.0;
             
             vec3 F0 = mix(vec3(0.04), albedo, metallic);
@@ -215,11 +212,11 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
                 float NdotL = max(dot(N, L), 0.0);
                 
                 float shadow = 0.0;
-                if (hasShadow == 1 && lightTypes[i] == shadowLightType) {
-                    if (shadowLightType == 1) {
-                        shadow = ComputeShadowPoint(FragPos);
+                if (lightHasShadow[i] == 1) {
+                    if (shadowType[i] == 1) {
+                        shadow = ComputeShadowPoint(i, FragPos);
                     } else {
-                        shadow = ComputeShadow(FragPos, N, L);
+                        shadow = ComputeShadowDir(i, FragPos, N, L);
                     }
                 }
                 
@@ -481,84 +478,74 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     m_forwardShader->Use();
     m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
-    int hasShadowUniform = 0;
-    int shadowLightTypeUniform = 0;
-    Matrix4 shadowLightSpace;
-    float shadowBiasValue = 0.005f;
-    float shadowTexelSize = 0.0f;
-    std::shared_ptr<Texture> shadowDepthTex;
-    Vector3 shadowLightPosUniform = Vector3(0,0,0);
-    float shadowNearUniform = 0.1f;
-    float shadowFarUniform = 100.0f;
+    LightManager lmEmbed;
+    lmEmbed.CollectLights(world);
+    auto actEmbed = lmEmbed.GetActiveLights();
 
-    if (world) {
-        auto entities = world->GetEntities();
-        Light* chosen = nullptr;
-        LightType chosenType = LightType::Directional;
-        for (auto e : entities) {
-            if (world->HasComponent<LightComponent>(e)) {
-                auto lc = world->GetComponent<LightComponent>(e);
-                if (lc && lc->light.GetCastShadows() && lc->light.GetType() == LightType::Directional) { chosen = &lc->light; chosenType = LightType::Directional; break; }
-            }
-        }
-        if (!chosen) {
-            for (auto e : entities) {
-                if (world->HasComponent<LightComponent>(e)) {
-                    auto lc = world->GetComponent<LightComponent>(e);
-                    if (lc && lc->light.GetCastShadows() && lc->light.GetType() == LightType::Spot) { chosen = &lc->light; chosenType = LightType::Spot; break; }
-                }
-            }
-        }
-        if (!chosen) {
-            for (auto e : entities) {
-                if (world->HasComponent<LightComponent>(e)) {
-                    auto lc = world->GetComponent<LightComponent>(e);
-                    if (lc && lc->light.GetCastShadows() && lc->light.GetType() == LightType::Point) { chosen = &lc->light; chosenType = LightType::Point; break; }
-                }
-            }
-        }
-        if (chosen) {
-            chosen->InitializeShadowMap();
-            auto sm = chosen->GetShadowMap();
-            auto fb = chosen->GetShadowFramebuffer();
-            if (sm && fb) {
-                hasShadowUniform = 1;
-                shadowBiasValue = chosen->GetShadowBias();
-                shadowTexelSize = 1.0f / static_cast<float>(chosen->GetData().shadowMapSize);
-                if (chosenType == LightType::Point) {
-                    shadowLightTypeUniform = 1;
-                    shadowLightPosUniform = chosen->GetPosition();
-                    shadowNearUniform = chosen->GetData().shadowNearPlane;
-                    shadowFarUniform = chosen->GetData().shadowFarPlane;
-                    sm->Bind(5);
-                    m_forwardShader->SetInt("shadowCubeMap", 5);
-                } else {
-                    shadowLightTypeUniform = (chosenType == LightType::Directional) ? 0 : 2;
-                    shadowLightSpace = chosen->GetLightSpaceMatrix();
-                    sm->Bind(5);
-                    m_forwardShader->SetInt("shadowMap", 5);
-                }
-            }
-        }
-    }
+    int lightHasShadowArr[32] = {0};
+    int shadowTypeArr[32] = {0};
+    int shadowSamplerIdxArr[32] = {0};
+    float shadowBiasesArr[32] = {0};
+    float shadowTexelSizesArr[32] = {0};
+    Vector3 shadowLightPosArr[32];
+    float shadowNearArr[32] = {0};
+    float shadowFarArr[32] = {0};
+    Matrix4 lightSpaceMatricesArr[32];
 
-    m_forwardShader->SetInt("hasShadow", hasShadowUniform);
-    if (hasShadowUniform) {
-        m_forwardShader->SetInt("shadowLightType", shadowLightTypeUniform);
-        m_forwardShader->SetMatrix4("lightSpaceMatrix", shadowLightSpace);
-        m_forwardShader->SetFloat("shadowBias", shadowBiasValue);
-        m_forwardShader->SetFloat("shadowTexelSize", shadowTexelSize);
-        m_forwardShader->SetVector3("shadowLightPos", shadowLightPosUniform);
-        m_forwardShader->SetFloat("shadowNear", shadowNearUniform);
-        m_forwardShader->SetFloat("shadowFar", shadowFarUniform);
-        if (shadowLightTypeUniform == 1) {
-            m_forwardShader->SetInt("shadowCubeMap", 5);
+    int used2D = 0;
+    int usedCube = 0;
+    int baseUnit = 5;
+
+    for (size_t i = 0; i < actEmbed.size() && i < 32; ++i) {
+        Light* l = actEmbed[i];
+        if (!l || !l->GetCastShadows()) continue;
+        l->InitializeShadowMap();
+        auto sm = l->GetShadowMap();
+        auto fb = l->GetShadowFramebuffer();
+        if (!sm || !fb) continue;
+
+        lightHasShadowArr[i] = 1;
+        shadowBiasesArr[i] = l->GetShadowBias();
+
+        if (l->GetType() == LightType::Point) {
+            shadowTypeArr[i] = 1;
+            shadowLightPosArr[i] = l->GetPosition();
+            shadowNearArr[i] = l->GetData().shadowNearPlane;
+            shadowFarArr[i] = l->GetData().shadowFarPlane;
+
+            int cubeIdx = usedCube;
+            shadowSamplerIdxArr[i] = cubeIdx;
+            int unit = baseUnit + used2D + usedCube;
+            sm->Bind(unit);
+            std::string uname = "shadowMapsCube[" + std::to_string(cubeIdx) + "]";
+            m_forwardShader->SetInt(uname, unit);
+            usedCube++;
         } else {
-            m_forwardShader->SetInt("shadowMap", 5);
+            shadowTypeArr[i] = (l->GetType() == LightType::Directional) ? 0 : 2;
+            lightSpaceMatricesArr[i] = l->GetLightSpaceMatrix();
+            shadowTexelSizesArr[i] = 1.0f / static_cast<float>(l->GetShadowMapSize());
+
+            int idx2d = used2D;
+            shadowSamplerIdxArr[i] = idx2d;
+            int unit = baseUnit + used2D + usedCube;
+            sm->Bind(unit);
+            std::string uname = "shadowMaps2D[" + std::to_string(idx2d) + "]";
+            m_forwardShader->SetInt(uname, unit);
+            used2D++;
         }
     }
-    
-    m_forwardShader->Use();
+
+    for (int i = 0; i < 32; ++i) {
+        m_forwardShader->SetInt("lightHasShadow[" + std::to_string(i) + "]", lightHasShadowArr[i]);
+        m_forwardShader->SetInt("shadowType[" + std::to_string(i) + "]", shadowTypeArr[i]);
+        m_forwardShader->SetInt("shadowSamplerIndex[" + std::to_string(i) + "]", shadowSamplerIdxArr[i]);
+        m_forwardShader->SetFloat("shadowBiases[" + std::to_string(i) + "]", shadowBiasesArr[i]);
+        m_forwardShader->SetFloat("shadowTexelSizes[" + std::to_string(i) + "]", shadowTexelSizesArr[i]);
+        m_forwardShader->SetVector3("shadowLightPositions[" + std::to_string(i) + "]", shadowLightPosArr[i]);
+        m_forwardShader->SetFloat("shadowNearPlanes[" + std::to_string(i) + "]", shadowNearArr[i]);
+        m_forwardShader->SetFloat("shadowFarPlanes[" + std::to_string(i) + "]", shadowFarArr[i]);
+        m_forwardShader->SetMatrix4("lightSpaceMatrices[" + std::to_string(i) + "]", lightSpaceMatricesArr[i]);
+    }
     
     Logger::Debug("ForwardRenderPipeline: Setting view matrix");
     Logger::Debug("View matrix: [" + 
@@ -575,14 +562,19 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     
     LightManager lightManager;
     GLint validateStatus = 0;
-    glValidateProgram(m_forwardShader->GetProgramID());
-    glGetProgramiv(m_forwardShader->GetProgramID(), GL_VALIDATE_STATUS, &validateStatus);
-    if (validateStatus == GL_FALSE) {
-        char infoLog[1024];
-        glGetProgramInfoLog(m_forwardShader->GetProgramID(), 1024, nullptr, infoLog);
-        Logger::Error(std::string("Forward shader validation failed: ") + infoLog);
+    unsigned int prog = m_forwardShader->GetProgramID();
+    if (prog != 0) {
+        glValidateProgram(prog);
+        glGetProgramiv(prog, GL_VALIDATE_STATUS, &validateStatus);
+        if (validateStatus == GL_FALSE) {
+            char infoLog[1024];
+            glGetProgramInfoLog(prog, 1024, nullptr, infoLog);
+            Logger::Error(std::string("Forward shader validation failed: ") + infoLog);
+        } else {
+            Logger::Debug("Forward shader validated OK");
+        }
     } else {
-        Logger::Debug("Forward shader validated OK");
+        Logger::Error("Forward shader validation skipped: invalid program ID 0");
     }
     lightManager.CollectLights(world);
     lightManager.ApplyBrightnessLimits();
@@ -605,64 +597,6 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     Vector3 cameraPosition = Vector3(invViewMatrix.m[12], invViewMatrix.m[13], invViewMatrix.m[14]);
     m_forwardShader->SetVector3("viewPos", cameraPosition);
 
-    // hasShadow and shadow bindings were already configured above for the chosen light (including point lights).
-    int hasShadow = 0;
-    if (hasShadowUniform) {
-        hasShadow = 1;
-    } else {
-        LightManager lm2;
-        lm2.CollectLights(world);
-        Light* shadowedLight = nullptr;
-        int shadowTypeInt = 0;
-        for (auto* l : lm2.GetActiveLights()) {
-            if (l && l->GetType() == LightType::Directional && l->GetCastShadows()) {
-                shadowedLight = l; shadowTypeInt = 0; break;
-            }
-        }
-        if (!shadowedLight) {
-            for (auto* l : lm2.GetActiveLights()) {
-                if (l && l->GetType() == LightType::Spot && l->GetCastShadows()) {
-                    shadowedLight = l; shadowTypeInt = 2; break;
-                }
-            }
-        }
-        if (!shadowedLight) {
-            for (auto* l : lm2.GetActiveLights()) {
-                if (l && l->GetType() == LightType::Point && l->GetCastShadows()) {
-                    shadowedLight = l; shadowTypeInt = 1; break;
-                }
-            }
-        }
-        if (shadowedLight && shadowedLight->GetShadowMap()) {
-            shadowedLight->InitializeShadowMap();
-            auto sm = shadowedLight->GetShadowMap();
-            auto fb = shadowedLight->GetShadowFramebuffer();
-            if (sm && fb) {
-                hasShadow = 1;
-                if (shadowTypeInt == 1) {
-                    sm->Bind(5);
-                    m_forwardShader->SetInt("shadowCubeMap", 5);
-                    m_forwardShader->SetInt("shadowLightType", 1);
-                    m_forwardShader->SetVector3("shadowLightPos", shadowedLight->GetPosition());
-                    m_forwardShader->SetFloat("shadowNear", shadowedLight->GetData().shadowNearPlane);
-                    m_forwardShader->SetFloat("shadowFar", shadowedLight->GetData().shadowFarPlane);
-                    m_forwardShader->SetFloat("shadowBias", shadowedLight->GetShadowBias());
-                    float texelSize = 1.0f / static_cast<float>(shadowedLight->GetShadowMapSize());
-                    m_forwardShader->SetFloat("shadowTexelSize", texelSize);
-                } else {
-                    Matrix4 lightSpace = shadowedLight->GetLightSpaceMatrix();
-                    sm->Bind(5);
-                    m_forwardShader->SetInt("shadowMap", 5);
-                    m_forwardShader->SetInt("shadowLightType", shadowTypeInt);
-                    m_forwardShader->SetMatrix4("lightSpaceMatrix", lightSpace);
-                    m_forwardShader->SetFloat("shadowBias", shadowedLight->GetShadowBias());
-                    float texelSize = 1.0f / static_cast<float>(shadowedLight->GetShadowMapSize());
-                    m_forwardShader->SetFloat("shadowTexelSize", texelSize);
-                }
-            }
-        }
-    }
-    m_forwardShader->SetInt("hasShadow", hasShadow);
     
     int entitiesRendered = 0;
     
@@ -790,38 +724,9 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
 
     LightManager lm;
     lm.CollectLights(world);
+    auto act = lm.GetActiveLights();
+    if (act.empty()) return;
 
-    Light* shadowLight = nullptr;
-    for (auto* l : lm.GetActiveLights()) {
-        if (l && l->GetType() == LightType::Directional && l->GetCastShadows()) {
-            shadowLight = l;
-            break;
-        }
-    }
-    if (!shadowLight) {
-        for (auto* l : lm.GetActiveLights()) {
-            if (l && l->GetType() == LightType::Spot && l->GetCastShadows()) {
-                shadowLight = l;
-                break;
-            }
-        }
-    }
-    if (!shadowLight) {
-        for (auto* l : lm.GetActiveLights()) {
-            if (l && l->GetType() == LightType::Point && l->GetCastShadows()) {
-                shadowLight = l;
-                break;
-            }
-        }
-    }
-    if (!shadowLight) return;
-
-    shadowLight->InitializeShadowMap();
-    auto fb = shadowLight->GetShadowFramebuffer();
-    auto sm = shadowLight->GetShadowMap();
-    if (!fb || !sm) return;
-
-    int sz = shadowLight->GetData().shadowMapSize;
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
@@ -843,30 +748,63 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
         )";
         m_depthShader->LoadFromSource(vsrc, fsrc);
     }
-
     m_depthShader->Use();
 
-    if (shadowLight->GetType() == LightType::Point) {
-        static const Vector3 dirs[6] = {
-            Vector3(1,0,0), Vector3(-1,0,0), Vector3(0,1,0),
-            Vector3(0,-1,0), Vector3(0,0,1), Vector3(0,0,-1)
-        };
-        static const Vector3 ups[6] = {
-            Vector3(0,-1,0), Vector3(0,-1,0), Vector3(0,0,1),
-            Vector3(0,0,-1), Vector3(0,-1,0), Vector3(0,-1,0)
-        };
-        Matrix4 proj = shadowLight->GetProjectionMatrix();
-    size_t shadowDrawnThisFace = 0;
+    for (auto* shadowLight : act) {
+        if (!shadowLight || !shadowLight->GetCastShadows()) continue;
+        shadowLight->InitializeShadowMap();
+        auto fb = shadowLight->GetShadowFramebuffer();
+        auto sm = shadowLight->GetShadowMap();
+        if (!fb || !sm) continue;
 
-        Vector3 lp = shadowLight->GetPosition();
-        for (int face = 0; face < 6; ++face) {
+        int sz = shadowLight->GetData().shadowMapSize;
+
+        if (shadowLight->GetType() == LightType::Point) {
+            static const Vector3 dirs[6] = {
+                Vector3(1,0,0), Vector3(-1,0,0), Vector3(0,1,0),
+                Vector3(0,-1,0), Vector3(0,0,1), Vector3(0,0,-1)
+            };
+            static const Vector3 ups[6] = {
+                Vector3(0,-1,0), Vector3(0,-1,0), Vector3(0,0,1),
+                Vector3(0,0,-1), Vector3(0,-1,0), Vector3(0,-1,0)
+            };
+            Matrix4 proj = shadowLight->GetProjectionMatrix();
+
+            Vector3 lp = shadowLight->GetPosition();
+            for (int face = 0; face < 6; ++face) {
+                size_t shadowDrawnThisFace = 0;
+                fb->Bind();
+                fb->AttachDepthCubeFace(sm, face);
+                glViewport(0, 0, sz, sz);
+                glClear(GL_DEPTH_BUFFER_BIT);
+
+                Matrix4 view = Matrix4::LookAt(lp, lp + dirs[face], ups[face]);
+                Matrix4 lightSpace = proj * view;
+                m_depthShader->SetMatrix4("lightSpaceMatrix", lightSpace);
+
+                for (const auto& e : world->GetEntities()) {
+                    auto* t = world->GetComponent<TransformComponent>(e);
+                    auto* mc = world->GetComponent<MeshComponent>(e);
+                    if (!t || !mc) continue;
+                    auto mesh = mc->GetMesh();
+                    if (!mesh) continue;
+
+                    Matrix4 model = t->transform.GetLocalToWorldMatrix();
+                    m_depthShader->SetMatrix4("model", model);
+                    ++shadowDrawnThisFace;
+
+                    mesh->Draw();
+                }
+                Logger::Debug(std::string("Shadow pass (point) face ") + std::to_string(face) + " drew " + std::to_string(shadowDrawnThisFace) + " meshes");
+            }
+            fb->Unbind();
+        } else {
             fb->Bind();
-            fb->AttachDepthCubeFace(sm, face);
             glViewport(0, 0, sz, sz);
             glClear(GL_DEPTH_BUFFER_BIT);
+            size_t shadowDrawn = 0;
 
-            Matrix4 view = Matrix4::LookAt(lp, lp + dirs[face], ups[face]);
-            Matrix4 lightSpace = proj * view;
+            Matrix4 lightSpace = shadowLight->GetLightSpaceMatrix();
             m_depthShader->SetMatrix4("lightSpaceMatrix", lightSpace);
 
             for (const auto& e : world->GetEntities()) {
@@ -878,40 +816,13 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
 
                 Matrix4 model = t->transform.GetLocalToWorldMatrix();
                 m_depthShader->SetMatrix4("model", model);
-                ++shadowDrawnThisFace;
+                ++shadowDrawn;
 
                 mesh->Draw();
             }
-            Logger::Debug(std::string("Shadow pass (point) face ") + std::to_string(face) + " drew " + std::to_string(shadowDrawnThisFace) + " meshes");
-
+            Logger::Debug("Shadow pass drew " + std::to_string(shadowDrawn) + " meshes");
+            fb->Unbind();
         }
-        fb->Unbind();
-    } else {
-        fb->Bind();
-        glViewport(0, 0, sz, sz);
-        glClear(GL_DEPTH_BUFFER_BIT);
-        size_t shadowDrawn = 0;
-
-
-        Matrix4 lightSpace = shadowLight->GetLightSpaceMatrix();
-        m_depthShader->SetMatrix4("lightSpaceMatrix", lightSpace);
-
-        for (const auto& e : world->GetEntities()) {
-            auto* t = world->GetComponent<TransformComponent>(e);
-            auto* mc = world->GetComponent<MeshComponent>(e);
-            if (!t || !mc) continue;
-            auto mesh = mc->GetMesh();
-            if (!mesh) continue;
-
-            Matrix4 model = t->transform.GetLocalToWorldMatrix();
-            m_depthShader->SetMatrix4("model", model);
-            ++shadowDrawn;
-
-            mesh->Draw();
-        }
-        Logger::Debug("Shadow pass drew " + std::to_string(shadowDrawn) + " meshes");
-
-        fb->Unbind();
     }
 
     glCullFace(GL_BACK);

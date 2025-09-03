@@ -551,8 +551,11 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
         m_forwardShader->SetVector3("shadowLightPos", shadowLightPosUniform);
         m_forwardShader->SetFloat("shadowNear", shadowNearUniform);
         m_forwardShader->SetFloat("shadowFar", shadowFarUniform);
-        m_forwardShader->SetInt("shadowMap", 5);
-        m_forwardShader->SetInt("shadowCubeMap", 5);
+        if (shadowLightTypeUniform == 1) {
+            m_forwardShader->SetInt("shadowCubeMap", 5);
+        } else {
+            m_forwardShader->SetInt("shadowMap", 5);
+        }
     }
     
     m_forwardShader->Use();

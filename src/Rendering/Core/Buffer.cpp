@@ -108,6 +108,8 @@ void VertexArray::AddVertexBuffer(const Buffer& vertexBuffer, const std::vector<
 }
 
 void VertexArray::SetIndexBuffer(const Buffer& indexBuffer) {
+    Bind();
+    indexBuffer.Bind();
     Logger::Info("VertexArray index buffer set");
     m_indexCount = static_cast<unsigned int>(indexBuffer.GetSize() / sizeof(unsigned int));
 }

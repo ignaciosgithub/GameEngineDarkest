@@ -70,10 +70,22 @@ VertexArray::~VertexArray() {
 
 void VertexArray::Bind() const {
     glBindVertexArray(m_arrayID);
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR) {
+        Logger::Error("OpenGL error in VertexArray::Bind for VAO " + std::to_string(m_arrayID) + ": " + std::to_string(err));
+    } else {
+        Logger::Debug("VertexArray::Bind VAO " + std::to_string(m_arrayID));
+    }
 }
 
 void VertexArray::Unbind() const {
     glBindVertexArray(0);
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR) {
+        Logger::Error("OpenGL error in VertexArray::Unbind: " + std::to_string(err));
+    } else {
+        Logger::Debug("VertexArray::Unbind");
+    }
 }
 
 void VertexArray::AddVertexBuffer(const Buffer& vertexBuffer, const std::vector<unsigned int>& layout) {

@@ -811,7 +811,7 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
     int sz = shadowLight->GetData().shadowMapSize;
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
+    glCullFace(GL_BACK);
 
     if (!m_depthShader) {
         m_depthShader = std::make_shared<Shader>();
@@ -843,6 +843,8 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
             Vector3(0,0,-1), Vector3(0,-1,0), Vector3(0,-1,0)
         };
         Matrix4 proj = shadowLight->GetProjectionMatrix();
+    size_t shadowDrawnThisFace = 0;
+
         Vector3 lp = shadowLight->GetPosition();
         for (int face = 0; face < 6; ++face) {
             fb->Bind();
@@ -863,14 +865,20 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
 
                 Matrix4 model = t->transform.GetLocalToWorldMatrix();
                 m_depthShader->SetMatrix4("model", model);
+                ++shadowDrawnThisFace;
+
                 mesh->Draw();
             }
+            Logger::Debug(std::string("Shadow pass (point) face ") + std::to_string(face) + " drew " + std::to_string(shadowDrawnThisFace) + " meshes");
+
         }
         fb->Unbind();
     } else {
         fb->Bind();
         glViewport(0, 0, sz, sz);
         glClear(GL_DEPTH_BUFFER_BIT);
+        size_t shadowDrawn = 0;
+
 
         Matrix4 lightSpace = shadowLight->GetLightSpaceMatrix();
         m_depthShader->SetMatrix4("lightSpaceMatrix", lightSpace);
@@ -884,8 +892,12 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
 
             Matrix4 model = t->transform.GetLocalToWorldMatrix();
             m_depthShader->SetMatrix4("model", model);
+            ++shadowDrawn;
+
             mesh->Draw();
         }
+        Logger::Debug("Shadow pass drew " + std::to_string(shadowDrawn) + " meshes");
+
         fb->Unbind();
     }
 

@@ -62,6 +62,9 @@ private:
     
     // Multi-sample occlusion for soft shadows
     float CalculateSoftShadowOcclusion(const Light* light, const Vector3& targetPoint, World* world);
+    // Pruned occluder collection using segment AABB and octree when available
+    std::vector<RigidBody*> GetOccludingBodiesForSegment(const Vector3& start, const Vector3& end);
+
     std::vector<Vector3> GenerateSamplePoints(const Vector3& lightPos, const Vector3& targetPoint, int sampleCount);
 };
 

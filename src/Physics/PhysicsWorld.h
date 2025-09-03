@@ -59,6 +59,11 @@ namespace GameEngine {
         PhysicsWorld2D* GetPhysicsWorld2D() const { return m_physicsWorld2D.get(); }
         void SetEnable2DPhysics(bool enable) { m_enable2DPhysics = enable; }
         bool IsEnable2DPhysics() const { return m_enable2DPhysics; }
+
+        // Read-only accessors for occlusion/raycast queries
+        const std::vector<RigidBody*>& GetRigidBodies() const { return m_rigidBodies; }
+        const std::vector<ColliderComponent*>& GetStaticColliders() const { return m_staticColliders; }
+        const Octree* GetOctree() const { return m_octree.get(); }
         
     private:
         std::vector<RigidBody*> m_rigidBodies;
@@ -80,7 +85,7 @@ namespace GameEngine {
         bool m_enable2DPhysics = true;
         
         // Physics timestep settings
-        int m_maxPhysicsStepsPerFrame = 5; // Prevent spiral of death
+        int m_maxPhysicsStepsPerFrame = 5;
         
         bool m_initialized = false;
     };

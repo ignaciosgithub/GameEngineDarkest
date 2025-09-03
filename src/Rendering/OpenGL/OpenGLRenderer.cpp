@@ -14,6 +14,13 @@ OpenGLRenderer::~OpenGLRenderer() = default;
 bool OpenGLRenderer::Initialize() {
     Logger::Info("Initializing OpenGL Renderer...");
     
+#ifdef GL_KHR_debug
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback([](GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar* message, const void*) {
+        GameEngine::Logger::Error(std::string("[GL DEBUG] ") + message);
+    }, nullptr);
+#endif
+
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     

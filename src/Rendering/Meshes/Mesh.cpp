@@ -207,7 +207,6 @@ Mesh Mesh::CreatePlane(float width, float height) {
     
     mesh.SetVertices(vertices);
     mesh.SetIndices(indices);
-    mesh.Upload();
     
     Logger::Debug("Created plane mesh with " + std::to_string(vertices.size()) + " vertices");
     return mesh;

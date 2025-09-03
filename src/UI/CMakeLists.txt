@@ -39,18 +39,50 @@ if(WIN32)
         if(TARGET imgui::imgui_opengl3)
             target_link_libraries(UI PUBLIC imgui::imgui_opengl3)
         endif()
+        if(NOT TARGET imgui::imgui_glfw OR NOT TARGET imgui::imgui_opengl3)
+            get_target_property(_imgui_inc imgui::imgui INTERFACE_INCLUDE_DIRECTORIES)
+            if(_imgui_inc)
+                target_include_directories(UI PUBLIC "${_imgui_inc}/backends")
+            endif()
+            if(DEFINED VCPKG_TARGET_TRIPLET)
+                target_include_directories(UI PUBLIC
+                    "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/include/imgui/backends"
+                )
+                if(DEFINED VCPKG_ROOT)
+                    target_include_directories(UI PUBLIC
+                        "${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/include/imgui/backends"
+                    )
+                else()
+                    get_filename_component(_repo_root "${CMAKE_SOURCE_DIR}" DIRECTORY)
+                    target_include_directories(UI PUBLIC
+                        "${_repo_root}/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/include/imgui/backends"
+                    )
+                endif()
+            endif()
+        endif()
     else()
         target_link_libraries(UI PUBLIC imgui)
+        get_target_property(_imgui_inc imgui INTERFACE_INCLUDE_DIRECTORIES)
+        if(_imgui_inc)
+            target_include_directories(UI PUBLIC "${_imgui_inc}/backends")
+        endif()
+        if(DEFINED VCPKG_TARGET_TRIPLET)
+            target_include_directories(UI PUBLIC
+                "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/include/imgui/backends"
+            )
+            if(DEFINED VCPKG_ROOT)
+                target_include_directories(UI PUBLIC
+                    "${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/include/imgui/backends"
+                )
+            else()
+                get_filename_component(_repo_root "${CMAKE_SOURCE_DIR}" DIRECTORY)
+                target_include_directories(UI PUBLIC
+                    "${_repo_root}/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/include/imgui/backends"
+                )
+            endif()
+        endif()
     endif()
 else()
-# Fallback include for ImGui backends on Windows if imported targets don't expose backends include dir
-if(WIN32 AND TARGET imgui::imgui AND NOT TARGET imgui::imgui_glfw)
-    get_target_property(_imgui_inc imgui::imgui INTERFACE_INCLUDE_DIRECTORIES)
-    if(_imgui_inc)
-        target_include_directories(UI PUBLIC "${_imgui_inc}/backends")
-    endif()
-endif()
-
     target_link_libraries(UI PUBLIC imgui)
 endif()
 

@@ -34,17 +34,38 @@ bool RayCaster::Raycast3D(const Ray3D& ray, RayHit3D& hit) {
         Logger::Warning("RayCaster::Raycast3D - PhysicsWorld3D is null");
         return false;
     }
-    
     hit.hit = false;
     hit.distance = ray.maxDistance;
-    
-    Logger::Debug("Performing 3D raycast from (" + std::to_string(ray.origin.x) + ", " + 
-                 std::to_string(ray.origin.y) + ", " + std::to_string(ray.origin.z) + 
-                 ") in direction (" + std::to_string(ray.direction.x) + ", " + 
-                 std::to_string(ray.direction.y) + ", " + std::to_string(ray.direction.z) + ")");
-    
-    
-    return hit.hit;
+
+    Vector3 rayEnd = ray.origin + ray.direction * ray.maxDistance;
+
+    float closest = ray.maxDistance;
+    RigidBody* closestBody = nullptr;
+    ContinuousCollisionInfo closestInfo{};
+
+    const auto& bodies = m_physicsWorld3D->GetRigidBodies();
+    for (RigidBody* body : bodies) {
+        if (!body) continue;
+        ContinuousCollisionInfo info{};
+        if (ContinuousCollisionDetection::RaycastAgainstBody(ray.origin, rayEnd, body, info)) {
+            float tdist = info.timeOfImpact * ray.maxDistance;
+            if (tdist >= 0.0f && tdist < closest) {
+                closest = tdist;
+                closestBody = body;
+                closestInfo = info;
+            }
+        }
+    }
+
+    if (closestBody) {
+        hit.hit = true;
+        hit.point = closestInfo.contactPoint;
+        hit.normal = closestInfo.normal;
+        hit.distance = closest;
+        hit.rigidBody = closestBody;
+        return true;
+    }
+    return false;
 }
 
 bool RayCaster::Raycast3D(const Vector3& origin, const Vector3& direction, RayHit3D& hit, float maxDistance) {

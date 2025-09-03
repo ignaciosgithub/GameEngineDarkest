@@ -35,54 +35,79 @@ void LightOcclusion::Shutdown() {
 
 float LightOcclusion::CalculateOcclusion(const Light* light, const Vector3& targetPoint, World* world) {
     if (!m_occlusionEnabled || !light || !world || !m_physicsWorld) {
-        return 1.0f; // No occlusion
+        return 1.0f;
     }
-    
-    Vector3 lightPos = light->GetPosition();
-    if (light->GetType() == LightType::Directional) {
-        Vector3 lightDir = light->GetDirection().Normalized();
-        lightPos = targetPoint - lightDir * m_maxOcclusionDistance;
+
+    Vector3 lightPos;
+    Vector3 lightDir;
+    float maxDist = m_maxOcclusionDistance;
+
+    switch (light->GetType()) {
+        case LightType::Directional: {
+            lightDir = light->GetDirection().Normalized();
+            lightPos = targetPoint - lightDir * maxDist;
+            break;
+        }
+        case LightType::Point:
+        case LightType::Spot: {
+            lightPos = light->GetPosition();
+            lightDir = (targetPoint - lightPos).Normalized();
+            maxDist = (targetPoint - lightPos).Length();
+            if (maxDist > light->GetRange()) {
+                return 0.0f;
+            }
+            break;
+        }
+        default:
+            lightPos = targetPoint;
+            lightDir = Vector3::Zero;
+            break;
     }
-    
-    float distance = (targetPoint - lightPos).Length();
-    if (distance > m_maxOcclusionDistance) {
-        return 0.0f; // Too far, fully occluded
+
+    if (light->GetType() == LightType::Spot) {
+        Vector3 spotDir = light->GetDirection().Normalized();
+        float d = std::max(-1.0f, std::min(1.0f, lightDir.Dot(spotDir)));
+        float angle = std::acos(d);
+        float outer = light->GetOuterConeAngle() * (3.14159265f / 180.0f);
+        if (angle > outer) {
+            return 0.0f;
+        }
     }
-    
+
     if (m_shadowSoftness > 0.0f) {
         return CalculateSoftShadowOcclusion(light, targetPoint, world);
     }
-    
+
     OcclusionRayHit hit;
     if (RaycastForOcclusion(lightPos, targetPoint, hit)) {
-        if (hit.distance < distance - 0.01f) { // Small epsilon to avoid self-intersection
-            return 0.0f; // Fully occluded
+        if (hit.distance < maxDist - 0.01f) {
+            return 0.0f;
         }
     }
-    
-    return 1.0f; // Not occluded
+
+    return 1.0f;
 }
 
 bool LightOcclusion::RaycastForOcclusion(const Vector3& start, const Vector3& end, OcclusionRayHit& hit) {
     if (!m_physicsWorld) {
         return false;
     }
-    
+
     hit.hit = false;
-    hit.distance = (end - start).Length();
-    
-    auto occludingBodies = GetOccludingBodies(nullptr); // We'll get all bodies for now
-    
-    float closestDistance = hit.distance;
+    float totalLen = (end - start).Length();
+    hit.distance = totalLen;
+
+    auto occludingBodies = GetOccludingBodies(nullptr);
+
+    float closestDistance = totalLen;
     bool foundHit = false;
-    
+
     for (RigidBody* body : occludingBodies) {
         if (!body || !IsBodyOccluding(body)) continue;
-        
+
         ContinuousCollisionInfo collisionInfo;
         if (ContinuousCollisionDetection::RaycastAgainstBody(start, end, body, collisionInfo)) {
-            float hitDistance = collisionInfo.timeOfImpact * (end - start).Length();
-            
+            float hitDistance = std::max(0.0f, std::min(totalLen, collisionInfo.timeOfImpact * totalLen));
             if (hitDistance < closestDistance) {
                 closestDistance = hitDistance;
                 hit.hit = true;
@@ -94,7 +119,7 @@ bool LightOcclusion::RaycastForOcclusion(const Vector3& start, const Vector3& en
             }
         }
     }
-    
+
     return foundHit;
 }
 
@@ -121,9 +146,12 @@ float LightOcclusion::CalculateShadowAttenuation(const Light* light, const Vecto
 
 std::vector<RigidBody*> LightOcclusion::GetOccludingBodies(World* /* world */) {
     std::vector<RigidBody*> occludingBodies;
-    
-    
-    
+    if (!m_physicsWorld) return occludingBodies;
+    const auto& bodies = m_physicsWorld->GetRigidBodies();
+    occludingBodies.reserve(bodies.size());
+    for (RigidBody* b : bodies) {
+        if (b && IsBodyOccluding(b)) occludingBodies.push_back(b);
+    }
     return occludingBodies;
 }
 
@@ -143,39 +171,57 @@ float LightOcclusion::CalculateDistanceAttenuation(float distance, float maxDist
 }
 
 float LightOcclusion::CalculateSoftShadowOcclusion(const Light* light, const Vector3& targetPoint, World* /* world */) {
-    const int sampleCount = 4; // Number of samples for soft shadows
-    
-    Vector3 lightPos = light->GetPosition();
+    const int sampleCount = 6;
+    Vector3 baseLightPos;
+    Vector3 baseDir;
+    float baseMaxDist = m_maxOcclusionDistance;
+
     if (light->GetType() == LightType::Directional) {
-        Vector3 lightDir = light->GetDirection().Normalized();
-        lightPos = targetPoint - lightDir * m_maxOcclusionDistance;
+        baseDir = light->GetDirection().Normalized();
+        baseLightPos = targetPoint - baseDir * baseMaxDist;
+    } else {
+        baseLightPos = light->GetPosition();
+        baseDir = (targetPoint - baseLightPos).Normalized();
+        baseMaxDist = (targetPoint - baseLightPos).Length();
+        if (baseMaxDist > light->GetRange()) return 0.0f;
     }
-    
-    std::vector<Vector3> samplePoints = GenerateSamplePoints(lightPos, targetPoint, sampleCount);
-    
-    float totalOcclusion = 0.0f;
-    int validSamples = 0;
-    
-    for (const Vector3& samplePoint : samplePoints) {
+
+    std::vector<Vector3> samplePoints = GenerateSamplePoints(baseLightPos, targetPoint, sampleCount);
+
+    int litSamples = 0;
+    for (const Vector3& sp : samplePoints) {
         OcclusionRayHit hit;
-        float sampleOcclusion = 1.0f;
-        
-        if (RaycastForOcclusion(samplePoint, targetPoint, hit)) {
-            float distance = (targetPoint - samplePoint).Length();
-            if (hit.distance < distance - 0.01f) {
-                sampleOcclusion = 0.0f;
-            }
+        bool blocked = false;
+        if (RaycastForOcclusion(sp, targetPoint, hit)) {
+            float d = (targetPoint - sp).Length();
+            if (hit.distance < d - 0.01f) blocked = true;
         }
-        
-        totalOcclusion += sampleOcclusion;
-        validSamples++;
+        if (!blocked) ++litSamples;
     }
-    
-    if (validSamples == 0) {
-        return 1.0f; // No valid samples, assume no occlusion
+
+    float visibility = (float)litSamples / (float)std::max(1, sampleCount);
+
+    if (light->GetType() == LightType::Point || light->GetType() == LightType::Spot) {
+        float dist = (targetPoint - light->GetPosition()).Length();
+        visibility *= CalculateDistanceAttenuation(dist, light->GetRange());
     }
-    
-    return totalOcclusion / validSamples;
+
+    if (light->GetType() == LightType::Spot) {
+        Vector3 spotDir = light->GetDirection().Normalized();
+        Vector3 L = (targetPoint - light->GetPosition()).Normalized();
+        float d = std::max(-1.0f, std::min(1.0f, L.Dot(spotDir)));
+        float angle = std::acos(d);
+        float inner = light->GetInnerConeAngle() * (3.14159265f / 180.0f);
+        float outer = light->GetOuterConeAngle() * (3.14159265f / 180.0f);
+        if (angle > outer) {
+            visibility = 0.0f;
+        } else if (angle > inner) {
+            float t = (angle - inner) / std::max(1e-4f, (outer - inner));
+            visibility *= (1.0f - t);
+        }
+    }
+
+    return visibility;
 }
 
 std::vector<Vector3> LightOcclusion::GenerateSamplePoints(const Vector3& lightPos, const Vector3& targetPoint, int sampleCount) {

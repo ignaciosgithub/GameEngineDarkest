@@ -38,7 +38,7 @@ void Mesh::Upload() {
     
     m_vertexBuffer->SetData(m_vertices.data(), m_vertices.size() * sizeof(Vertex));
     
-    std::vector<unsigned int> layout = {3, 3, 3, 3};
+    std::vector<unsigned int> layout = {3, 3, 3};
     m_vertexArray->AddVertexBuffer(*m_vertexBuffer, layout);
     
     if (!m_indices.empty()) {

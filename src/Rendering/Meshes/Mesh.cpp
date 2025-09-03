@@ -60,6 +60,9 @@ void Mesh::Upload() {
 void Mesh::Bind() const {
     if (m_vertexArray) {
         m_vertexArray->Bind();
+        if (m_indexBuffer) {
+            m_indexBuffer->Bind();
+        }
     }
 }
 

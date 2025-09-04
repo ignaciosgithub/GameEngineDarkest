@@ -1,15 +1,25 @@
 #include "LightOcclusion.h"
 #include "Light.h"
 #include "../../Core/ECS/World.h"
-#include "../../Core/Components/RigidBodyComponent.h"
 #include "../../Core/Logging/Logger.h"
+#include "../../Physics/Spatial/Octree.h"
+#include "../../Physics/PhysicsWorld.h"
+#include "../../Physics/RigidBody/RigidBody.h"
+#include "../../Core/Components/MeshComponent.h"
+#include "../../Core/Components/TransformComponent.h"
+#include "../Meshes/Mesh.h"
+#include "../../Core/Components/RigidBodyComponent.h"
 #include "../../Physics/Collision/ContinuousCollisionDetection.h"
 #include <algorithm>
 #include <cmath>
-#include "../../Physics/Spatial/Octree.h"
-
 
 namespace GameEngine {
+
+static inline unsigned long long EdgeKey(unsigned int a, unsigned int b) {
+    unsigned int x = a < b ? a : b;
+    unsigned int y = a < b ? b : a;
+    return (static_cast<unsigned long long>(x) << 32) | static_cast<unsigned long long>(y);
+}
 
 LightOcclusion::LightOcclusion() {
     Logger::Debug("LightOcclusion created");
@@ -230,36 +240,161 @@ float LightOcclusion::CalculateSoftShadowOcclusion(const Light* light, const Vec
 std::vector<Vector3> LightOcclusion::GenerateSamplePoints(const Vector3& lightPos, const Vector3& targetPoint, int sampleCount) {
     std::vector<Vector3> samplePoints;
     samplePoints.reserve(sampleCount);
-    
     samplePoints.push_back(lightPos);
-    
     if (sampleCount <= 1) {
         return samplePoints;
     }
-    
     Vector3 toLightDir = (lightPos - targetPoint).Normalized();
     Vector3 perpendicular1 = toLightDir.Cross(Vector3::Up).Normalized();
     Vector3 perpendicular2 = toLightDir.Cross(perpendicular1).Normalized();
-    
     float sampleRadius = m_shadowSoftness;
-    
     for (int i = 1; i < sampleCount; ++i) {
         float angle = (2.0f * 3.14159f * i) / (sampleCount - 1);
         float radius = sampleRadius * std::sqrt(static_cast<float>(i) / (sampleCount - 1));
-        
-        Vector3 offset = perpendicular1 * (radius * std::cos(angle)) + 
-                        perpendicular2 * (radius * std::sin(angle));
-        
+        Vector3 offset = perpendicular1 * (radius * std::cos(angle)) + perpendicular2 * (radius * std::sin(angle));
         samplePoints.push_back(lightPos + offset);
     }
-    
     return samplePoints;
+}
+
+const LightOcclusion::MeshAdjacency& LightOcclusion::GetOrBuildAdjacency(const Mesh* mesh) {
+    auto it = m_adjacencyCache.find(mesh);
+    if (it != m_adjacencyCache.end() && it->second.built) return it->second;
+    MeshAdjacency adj;
+    const auto& verts = mesh->GetVertices();
+    adj.positions.reserve(verts.size());
+    for (const auto& v : verts) adj.positions.push_back(v.position);
+    adj.indices = mesh->GetIndices();
+    for (size_t i = 0; i + 2 < adj.indices.size(); i += 3) {
+        unsigned int i0 = adj.indices[i];
+        unsigned int i1 = adj.indices[i + 1];
+        unsigned int i2 = adj.indices[i + 2];
+        adj.edgeFaceCount[EdgeKey(i0, i1)] += 1;
+        adj.edgeFaceCount[EdgeKey(i1, i2)] += 1;
+        adj.edgeFaceCount[EdgeKey(i2, i0)] += 1;
+    }
+    adj.built = true;
+    auto ins = m_adjacencyCache.emplace(mesh, std::move(adj));
+    return ins.first->second;
+}
+
+void LightOcclusion::CollectBoundaryVerticesForLight(const Light* light, World* world, std::vector<ShadowVertex>& out) {
+    out.clear();
+    if (!light || !world) return;
+
+    Vector3 lightPos = light->GetPosition();
+    Vector3 lightDir = light->GetDirection().Normalized();
+
+    for (const auto& e : world->GetEntities()) {
+        auto* tc = world->GetComponent<TransformComponent>(e);
+        auto* mc = world->GetComponent<MeshComponent>(e);
+        if (!tc || !mc || !mc->HasMesh()) continue;
+
+        const Mesh* mesh = mc->GetMesh().get();
+        const auto& adj = GetOrBuildAdjacency(mesh);
+        const auto& idx = adj.indices;
+        const auto& pos = adj.positions;
+
+        Matrix4 model = tc->transform.GetLocalToWorldMatrix();
+
+        for (size_t i = 0; i + 2 < idx.size(); i += 3) {
+            unsigned int i0 = idx[i], i1 = idx[i + 1], i2 = idx[i + 2];
+            Vector3 p0 = model * pos[i0];
+            Vector3 p1 = model * pos[i1];
+            Vector3 p2 = model * pos[i2];
+            Vector3 n = (p1 - p0).Cross(p2 - p0).Normalized();
+
+            float facing = (light->GetType() == LightType::Directional)
+                ? n.Dot(-lightDir)
+                : n.Dot((p0 - lightPos).Normalized());
+            if (facing <= 0.0f) continue;
+
+            auto push = [&](const Vector3& v) {
+                ShadowVertex sv;
+                sv.positionWS = v;
+                sv.dirFromLight = (light->GetType() == LightType::Directional) ? -lightDir : (v - lightPos).Normalized();
+                out.push_back(sv);
+            };
+
+            int c01 = 0, c12 = 0, c20 = 0;
+            auto it01 = adj.edgeFaceCount.find(EdgeKey(i0, i1)); if (it01 != adj.edgeFaceCount.end()) c01 = it01->second;
+            auto it12 = adj.edgeFaceCount.find(EdgeKey(i1, i2)); if (it12 != adj.edgeFaceCount.end()) c12 = it12->second;
+            auto it20 = adj.edgeFaceCount.find(EdgeKey(i2, i0)); if (it20 != adj.edgeFaceCount.end()) c20 = it20->second;
+
+            if (c01 <= 1) { push(p0); push(p1); }
+            if (c12 <= 1) { push(p1); push(p2); }
+            if (c20 <= 1) { push(p2); push(p0); }
+        }
+    }
+}
+
+void LightOcclusion::BuildAreasFromBoundaryVertices(const Light* , const std::vector<ShadowVertex>& seeds, std::vector<ShadowArea>& areas) {
+    areas.clear();
+    if (seeds.size() < 3) return;
+    Vector3 centroid = Vector3::Zero;
+    for (const auto& s : seeds) centroid += s.positionWS;
+    centroid /= static_cast<float>(seeds.size());
+    std::vector<std::pair<float, ShadowVertex>> sorted;
+    sorted.reserve(seeds.size());
+    Vector3 ref = seeds[0].positionWS - centroid;
+    Vector3 up = Vector3::Up;
+    for (const auto& s : seeds) {
+        Vector3 d = s.positionWS - centroid;
+        float ang = atan2f(ref.Cross(d).Dot(up), ref.Dot(d));
+        sorted.emplace_back(ang, s);
+    }
+    std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b){ return a.first < b.first; });
+    ShadowArea area;
+    for (const auto& pr : sorted) area.vertices.push_back(pr.second);
+    if (area.vertices.size() >= 3) areas.push_back(std::move(area));
+}
+
+void LightOcclusion::ExtrudeAreasToVolumes(const Light* light, const std::vector<ShadowArea>& areas, std::vector<ShadowVolume>& volumes, float dirFar) {
+    volumes.clear();
+    for (const auto& a : areas) {
+        if (a.vertices.size() < 3) continue;
+        ShadowVolume vol;
+        vol.basePolygon.reserve(a.vertices.size());
+        vol.farPolygon.reserve(a.vertices.size());
+        for (const auto& sv : a.vertices) {
+            vol.basePolygon.push_back(sv.positionWS);
+            float fd = (light->GetType() == LightType::Directional) ? dirFar : light->GetRange();
+            if (light->GetType() == LightType::Spot) {
+                Vector3 L = (sv.positionWS - light->GetPosition()).Normalized();
+                float d = std::max(-1.0f, std::min(1.0f, L.Dot(light->GetDirection().Normalized())));
+                float ang = std::acos(d);
+                float outer = light->GetOuterConeAngle() * (3.14159265f / 180.0f);
+                if (ang > outer) continue;
+            }
+            vol.farPolygon.push_back(sv.positionWS + sv.dirFromLight * fd);
+        }
+        if (vol.basePolygon.size() >= 3 && vol.farPolygon.size() == vol.basePolygon.size()) {
+            volumes.push_back(std::move(vol));
+        }
+    }
+}
+
+void LightOcclusion::BuildShadowVolumesForLight(const Light* light, World* world, int lightIndex, float dirFar) {
+    if (!light || !world) return;
+    std::vector<ShadowVertex> boundary;
+    CollectBoundaryVerticesForLight(light, world, boundary);
+    std::vector<ShadowArea> areas;
+    BuildAreasFromBoundaryVertices(light, boundary, areas);
+    std::vector<ShadowVolume> vols;
+    ExtrudeAreasToVolumes(light, areas, vols, dirFar);
+    for (auto& v : vols) v.lightIndex = lightIndex;
+    m_lightVolumes[light] = std::move(vols);
+}
+
+const std::vector<ShadowVolume>* LightOcclusion::GetVolumesForLight(const Light* light) const {
+    auto it = m_lightVolumes.find(light);
+    if (it == m_lightVolumes.end()) return nullptr;
+    return &it->second;
 }
 
 std::vector<RigidBody*> LightOcclusion::GetOccludingBodiesForSegment(const Vector3& start, const Vector3& end) {
     std::vector<RigidBody*> result;
     if (!m_physicsWorld) return result;
-
     const Octree* oct = m_physicsWorld->GetOctree();
     if (!oct) {
         const auto& bodies = m_physicsWorld->GetRigidBodies();
@@ -269,17 +404,14 @@ std::vector<RigidBody*> LightOcclusion::GetOccludingBodiesForSegment(const Vecto
         }
         return result;
     }
-
     Vector3 segMin(std::min(start.x, end.x), std::min(start.y, end.y), std::min(start.z, end.z));
     Vector3 segMax(std::max(start.x, end.x), std::max(start.y, end.y), std::max(start.z, end.z));
     const float pad = 0.05f;
     segMin = segMin - Vector3(pad, pad, pad);
     segMax = segMax + Vector3(pad, pad, pad);
     AABB query(segMin, segMax);
-
     std::vector<RigidBody*> candidates;
     oct->Query(query, candidates);
-
     result.reserve(candidates.size());
     for (RigidBody* b : candidates) {
         if (b && IsBodyOccluding(b)) result.push_back(b);

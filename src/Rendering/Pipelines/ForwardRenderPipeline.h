@@ -5,8 +5,11 @@
 #include "../Core/FrameBuffer.h"
 #include "../Shaders/Shader.h"
 #include <memory>
+#include <vector>
 
 namespace GameEngine {
+
+class LightOcclusion;
 
 class ForwardRenderPipeline : public RenderPipeline {
 public:
@@ -51,6 +54,12 @@ private:
     
     bool m_transparencyEnabled = true;
     bool m_initialized = false;
+
+    // Shadow volume SSBOs and occlusion builder
+    unsigned int m_shadowVolumeHeadersSSBO = 0;
+    unsigned int m_shadowVolumeVerticesSSBO = 0;
+    int m_numVolumeHeadersLast = 0;
+    std::unique_ptr<LightOcclusion> m_lightOcclusion;
 };
 
 }

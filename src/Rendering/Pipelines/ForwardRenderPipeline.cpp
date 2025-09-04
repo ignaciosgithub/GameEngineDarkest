@@ -8,6 +8,7 @@
 #include "../Core/stb_image_write.h"
 #include "../Lighting/LightManager.h"
 #include "../Lighting/Light.h"
+#include "../Lighting/LightOcclusion.h"
 #include <string>
 #include <cstring>
 
@@ -99,6 +100,33 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform vec3 shadowLightPositions[32];      // for point
         uniform float shadowNearPlanes[32];         // for point
         uniform float shadowFarPlanes[32];          // for point
+
+        struct VolumeHeader { int lightIndex; int vertCount; int baseOffset; int farOffset; };
+        layout(std430, binding = 3) buffer ShadowVolumeHeaders { VolumeHeader headers[]; };
+        layout(std430, binding = 4) buffer ShadowVolumeVertices { vec4 vertices[]; };
+        uniform int numVolumeHeaders;
+
+        bool insidePrism(int vertCount, int baseOffset, int farOffset, vec3 P) {
+            if (vertCount < 3) return false;
+            for (int i = 0; i < vertCount; ++i) {
+                vec3 a0 = vertices[baseOffset + i].xyz;
+                vec3 a1 = vertices[baseOffset + ((i + 1) % vertCount)].xyz;
+                vec3 b0 = vertices[farOffset + i].xyz;
+                vec3 edge = a1 - a0;
+                vec3 extrude = b0 - a0;
+                vec3 n = normalize(cross(edge, extrude));
+                if (dot(n, P - a0) > 0.0) return false;
+            }
+            return true;
+        }
+
+        bool insideAnyLightVolume(int lightIdx, vec3 P) {
+            for (int h = 0; h < numVolumeHeaders; ++h) {
+                if (headers[h].lightIndex != lightIdx) continue;
+                if (insidePrism(headers[h].vertCount, headers[h].baseOffset, headers[h].farOffset, P)) return true;
+            }
+            return false;
+        }
         
         float DistributionGGX(vec3 N, vec3 H, float roughness) {
             float a      = roughness * roughness;
@@ -218,6 +246,9 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
                     } else {
                         shadow = ComputeShadowDir(i, FragPos, N, L);
                     }
+                }
+                if (insideAnyLightVolume(i, FragPos)) {
+                    shadow = 1.0;
                 }
                 
                 vec3 radiance = lightColors[i] * lightIntensities[i] * attenuation;
@@ -592,7 +623,74 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
         m_forwardShader->SetInt("lightTypes[" + indexStr + "]", lightData[i].type);
         m_forwardShader->SetFloat("lightRanges[" + indexStr + "]", lightData[i].range);
     }
-    
+
+    if (!m_lightOcclusion) {
+        m_lightOcclusion = std::make_unique<LightOcclusion>();
+        if (world->GetPhysicsWorld()) {
+            m_lightOcclusion->Initialize(world->GetPhysicsWorld());
+        } else {
+            Logger::Error("LightOcclusion cannot initialize: PhysicsWorld is null");
+        }
+    }
+    std::vector<unsigned int> headersCPU; // int-packed: lightIndex, vertCount, baseOffset, farOffset
+    std::vector<float> vertsCPU;          // vec4 packed as 4 floats per vertex
+
+    int totalHeaders = 0;
+    int baseOffset = 0;
+    int farOffset = 0;
+
+    for (size_t li = 0; li < actEmbed.size(); ++li) {
+        Light* l = actEmbed[li];
+        if (!l) continue;
+        float dirFar = 1000.0f;
+        m_lightOcclusion->BuildShadowVolumesForLight(l, world, static_cast<int>(li), dirFar);
+        const auto* vols = m_lightOcclusion->GetVolumesForLight(l);
+        if (!vols) continue;
+
+        for (const auto& v : *vols) {
+            int vc = static_cast<int>(v.basePolygon.size());
+            if (vc < 3) continue;
+
+            int thisBaseOffset = baseOffset;
+            int thisFarOffset = farOffset;
+
+            for (int k = 0; k < vc; ++k) {
+                const Vector3& bp = v.basePolygon[k];
+                vertsCPU.push_back(bp.x); vertsCPU.push_back(bp.y); vertsCPU.push_back(bp.z); vertsCPU.push_back(0.0f);
+            }
+            baseOffset += vc;
+
+            for (int k = 0; k < vc; ++k) {
+                const Vector3& fp = v.farPolygon[k];
+                vertsCPU.push_back(fp.x); vertsCPU.push_back(fp.y); vertsCPU.push_back(fp.z); vertsCPU.push_back(0.0f);
+            }
+            farOffset += vc;
+
+            headersCPU.push_back(static_cast<unsigned int>(v.lightIndex));
+            headersCPU.push_back(static_cast<unsigned int>(vc));
+            headersCPU.push_back(static_cast<unsigned int>(thisBaseOffset));
+            headersCPU.push_back(static_cast<unsigned int>(thisFarOffset));
+            totalHeaders++;
+        }
+    }
+
+    if (m_shadowVolumeHeadersSSBO == 0) {
+        glGenBuffers(1, &m_shadowVolumeHeadersSSBO);
+    }
+    if (m_shadowVolumeVerticesSSBO == 0) {
+        glGenBuffers(1, &m_shadowVolumeVerticesSSBO);
+    }
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_shadowVolumeHeadersSSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, headersCPU.size() * sizeof(unsigned int), headersCPU.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_shadowVolumeHeadersSSBO);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_shadowVolumeVerticesSSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, vertsCPU.size() * sizeof(float), vertsCPU.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_shadowVolumeVerticesSSBO);
+
+    m_forwardShader->SetInt("numVolumeHeaders", totalHeaders);
+
     Matrix4 invViewMatrix = m_renderData.viewMatrix.Inverted();
     Vector3 cameraPosition = Vector3(invViewMatrix.m[12], invViewMatrix.m[13], invViewMatrix.m[14]);
     m_forwardShader->SetVector3("viewPos", cameraPosition);

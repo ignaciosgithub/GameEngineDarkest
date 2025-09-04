@@ -604,7 +604,11 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     
     for (size_t i = 0; i < lightData.size() && i < MAX_LIGHTS; ++i) {
         std::string indexStr = std::to_string(i);
-        m_forwardShader->SetVector3("lightPositions[" + indexStr + "]", lightData[i].position);
+        if (lightData[i].type == 0) {
+            m_forwardShader->SetVector3("lightPositions[" + indexStr + "]", lightData[i].direction);
+        } else {
+            m_forwardShader->SetVector3("lightPositions[" + indexStr + "]", lightData[i].position);
+        }
         m_forwardShader->SetVector3("lightColors[" + indexStr + "]", lightData[i].color);
         m_forwardShader->SetFloat("lightIntensities[" + indexStr + "]", lightData[i].intensity);
         m_forwardShader->SetInt("lightTypes[" + indexStr + "]", lightData[i].type);

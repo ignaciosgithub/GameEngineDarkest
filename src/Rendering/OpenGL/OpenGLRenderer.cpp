@@ -15,10 +15,14 @@ bool OpenGLRenderer::Initialize() {
     Logger::Info("Initializing OpenGL Renderer...");
     
 #ifdef GL_KHR_debug
-    glEnable(GL_DEBUG_OUTPUT);
-    glDebugMessageCallback([](GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar* message, const void*) {
-        GameEngine::Logger::Error(std::string("[GL DEBUG] ") + message);
-    }, nullptr);
+    const char* flag = std::getenv("GE_GL_KHR_DEBUG");
+    if (flag && std::string(flag) == "1" && glDebugMessageCallback) {
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback([](GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar* message, const void*) {
+            GameEngine::Logger::Error(std::string("[GL DEBUG] ") + message);
+        }, nullptr);
+    }
 #endif
 
     glEnable(GL_DEPTH_TEST);

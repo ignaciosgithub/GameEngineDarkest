@@ -394,7 +394,8 @@ void ForwardRenderPipeline::Render(World* world) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     glEnable(GL_DEPTH_TEST);
-    glDisable(GL_CULL_FACE);  // Disable backface culling to test if normals/winding are the issue
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
     
     SetupLighting();
     
@@ -531,6 +532,13 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     for (int i = 0; i < 8; ++i) {
         m_forwardShader->SetInt("shadowMaps2D[" + std::to_string(i) + "]", base2D + i);
         m_forwardShader->SetInt("shadowMapsCube[" + std::to_string(i) + "]", baseCube + i);
+    Logger::Info("Shadow samplers: used2D=" + std::to_string(used2D) + " usedCube=" + std::to_string(usedCube));
+    for (size_t i = 0; i < std::min<size_t>(actEmbed.size(), 8); ++i) {
+        Logger::Info("L[" + std::to_string(i) + "] hasShadow=" + std::to_string(lightHasShadowArr[i]) +
+                     " shType=" + std::to_string(shadowTypeArr[i]) +
+                     " sampIdx=" + std::to_string(shadowSamplerIdxArr[i]));
+    }
+
     }
 
     for (size_t i = 0; i < actEmbed.size() && i < 32; ++i) {
@@ -609,6 +617,15 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
         } else {
             m_forwardShader->SetVector3("lightPositions[" + indexStr + "]", lightData[i].position);
         }
+    Logger::Info("numLights=" + std::to_string(lightData.size()));
+    for (size_t i = 0; i < std::min<size_t>(lightData.size(), static_cast<size_t>(3)); ++i) {
+        Logger::Info("L[" + std::to_string(i) + "]: type=" + std::to_string(lightData[i].type) +
+                     " pos=(" + std::to_string(lightData[i].position.x) + "," + std::to_string(lightData[i].position.y) + "," + std::to_string(lightData[i].position.z) + ")" +
+                     " dir=(" + std::to_string(lightData[i].direction.x) + "," + std::to_string(lightData[i].direction.y) + "," + std::to_string(lightData[i].direction.z) + ")" +
+                     " inten=" + std::to_string(lightData[i].intensity) +
+                     " range=" + std::to_string(lightData[i].range));
+    }
+
         m_forwardShader->SetVector3("lightColors[" + indexStr + "]", lightData[i].color);
         m_forwardShader->SetFloat("lightIntensities[" + indexStr + "]", lightData[i].intensity);
         m_forwardShader->SetInt("lightTypes[" + indexStr + "]", lightData[i].type);

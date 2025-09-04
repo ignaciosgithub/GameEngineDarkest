@@ -1,5 +1,6 @@
 #include "RenderManager.h"
 #include "../Core/Logging/Logger.h"
+#include "Core/GLDebug.h"
 
 namespace GameEngine {
 
@@ -23,6 +24,8 @@ bool RenderManager::Initialize(int width, int height) {
     
     m_raytracingPipeline = std::make_unique<RaytracingPipeline>();
     m_raytracingPipeline->Initialize(width, height);
+
+    EnableGLDebug();
     
     const char* forceForward = std::getenv("GE_FORCE_FORWARD");
     if (forceForward && std::string(forceForward) == "1") {

@@ -118,6 +118,14 @@ void Mesh::Draw() const {
         error = glGetError();
         if (error != GL_NO_ERROR) {
             Logger::Error("OpenGL error after glDrawElements: " + std::to_string(error));
+            Logger::Warning("Falling back to glDrawArrays due to glDrawElements failure");
+            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_vertices.size()));
+            GLenum error2 = glGetError();
+            if (error2 != GL_NO_ERROR) {
+                Logger::Error("OpenGL error after fallback glDrawArrays: " + std::to_string(error2));
+            } else {
+                Logger::Debug("Fallback glDrawArrays completed successfully");
+            }
         } else {
             Logger::Debug("glDrawElements completed successfully");
         }

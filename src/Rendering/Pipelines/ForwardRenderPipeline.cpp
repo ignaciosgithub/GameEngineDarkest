@@ -51,7 +51,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
     m_effectsShader = std::make_shared<Shader>();
     
     std::string vertexShaderSource = R"(
-        #version 330 core
+        #version 430 core
         layout (location = 0) in vec3 aPos;
         layout (location = 1) in vec3 aNormal;
         layout (location = 2) in vec3 aColor;
@@ -74,7 +74,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
     )";
     
     std::string fragmentShaderSource = R"(
-        #version 330 core
+        #version 430 core
         out vec4 FragColor;
         
         in vec3 FragPos;
@@ -525,7 +525,13 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
 
     int used2D = 0;
     int usedCube = 0;
-    int baseUnit = 5;
+    const int base2D = 5;
+    const int baseCube = base2D + 8;
+
+    for (int i = 0; i < 8; ++i) {
+        m_forwardShader->SetInt("shadowMaps2D[" + std::to_string(i) + "]", base2D + i);
+        m_forwardShader->SetInt("shadowMapsCube[" + std::to_string(i) + "]", baseCube + i);
+    }
 
     for (size_t i = 0; i < actEmbed.size() && i < 32; ++i) {
         Light* l = actEmbed[i];
@@ -546,10 +552,8 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
 
             int cubeIdx = usedCube;
             shadowSamplerIdxArr[i] = cubeIdx;
-            int unit = baseUnit + used2D + usedCube;
+            int unit = baseCube + cubeIdx;
             sm->Bind(unit);
-            std::string uname = "shadowMapsCube[" + std::to_string(cubeIdx) + "]";
-            m_forwardShader->SetInt(uname, unit);
             usedCube++;
         } else {
             shadowTypeArr[i] = (l->GetType() == LightType::Directional) ? 0 : 2;
@@ -558,10 +562,8 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
 
             int idx2d = used2D;
             shadowSamplerIdxArr[i] = idx2d;
-            int unit = baseUnit + used2D + usedCube;
+            int unit = base2D + idx2d;
             sm->Bind(unit);
-            std::string uname = "shadowMaps2D[" + std::to_string(idx2d) + "]";
-            m_forwardShader->SetInt(uname, unit);
             used2D++;
         }
     }
@@ -592,21 +594,6 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
     LightManager lightManager;
-    GLint validateStatus = 0;
-    unsigned int prog = m_forwardShader->GetProgramID();
-    if (prog != 0) {
-        glValidateProgram(prog);
-        glGetProgramiv(prog, GL_VALIDATE_STATUS, &validateStatus);
-        if (validateStatus == GL_FALSE) {
-            char infoLog[1024];
-            glGetProgramInfoLog(prog, 1024, nullptr, infoLog);
-            Logger::Error(std::string("Forward shader validation failed: ") + infoLog);
-        } else {
-            Logger::Debug("Forward shader validated OK");
-        }
-    } else {
-        Logger::Error("Forward shader validation skipped: invalid program ID 0");
-    }
     lightManager.CollectLights(world);
     lightManager.ApplyBrightnessLimits();
     
@@ -689,12 +676,43 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     glBufferData(GL_SHADER_STORAGE_BUFFER, vertsCPU.size() * sizeof(float), vertsCPU.data(), GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_shadowVolumeVerticesSSBO);
 
+    Logger::Debug("Shadow volumes: headers=" + std::to_string(totalHeaders) + ", headerInts=" + std::to_string(headersCPU.size()) + ", vertsFloats=" + std::to_string(vertsCPU.size()));
     m_forwardShader->SetInt("numVolumeHeaders", totalHeaders);
 
     Matrix4 invViewMatrix = m_renderData.viewMatrix.Inverted();
     Vector3 cameraPosition = Vector3(invViewMatrix.m[12], invViewMatrix.m[13], invViewMatrix.m[14]);
     m_forwardShader->SetVector3("viewPos", cameraPosition);
 
+    GLint currProg = 0, vao=0, ebo=0, abo=0, dfb=0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &currProg);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &ebo);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &abo);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &dfb);
+    Logger::Debug("Forward state pre-draw: prog=" + std::to_string(currProg) +
+                  " vao=" + std::to_string(vao) +
+                  " ebo=" + std::to_string(ebo) +
+                  " abo=" + std::to_string(abo) +
+                  " dfb=" + std::to_string(dfb));
+    if (currProg != 0) {
+        glValidateProgram(static_cast<GLuint>(currProg));
+        GLint ok = GL_FALSE;
+        glGetProgramiv(static_cast<GLuint>(currProg), GL_VALIDATE_STATUS, &ok);
+        if (!ok) {
+            GLint len = 0;
+            glGetProgramiv(static_cast<GLuint>(currProg), GL_INFO_LOG_LENGTH, &len);
+            std::string vlog;
+            if (len > 1) {
+                vlog.resize(static_cast<size_t>(len));
+                glGetProgramInfoLog(static_cast<GLuint>(currProg), len, nullptr, vlog.data());
+            }
+            Logger::Error(std::string("Forward program validation failed: ") + (vlog.empty() ? "(no log)" : vlog.c_str()));
+        } else {
+            Logger::Debug("Forward program validation OK");
+        }
+    } else {
+        Logger::Error("Forward draw with no current program bound");
+    }
     
     int entitiesRendered = 0;
     

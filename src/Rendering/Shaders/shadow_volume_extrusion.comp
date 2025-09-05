@@ -1,0 +1,63 @@
+#version 430
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+// Input shadow vertices from boundary detection
+layout(std430, binding = 0) buffer InputShadowVertices {
+    vec4 inputVertices[];  // xyz = position, w = lightIndex
+};
+
+layout(std430, binding = 1) buffer InputShadowDirections {
+    vec4 inputDirections[];  // xyz = direction from light, w = unused
+};
+
+// Output extruded shadow volumes
+layout(std430, binding = 2) buffer ShadowVolumeVertices {
+    vec4 volumeVertices[];  // xyz = position, w = volume type (0=base, 1=far)
+};
+
+layout(std430, binding = 3) buffer ShadowVolumeHeaders {
+    uvec4 volumeHeaders[];  // x = lightIndex, y = vertexCount, z = baseOffset, w = farOffset
+};
+
+// Light and extrusion parameters
+uniform float extrusionDistance;
+uniform int lightType;
+uniform vec3 lightPosition;
+uniform vec3 lightDirection;
+uniform float lightRange;
+uniform int numInputVertices;
+
+// Output counter
+layout(std430, binding = 4) buffer OutputCounter {
+    uint outputVertexCount;
+    uint outputVolumeCount;
+};
+
+void main() {
+    uint vertexIndex = gl_GlobalInvocationID.x;
+    
+    if (vertexIndex >= numInputVertices) {
+        return;
+    }
+    
+    vec3 baseVertex = inputVertices[vertexIndex].xyz;
+    vec3 direction = inputDirections[vertexIndex].xyz;
+    float lightIdx = inputVertices[vertexIndex].w;
+    
+    // Calculate extrusion distance based on light type
+    float extrudeDist = extrusionDistance;
+    if (lightType == 1 || lightType == 2) {  // Point or spot light
+        extrudeDist = lightRange;
+    }
+    
+    // Calculate far vertex
+    vec3 farVertex = baseVertex + direction * extrudeDist;
+    
+    // Atomic allocation of output vertices
+    uint outputBase = atomicAdd(outputVertexCount, 2);
+    
+    // Store base and far vertices
+    volumeVertices[outputBase] = vec4(baseVertex, 0.0);      // Base vertex
+    volumeVertices[outputBase + 1] = vec4(farVertex, 1.0);   // Far vertex
+}

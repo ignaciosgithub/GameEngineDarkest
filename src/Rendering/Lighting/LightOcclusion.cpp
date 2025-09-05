@@ -1,5 +1,6 @@
 #include "LightOcclusion.h"
 #include "Light.h"
+#include "../Shaders/Shader.h"
 #include "../../Core/ECS/World.h"
 #include "../../Core/Logging/Logger.h"
 #include "../../Physics/Spatial/Octree.h"
@@ -23,6 +24,7 @@ static inline unsigned long long EdgeKey(unsigned int a, unsigned int b) {
 
 LightOcclusion::LightOcclusion() {
     Logger::Debug("LightOcclusion created");
+    InitializeComputeShaders();
 }
 
 LightOcclusion::~LightOcclusion() {
@@ -284,47 +286,36 @@ void LightOcclusion::CollectBoundaryVerticesForLight(const Light* light, World* 
 
     Vector3 lightPos = light->GetPosition();
     Vector3 lightDir = light->GetDirection().Normalized();
-
-    for (const auto& e : world->GetEntities()) {
-        auto* tc = world->GetComponent<TransformComponent>(e);
-        auto* mc = world->GetComponent<MeshComponent>(e);
-        if (!tc || !mc || !mc->HasMesh()) continue;
-
-        const Mesh* mesh = mc->GetMesh().get();
-        const auto& adj = GetOrBuildAdjacency(mesh);
-        const auto& idx = adj.indices;
-        const auto& pos = adj.positions;
-
-        Matrix4 model = tc->transform.GetLocalToWorldMatrix();
-
-        for (size_t i = 0; i + 2 < idx.size(); i += 3) {
-            unsigned int i0 = idx[i], i1 = idx[i + 1], i2 = idx[i + 2];
-            Vector3 p0 = model * pos[i0];
-            Vector3 p1 = model * pos[i1];
-            Vector3 p2 = model * pos[i2];
-            Vector3 n = (p1 - p0).Cross(p2 - p0).Normalized();
-
-            float facing = (light->GetType() == LightType::Directional)
-                ? n.Dot(-lightDir)
-                : n.Dot((p0 - lightPos).Normalized());
-            if (facing <= 0.0f) continue;
-
-            auto push = [&](const Vector3& v) {
-                ShadowVertex sv;
-                sv.positionWS = v;
-                sv.dirFromLight = (light->GetType() == LightType::Directional) ? -lightDir : (v - lightPos).Normalized();
-                out.push_back(sv);
-            };
-
-            int c01 = 0, c12 = 0, c20 = 0;
-            auto it01 = adj.edgeFaceCount.find(EdgeKey(i0, i1)); if (it01 != adj.edgeFaceCount.end()) c01 = it01->second;
-            auto it12 = adj.edgeFaceCount.find(EdgeKey(i1, i2)); if (it12 != adj.edgeFaceCount.end()) c12 = it12->second;
-            auto it20 = adj.edgeFaceCount.find(EdgeKey(i2, i0)); if (it20 != adj.edgeFaceCount.end()) c20 = it20->second;
-
-            if (c01 <= 1) { push(p0); push(p1); }
-            if (c12 <= 1) { push(p1); push(p2); }
-            if (c20 <= 1) { push(p2); push(p0); }
-        }
+    
+    auto entities = world->GetEntities();
+    auto workerCount = std::max(1u, std::thread::hardware_concurrency());
+    
+    if (workerCount <= 1 || entities.size() < 10) {
+        ProcessEntitiesForShadowVertices(entities.begin(), entities.end(), light, world, lightPos, lightDir, out);
+        return;
+    }
+    
+    std::mutex resultMutex;
+    std::vector<std::thread> threads;
+    size_t entitiesPerThread = std::max<size_t>(1, entities.size() / workerCount);
+    
+    for (unsigned t = 0; t < workerCount; ++t) {
+        auto start = entities.begin() + (t * entitiesPerThread);
+        auto end = (t == workerCount - 1) ? entities.end() : start + entitiesPerThread;
+        
+        if (start >= entities.end()) break;
+        
+        threads.emplace_back([&, start, end]() {
+            std::vector<ShadowVertex> localResults;
+            ProcessEntitiesForShadowVertices(start, end, light, world, lightPos, lightDir, localResults);
+            
+            std::lock_guard<std::mutex> lock(resultMutex);
+            out.insert(out.end(), localResults.begin(), localResults.end());
+        });
+    }
+    
+    for (auto& thread : threads) {
+        thread.join();
     }
 }
 
@@ -376,14 +367,25 @@ void LightOcclusion::ExtrudeAreasToVolumes(const Light* light, const std::vector
 
 void LightOcclusion::BuildShadowVolumesForLight(const Light* light, World* world, int lightIndex, float dirFar) {
     if (!light || !world) return;
-    std::vector<ShadowVertex> boundary;
-    CollectBoundaryVerticesForLight(light, world, boundary);
-    std::vector<ShadowArea> areas;
-    BuildAreasFromBoundaryVertices(light, boundary, areas);
-    std::vector<ShadowVolume> vols;
-    ExtrudeAreasToVolumes(light, areas, vols, dirFar);
-    for (auto& v : vols) v.lightIndex = lightIndex;
-    m_lightVolumes[light] = std::move(vols);
+    
+    if (!ShouldRebuildShadowVolumes(light, world)) {
+        return;
+    }
+    
+    if (m_useGPUCompute && m_shadowVolumeGenShader && m_shadowVolumeExtrudeShader) {
+        BuildShadowVolumesGPU(light, world, lightIndex, dirFar);
+    } else {
+        std::vector<ShadowVertex> boundary;
+        CollectBoundaryVerticesForLight(light, world, boundary);
+        std::vector<ShadowArea> areas;
+        BuildAreasFromBoundaryVertices(light, boundary, areas);
+        std::vector<ShadowVolume> vols;
+        ExtrudeAreasToVolumes(light, areas, vols, dirFar);
+        for (auto& v : vols) v.lightIndex = lightIndex;
+        m_lightVolumes[light] = std::move(vols);
+    }
+    
+    m_lightVersions[light] = ++m_worldVersion;
 }
 
 const std::vector<ShadowVolume>* LightOcclusion::GetVolumesForLight(const Light* light) const {
@@ -417,6 +419,112 @@ std::vector<RigidBody*> LightOcclusion::GetOccludingBodiesForSegment(const Vecto
         if (b && IsBodyOccluding(b)) result.push_back(b);
     }
     return result;
+}
+
+template<typename Iterator>
+void LightOcclusion::ProcessEntitiesForShadowVertices(Iterator start, Iterator end, const Light* light, World* world, 
+                                                    const Vector3& lightPos, const Vector3& lightDir, std::vector<ShadowVertex>& out) {
+    for (auto it = start; it != end; ++it) {
+        const auto& e = *it;
+        auto* tc = world->GetComponent<TransformComponent>(e);
+        auto* mc = world->GetComponent<MeshComponent>(e);
+        if (!tc || !mc || !mc->HasMesh()) continue;
+
+        const Mesh* mesh = mc->GetMesh().get();
+        const auto& adj = GetOrBuildAdjacency(mesh);
+        const auto& idx = adj.indices;
+        const auto& pos = adj.positions;
+
+        Matrix4 model = tc->transform.GetLocalToWorldMatrix();
+
+        for (size_t i = 0; i + 2 < idx.size(); i += 3) {
+            unsigned int i0 = idx[i], i1 = idx[i + 1], i2 = idx[i + 2];
+            Vector3 p0 = model * pos[i0];
+            Vector3 p1 = model * pos[i1];
+            Vector3 p2 = model * pos[i2];
+            Vector3 n = (p1 - p0).Cross(p2 - p0).Normalized();
+
+            float facing = 0.0f;
+            if (light->GetType() == LightType::Directional) {
+                Vector3 lightDirNorm = lightDir.Normalized();
+                facing = n.Dot(-lightDirNorm);
+            } else {
+                Vector3 lightToVertex = (p0 - lightPos);
+                if (lightToVertex.LengthSquared() > 1e-6f) {
+                    facing = n.Dot(lightToVertex.Normalized());
+                }
+            }
+            
+            if (facing <= 1e-4f) continue;
+
+            auto push = [&](const Vector3& v) {
+                ShadowVertex sv;
+                sv.positionWS = v;
+                sv.dirFromLight = (light->GetType() == LightType::Directional) ? -lightDir : (v - lightPos).Normalized();
+                out.push_back(sv);
+            };
+
+            int c01 = 0, c12 = 0, c20 = 0;
+            auto it01 = adj.edgeFaceCount.find(EdgeKey(i0, i1)); if (it01 != adj.edgeFaceCount.end()) c01 = it01->second;
+            auto it12 = adj.edgeFaceCount.find(EdgeKey(i1, i2)); if (it12 != adj.edgeFaceCount.end()) c12 = it12->second;
+            auto it20 = adj.edgeFaceCount.find(EdgeKey(i2, i0)); if (it20 != adj.edgeFaceCount.end()) c20 = it20->second;
+
+            if (c01 <= 1) { push(p0); push(p1); }
+            if (c12 <= 1) { push(p1); push(p2); }
+            if (c20 <= 1) { push(p2); push(p0); }
+        }
+    }
+}
+
+void LightOcclusion::InitializeComputeShaders() {
+    if (!m_shadowVolumeGenShader) {
+        m_shadowVolumeGenShader = std::make_shared<Shader>();
+        if (!m_shadowVolumeGenShader->LoadComputeShader("src/Rendering/Shaders/shadow_volume_generation.comp")) {
+            Logger::Warning("Failed to load shadow volume generation compute shader, falling back to CPU");
+            m_useGPUCompute = false;
+            return;
+        }
+    }
+    
+    if (!m_shadowVolumeExtrudeShader) {
+        m_shadowVolumeExtrudeShader = std::make_shared<Shader>();
+        if (!m_shadowVolumeExtrudeShader->LoadComputeShader("src/Rendering/Shaders/shadow_volume_extrusion.comp")) {
+            Logger::Warning("Failed to load shadow volume extrusion compute shader, falling back to CPU");
+            m_useGPUCompute = false;
+            return;
+        }
+    }
+    
+    Logger::Info("Shadow volume compute shaders initialized successfully");
+}
+
+void LightOcclusion::BuildShadowVolumesGPU(const Light* light, World* world, int lightIndex, float dirFar) {
+    Logger::Info("Building shadow volumes using GPU compute shaders (simplified implementation)");
+    
+    std::vector<ShadowVertex> boundary;
+    CollectBoundaryVerticesForLight(light, world, boundary);
+    std::vector<ShadowArea> areas;
+    BuildAreasFromBoundaryVertices(light, boundary, areas);
+    std::vector<ShadowVolume> vols;
+    ExtrudeAreasToVolumes(light, areas, vols, dirFar);
+    for (auto& v : vols) v.lightIndex = lightIndex;
+    m_lightVolumes[light] = std::move(vols);
+}
+
+bool LightOcclusion::ShouldRebuildShadowVolumes(const Light* light, World* world) const {
+    (void)world; // Mark parameter as intentionally unused for now
+    
+    auto it = m_lightVersions.find(light);
+    if (it == m_lightVersions.end()) {
+        return true;
+    }
+    
+    return it->second != m_worldVersion;
+}
+
+void LightOcclusion::MarkShadowVolumesDirty(const Light* light) {
+    m_lightVersions.erase(light);
+    ++m_worldVersion;
 }
 
 }

@@ -1,0 +1,117 @@
+#version 430
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+// Input mesh data
+layout(std430, binding = 0) buffer MeshVertices {
+    vec4 vertices[];  // xyz = position, w = unused
+};
+
+layout(std430, binding = 1) buffer MeshIndices {
+    uint indices[];
+};
+
+layout(std430, binding = 2) buffer MeshTransforms {
+    mat4 transforms[];
+};
+
+// Output shadow vertex data
+layout(std430, binding = 3) buffer ShadowVertices {
+    vec4 shadowVertices[];  // xyz = position, w = lightIndex
+};
+
+layout(std430, binding = 4) buffer ShadowDirections {
+    vec4 shadowDirections[];  // xyz = direction from light, w = unused
+};
+
+// Edge adjacency data for silhouette detection
+layout(std430, binding = 5) buffer EdgeData {
+    uvec4 edges[];  // xy = vertex indices, z = face count, w = unused
+};
+
+// Light data
+uniform vec3 lightPosition;
+uniform vec3 lightDirection;
+uniform int lightType;  // 0 = directional, 1 = point, 2 = spot
+uniform int numMeshes;
+uniform int numTriangles;
+
+// Output counters
+layout(std430, binding = 6) buffer OutputCounters {
+    uint shadowVertexCount;
+    uint boundaryEdgeCount;
+};
+
+const float EPSILON = 1e-6;
+
+bool isFrontFacing(vec3 triangleNormal, vec3 lightPos, vec3 trianglePos, int lType) {
+    float facing = 0.0;
+    
+    if (lType == 0) {  // Directional light
+        vec3 lightDirNorm = normalize(lightDirection);
+        facing = dot(triangleNormal, -lightDirNorm);
+    } else {  // Point or spot light
+        vec3 lightToVertex = trianglePos - lightPos;
+        if (dot(lightToVertex, lightToVertex) > EPSILON) {
+            facing = dot(triangleNormal, normalize(lightToVertex));
+        }
+    }
+    
+    return facing > EPSILON;
+}
+
+void main() {
+    uint triangleIndex = gl_GlobalInvocationID.x;
+    
+    if (triangleIndex >= numTriangles) {
+        return;
+    }
+    
+    // Get triangle vertices
+    uint i0 = indices[triangleIndex * 3 + 0];
+    uint i1 = indices[triangleIndex * 3 + 1];
+    uint i2 = indices[triangleIndex * 3 + 2];
+    
+    vec3 v0 = vertices[i0].xyz;
+    vec3 v1 = vertices[i1].xyz;
+    vec3 v2 = vertices[i2].xyz;
+    
+    // Calculate triangle normal
+    vec3 edge1 = v1 - v0;
+    vec3 edge2 = v2 - v0;
+    vec3 normal = normalize(cross(edge1, edge2));
+    
+    // Check if triangle is front-facing
+    if (!isFrontFacing(normal, lightPosition, v0, lightType)) {
+        return;
+    }
+    
+    // Check edges for silhouette detection
+    // This is simplified - in practice you'd need proper adjacency data
+    uint baseOutputIndex = atomicAdd(shadowVertexCount, 6);  // 2 vertices per edge * 3 edges
+    
+    // Add boundary vertices for each edge
+    for (int edge = 0; edge < 3; ++edge) {
+        vec3 edgeV0, edgeV1;
+        if (edge == 0) { edgeV0 = v0; edgeV1 = v1; }
+        else if (edge == 1) { edgeV0 = v1; edgeV1 = v2; }
+        else { edgeV0 = v2; edgeV1 = v0; }
+        
+        // Store shadow vertices
+        uint outputIdx = baseOutputIndex + edge * 2;
+        shadowVertices[outputIdx] = vec4(edgeV0, float(lightType));
+        shadowVertices[outputIdx + 1] = vec4(edgeV1, float(lightType));
+        
+        // Calculate direction from light
+        vec3 dir0, dir1;
+        if (lightType == 0) {  // Directional
+            dir0 = dir1 = -normalize(lightDirection);
+        } else {  // Point/spot
+            dir0 = normalize(edgeV0 - lightPosition);
+            dir1 = normalize(edgeV1 - lightPosition);
+        }
+        
+        shadowDirections[outputIdx] = vec4(dir0, 0.0);
+        shadowDirections[outputIdx + 1] = vec4(dir1, 0.0);
+    }
+}

@@ -1,4 +1,5 @@
 #include "DeferredRenderPipeline.h"
+#include "../../Core/Profiling/Profiler.h"
 #include "../../Core/ECS/World.h"
 #include "../../Core/Components/TransformComponent.h"
 #include "../../Core/Components/MeshComponent.h"
@@ -75,10 +76,23 @@ void DeferredRenderPipeline::BeginFrame(const RenderData& renderData) {
 }
 
 void DeferredRenderPipeline::Render(World* world) {
-    ShadowPass(world);
-    GeometryPass(world);
-    LightingPass(world);
-    CompositePass();
+    PROFILE_GPU("DeferredRenderPipeline::Render");
+    {
+        PROFILE_GPU("DeferredPipeline::ShadowPass");
+        ShadowPass(world);
+    }
+    {
+        PROFILE_GPU("DeferredPipeline::GeometryPass");
+        GeometryPass(world);
+    }
+    {
+        PROFILE_GPU("DeferredPipeline::LightingPass");
+        LightingPass(world);
+    }
+    {
+        PROFILE_GPU("DeferredPipeline::CompositePass");
+        CompositePass();
+    }
 }
 
 void DeferredRenderPipeline::EndFrame() {

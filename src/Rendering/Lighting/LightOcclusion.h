@@ -6,6 +6,9 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include <thread>
+#include <mutex>
+#include <atomic>
 
 namespace GameEngine {
 
@@ -104,6 +107,32 @@ private:
 
 
     std::vector<Vector3> GenerateSamplePoints(const Vector3& lightPos, const Vector3& targetPoint, int sampleCount);
+    
+    // GPU compute shader support
+    void InitializeComputeShaders();
+    void BuildShadowVolumesGPU(const Light* light, World* world, int lightIndex, float dirFar);
+    bool m_useGPUCompute = true;
+    std::shared_ptr<class Shader> m_shadowVolumeGenShader;
+    std::shared_ptr<class Shader> m_shadowVolumeExtrudeShader;
+    
+    // GPU buffer objects
+    unsigned int m_meshVerticesSSBO = 0;
+    unsigned int m_meshIndicesSSBO = 0;
+    unsigned int m_meshTransformsSSBO = 0;
+    unsigned int m_shadowVerticesSSBO = 0;
+    unsigned int m_shadowDirectionsSSBO = 0;
+    unsigned int m_outputCountersSSBO = 0;
+    
+    // Threading support for CPU fallback
+    template<typename Iterator>
+    void ProcessEntitiesForShadowVertices(Iterator start, Iterator end, const Light* light, World* world, 
+                                        const Vector3& lightPos, const Vector3& lightDir, std::vector<ShadowVertex>& out);
+    
+    // Change detection for caching
+    bool ShouldRebuildShadowVolumes(const Light* light, World* world) const;
+    void MarkShadowVolumesDirty(const Light* light);
+    mutable std::unordered_map<const Light*, uint64_t> m_lightVersions;
+    mutable uint64_t m_worldVersion = 0;
 };
 
 }

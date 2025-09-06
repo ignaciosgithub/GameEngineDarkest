@@ -25,6 +25,7 @@ add_library(Core STATIC
     GameObject/GameObject.cpp
     GameObject/Prefab.cpp
     Time/Timer.cpp
+    Profiling/Profiler.cpp
     Editor/PlayModeManager.cpp
     Editor/SelectionManager.cpp
     Physics/RayCaster.cpp

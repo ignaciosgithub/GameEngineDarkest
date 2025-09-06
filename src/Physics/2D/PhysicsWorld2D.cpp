@@ -2,6 +2,7 @@
 #include "RigidBody2D.h"
 #include "Collision/CollisionDetection2D.h"
 #include "../../Core/Logging/Logger.h"
+#include "../../Core/Profiling/Profiler.h"
 #include <algorithm>
 
 namespace GameEngine {
@@ -52,17 +53,27 @@ void PhysicsWorld2D::Update(float deltaTime) {
     DetectCollisions();
     
     for (int i = 0; i < m_velocityIterations; ++i) {
+        PROFILE_SCOPE("Physics2D::ResolveCollisions");
         ResolveCollisions();
     }
     
-    IntegrateVelocities(deltaTime);
+    {
+        PROFILE_SCOPE("Physics2D::IntegrateVelocities");
+        IntegrateVelocities(deltaTime);
+    }
     
     for (int i = 0; i < m_positionIterations; ++i) {
         DetectCollisions();
-        ResolveCollisions();
+        {
+            PROFILE_SCOPE("Physics2D::ResolveCollisions");
+            ResolveCollisions();
+        }
     }
     
-    IntegratePositions(deltaTime);
+    {
+        PROFILE_SCOPE("Physics2D::IntegratePositions");
+        IntegratePositions(deltaTime);
+    }
 }
 
 void PhysicsWorld2D::FixedUpdate(float fixedDeltaTime) {
@@ -109,12 +120,14 @@ void PhysicsWorld2D::DetectCollisions() {
 }
 
 void PhysicsWorld2D::ResolveCollisions() {
+    PROFILE_SCOPE("Physics2D::ResolveCollisions");
     for (const auto& collision : m_collisions) {
         CollisionDetection2D::ResolveCollision(collision.bodyA, collision.bodyB, collision);
     }
 }
 
 void PhysicsWorld2D::IntegrateVelocities(float deltaTime) {
+    PROFILE_SCOPE("Physics2D::IntegrateVelocities");
     for (RigidBody2D* body : m_rigidBodies) {
         if (body && body->IsDynamic()) {
             body->IntegrateVelocity(deltaTime);
@@ -123,6 +136,7 @@ void PhysicsWorld2D::IntegrateVelocities(float deltaTime) {
 }
 
 void PhysicsWorld2D::IntegratePositions(float deltaTime) {
+    PROFILE_SCOPE("Physics2D::IntegratePositions");
     for (RigidBody2D* body : m_rigidBodies) {
         if (body && body->IsDynamic()) {
             body->IntegratePosition(deltaTime);

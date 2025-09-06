@@ -1,5 +1,6 @@
 #include "RenderManager.h"
 #include "../Core/Logging/Logger.h"
+#include "../Core/Profiling/Profiler.h"
 #include "Core/GLDebug.h"
 
 namespace GameEngine {
@@ -80,18 +81,21 @@ void RenderManager::SetPipeline(RenderPipelineType type) {
 }
 
 void RenderManager::BeginFrame(const RenderData& renderData) {
+    PROFILE_GPU("RenderManager::BeginFrame");
     if (m_currentPipeline) {
         m_currentPipeline->BeginFrame(renderData);
     }
 }
 
 void RenderManager::Render(World* world) {
+    PROFILE_GPU("RenderManager::Render");
     if (m_currentPipeline) {
         m_currentPipeline->Render(world);
     }
 }
 
 void RenderManager::EndFrame() {
+    PROFILE_GPU("RenderManager::EndFrame");
     if (m_currentPipeline) {
         m_currentPipeline->EndFrame();
     }

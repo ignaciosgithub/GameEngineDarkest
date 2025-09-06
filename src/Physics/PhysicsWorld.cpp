@@ -4,6 +4,7 @@
 #include "Spatial/Octree.h"
 #include "2D/PhysicsWorld2D.h"
 #include "../Core/Logging/Logger.h"
+#include "../Core/Profiling/Profiler.h"
 #include <algorithm>
 #include <thread>
 #include <mutex>
@@ -58,6 +59,7 @@ void PhysicsWorld::Shutdown() {
 }
 
 void PhysicsWorld::Update(float deltaTime) {
+    PROFILE_SCOPE("PhysicsWorld::Update");
     if (!m_initialized) return;
     
     const float fixedDeltaTime = 1.0f / 60.0f; // 60 FPS physics
@@ -83,18 +85,31 @@ void PhysicsWorld::Update(float deltaTime) {
 }
 
 void PhysicsWorld::FixedUpdate(float fixedDeltaTime) {
-    IntegrateVelocities(fixedDeltaTime);
-    
-    DetectCollisions();
-    
-    const int solverIterations = 8;
-    for (int it = 0; it < solverIterations; ++it) {
-        ResolveCollisions();
+    {
+        PROFILE_SCOPE("Physics::IntegrateVelocities");
+        IntegrateVelocities(fixedDeltaTime);
     }
     
-    IntegratePositions(fixedDeltaTime);
+    {
+        PROFILE_SCOPE("Physics::DetectCollisions");
+        DetectCollisions();
+    }
+    
+    {
+        PROFILE_SCOPE("Physics::ResolveCollisions");
+        const int solverIterations = 8;
+        for (int it = 0; it < solverIterations; ++it) {
+            ResolveCollisions();
+        }
+    }
+    
+    {
+        PROFILE_SCOPE("Physics::IntegratePositions");
+        IntegratePositions(fixedDeltaTime);
+    }
     
     if (m_enable2DPhysics && m_physicsWorld2D) {
+        PROFILE_SCOPE("Physics::2DPhysicsUpdate");
         m_physicsWorld2D->FixedUpdate(fixedDeltaTime);
     }
 }

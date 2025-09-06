@@ -5,6 +5,7 @@
 #include "Platform/Input.h"
 #include "Logging/Logger.h"
 #include "Time/Timer.h"
+#include "Profiling/Profiler.h"
 #include "Editor/PlayModeManager.h"
 #include "Editor/SelectionManager.h"
 #include "Components/TransformComponent.h"
@@ -146,7 +147,8 @@ bool Engine::Initialize(const std::string& title, int /*width*/, int /*height*/)
     // Logger::Info("Loaded MultipleLight test scene with 5x5 cube grid using Forward rendering");
 
     Timer::Initialize();
-    Logger::Info("Timer system initialized");
+    Profiler::Initialize();
+    Logger::Info("Timer and Profiler systems initialized");
 
     m_isRunning = true;
 
@@ -158,76 +160,109 @@ void Engine::Run() {
     Logger::Info("Starting main loop...");
     
     while (m_isRunning && !m_window->ShouldClose()) {
+        Profiler::BeginFrame();
+        
         Timer::Update();
         float deltaTime = Timer::GetDeltaTime();
 
         m_window->PollEvents();
         
-        Update(deltaTime);
-        Render();
+        {
+            PROFILE_SCOPE("Engine::Update");
+            Update(deltaTime);
+        }
+        {
+            PROFILE_SCOPE("Engine::Render");
+            Render();
+        }
         
         m_window->SwapBuffers();
+        Profiler::EndFrame();
     }
 }
 
 void Engine::Update(float deltaTime) {
-    if (m_inputManager) {
-        m_inputManager->Update();
-    }
-
-    if (m_world) {
-        m_world->Update(deltaTime);
-    }
-
-    if (m_physicsWorld && m_playModeManager && m_playModeManager->IsInPlayMode()) {
-        m_physicsWorld->Update(deltaTime);
-        if (auto* physicsSystem = m_world->GetSystem<PhysicsSystem>()) {
-            physicsSystem->OnUpdate(m_world.get(), deltaTime);
+    {
+        PROFILE_SCOPE("InputManager::Update");
+        if (m_inputManager) {
+            m_inputManager->Update();
         }
     }
 
-    if (m_playModeManager) {
-        m_playModeManager->Update(deltaTime);
+    {
+        PROFILE_SCOPE("World::Update");
+        if (m_world) {
+            m_world->Update(deltaTime);
+        }
+    }
+
+    {
+        PROFILE_SCOPE("Physics::Update");
+        if (m_physicsWorld && m_playModeManager && m_playModeManager->IsInPlayMode()) {
+            m_physicsWorld->Update(deltaTime);
+            if (auto* physicsSystem = m_world->GetSystem<PhysicsSystem>()) {
+                physicsSystem->OnUpdate(m_world.get(), deltaTime);
+            }
+        }
+    }
+
+    {
+        PROFILE_SCOPE("PlayModeManager::Update");
+        if (m_playModeManager) {
+            m_playModeManager->Update(deltaTime);
+        }
     }
     
-    if (m_selectionManager) {
-        m_selectionManager->Update(m_world.get());
+    {
+        PROFILE_SCOPE("SelectionManager::Update");
+        if (m_selectionManager) {
+            m_selectionManager->Update(m_world.get());
+        }
     }
 
-    ExternalScriptManager::Instance().CheckForScriptChanges();
-    ExternalScriptManager::Instance().ExecuteUpdateScripts(m_world.get(), deltaTime);
+    {
+        PROFILE_SCOPE("ScriptManager::Update");
+        ExternalScriptManager::Instance().CheckForScriptChanges();
+        ExternalScriptManager::Instance().ExecuteUpdateScripts(m_world.get(), deltaTime);
+    }
 
-    if (m_engineUI) {
-        m_engineUI->Update(m_world.get(), deltaTime);
+    {
+        PROFILE_SCOPE("EngineUI::Update");
+        if (m_engineUI) {
+            m_engineUI->Update(m_world.get(), deltaTime);
+        }
     }
 
     if (m_inputManager && m_inputManager->IsKeyPressed(KeyCode::Escape)) {
         m_isRunning = false;
     }
 
-    if (m_testSceneManager) {
-        if (m_inputManager->IsKeyPressed(KeyCode::Key1)) {
-            m_testSceneManager->LoadScene(TestSceneType::BasicLighting);
-            m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Deferred);
+    {
+        PROFILE_SCOPE("TestSceneManager::Update");
+        if (m_testSceneManager) {
+            if (m_inputManager->IsKeyPressed(KeyCode::Key1)) {
+                m_testSceneManager->LoadScene(TestSceneType::BasicLighting);
+                m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Deferred);
+            }
+            if (m_inputManager->IsKeyPressed(KeyCode::Key2)) {
+                m_testSceneManager->LoadScene(TestSceneType::MultipleLight);
+                m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Forward);
+            }
+            if (m_inputManager->IsKeyPressed(KeyCode::Key3)) {
+                m_testSceneManager->LoadScene(TestSceneType::PBRMaterials);
+                m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Deferred);
+            }
+            if (m_inputManager->IsKeyPressed(KeyCode::Key4)) {
+                m_testSceneManager->LoadScene(TestSceneType::PostProcessing);
+                m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Forward);
+            }
+            if (m_inputManager->IsKeyPressed(KeyCode::Key5)) {
+                m_testSceneManager->LoadScene(TestSceneType::Raytracing);
+                m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Raytracing);
+            }
+            
+            m_testSceneManager->Update(deltaTime);
         }
-        if (m_inputManager->IsKeyPressed(KeyCode::Key2)) {
-            m_testSceneManager->LoadScene(TestSceneType::MultipleLight);
-            m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Forward);
-        }
-        if (m_inputManager->IsKeyPressed(KeyCode::Key3)) {
-            m_testSceneManager->LoadScene(TestSceneType::PBRMaterials);
-            m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Deferred);
-        }
-        if (m_inputManager->IsKeyPressed(KeyCode::Key4)) {
-            m_testSceneManager->LoadScene(TestSceneType::PostProcessing);
-            m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Forward);
-        }
-        if (m_inputManager->IsKeyPressed(KeyCode::Key5)) {
-            m_testSceneManager->LoadScene(TestSceneType::Raytracing);
-            m_testSceneManager->SwitchRenderingPipeline(RenderPipelineType::Raytracing);
-        }
-        
-        m_testSceneManager->Update(deltaTime);
     }
 }
 
@@ -340,6 +375,7 @@ void Engine::CreateDemoScene() {
 void Engine::Shutdown() {
     Logger::Info("Shutting down Game Engine...");
     
+    Profiler::Shutdown();
     DebugRenderer::Shutdown();
     ExternalScriptManager::Instance().Shutdown();
     

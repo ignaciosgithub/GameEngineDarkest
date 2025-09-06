@@ -2,6 +2,7 @@
 #include "AudioClip.h"
 #include "AudioSource.h"
 #include "../Core/Logging/Logger.h"
+#include "../Core/Profiling/Profiler.h"
 #include <algorithm>
 
 namespace GameEngine {
@@ -25,9 +26,13 @@ namespace GameEngine {
     }
     
     void AudioManager::Update() {
+        PROFILE_SCOPE("AudioManager::Update");
         if (!m_initialized) return;
         
-        CleanupFinishedSources();
+        {
+            PROFILE_SCOPE("Audio::CleanupFinishedSources");
+            CleanupFinishedSources();
+        }
         
     }
     
@@ -57,6 +62,7 @@ namespace GameEngine {
     }
     
     void AudioManager::PlaySound(const std::string& filepath, float volume) {
+        PROFILE_SCOPE("AudioManager::PlaySound");
         if (!m_initialized) {
             Logger::Warning("AudioManager not initialized");
             return;
@@ -86,6 +92,7 @@ namespace GameEngine {
     }
     
     void AudioManager::PlaySound3D(const std::string& filepath, const Vector3& position, float volume) {
+        PROFILE_SCOPE("AudioManager::PlaySound3D");
         if (!m_initialized) {
             Logger::Warning("AudioManager not initialized");
             return;

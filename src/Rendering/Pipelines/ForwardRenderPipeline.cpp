@@ -1,5 +1,6 @@
 #include "ForwardRenderPipeline.h"
 #include "../../Core/Logging/Logger.h"
+#include "../../Core/Profiling/Profiler.h"
 #include "../../Core/ECS/World.h"
 #include "../../Core/Components/TransformComponent.h"
 #include "../../Core/Components/MeshComponent.h"
@@ -361,11 +362,15 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
 }
 
 void ForwardRenderPipeline::Render(World* world) {
+    PROFILE_GPU("ForwardRenderPipeline::Render");
     if (!m_initialized || !world) {
         return;
     }
 
-    RenderShadowPass(world);
+    {
+        PROFILE_GPU("ForwardPipeline::ShadowPass");
+        RenderShadowPass(world);
+    }
     
     m_framebuffer->Bind();
     
@@ -396,11 +401,18 @@ void ForwardRenderPipeline::Render(World* world) {
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);  // Disable backface culling to test if normals/winding are the issue
     
-    SetupLighting();
+    {
+        PROFILE_GPU("ForwardPipeline::SetupLighting");
+        SetupLighting();
+    }
     
-    RenderOpaqueObjects(world);
+    {
+        PROFILE_GPU("ForwardPipeline::RenderOpaqueObjects");
+        RenderOpaqueObjects(world);
+    }
     
     if (m_transparencyEnabled) {
+        PROFILE_GPU("ForwardPipeline::TransparentObjects");
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
@@ -410,9 +422,15 @@ void ForwardRenderPipeline::Render(World* world) {
         glDisable(GL_BLEND);
     }
     
-    RenderSpecialEffects(world);
+    {
+        PROFILE_GPU("ForwardPipeline::SpecialEffects");
+        RenderSpecialEffects(world);
+    }
     
-    CompositePass();
+    {
+        PROFILE_GPU("ForwardPipeline::CompositePass");
+        CompositePass();
+    }
     
     Logger::Debug("Forward rendering pass completed");
 }

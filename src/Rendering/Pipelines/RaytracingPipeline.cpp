@@ -1,5 +1,6 @@
 #include "RaytracingPipeline.h"
 #include "../../Core/Logging/Logger.h"
+#include "../../Core/Profiling/Profiler.h"
 #include "../../Core/ECS/World.h"
 #include "../Core/OpenGLHeaders.h"
 #include <cmath>
@@ -78,6 +79,7 @@ bool RaytracingPipeline::Initialize(int width, int height) {
 }
 
 void RaytracingPipeline::Render(World* /*world*/) {
+    PROFILE_GPU("RaytracingPipeline::Render");
     if (!m_initialized) {
         return;
     }
@@ -92,12 +94,15 @@ void RaytracingPipeline::Render(World* /*world*/) {
     
     std::vector<Vector3> framebuffer(width * height);
     
-    const int tileSize = 32;
-    for (int y = 0; y < height; y += tileSize) {
-        for (int x = 0; x < width; x += tileSize) {
-            int endX = std::min(x + tileSize, width);
-            int endY = std::min(y + tileSize, height);
-            RenderTile(x, y, endX, endY, framebuffer);
+    {
+        PROFILE_SCOPE("Raytracing::TileRendering");
+        const int tileSize = 32;
+        for (int y = 0; y < height; y += tileSize) {
+            for (int x = 0; x < width; x += tileSize) {
+                int endX = std::min(x + tileSize, width);
+                int endY = std::min(y + tileSize, height);
+                RenderTile(x, y, endX, endY, framebuffer);
+            }
         }
     }
     

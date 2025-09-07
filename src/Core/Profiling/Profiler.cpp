@@ -63,7 +63,7 @@ void Profiler::BeginFrame() {
     
     std::lock_guard<std::mutex> lock(s_mutex);
     
-    s_frameStartTime = GetCurrentTime();
+    s_frameStartTime = GetTickCount();
     s_frameSamples.clear();
     
     ProcessGPUQueries();
@@ -74,7 +74,7 @@ void Profiler::EndFrame() {
     
     std::lock_guard<std::mutex> lock(s_mutex);
     
-    double frameEndTime = GetCurrentTime();
+    double frameEndTime = GetTickCount();
     s_frameTime = frameEndTime - s_frameStartTime;
     
     ProfilerStats& frameStats = s_stats["Frame"];
@@ -91,13 +91,13 @@ void Profiler::BeginSample(const std::string& name) {
     if (!s_enabled || !s_initialized) return;
     
     std::lock_guard<std::mutex> lock(s_mutex);
-    s_activeSamples[name] = GetCurrentTime();
+    s_activeSamples[name] = GetTickCount();
 }
 
 void Profiler::EndSample(const std::string& name) {
     if (!s_enabled || !s_initialized) return;
     
-    double endTime = GetCurrentTime();
+    double endTime = GetTickCount();
     
     std::lock_guard<std::mutex> lock(s_mutex);
     
@@ -312,7 +312,7 @@ void Profiler::ResetStats() {
     Logger::Info("Profiler statistics reset");
 }
 
-double Profiler::GetCurrentTime() {
+double Profiler::GetTickCount() {
     auto now = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - s_startTime);
     return duration.count() / 1000000.0;

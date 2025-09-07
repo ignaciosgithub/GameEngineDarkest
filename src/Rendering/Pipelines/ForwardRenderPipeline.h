@@ -4,6 +4,7 @@
 #include "../Core/Texture.h"
 #include "../Core/FrameBuffer.h"
 #include "../Shaders/Shader.h"
+#include "../Lighting/LightManager.h"
 #include <memory>
 #include <vector>
 
@@ -60,6 +61,8 @@ private:
     unsigned int m_shadowVolumeVerticesSSBO = 0;
     int m_numVolumeHeadersLast = 0;
     std::unique_ptr<LightOcclusion> m_lightOcclusion;
+    
+    std::unique_ptr<LightManager> m_cachedLightManager;
 };
 
 }

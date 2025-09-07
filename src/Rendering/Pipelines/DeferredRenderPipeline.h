@@ -3,6 +3,7 @@
 #include "RenderPipeline.h"
 #include "../Core/FrameBuffer.h"
 #include "../Shaders/Shader.h"
+#include "../Lighting/LightManager.h"
 #include <memory>
 
 namespace GameEngine {
@@ -32,8 +33,10 @@ namespace GameEngine {
         std::unique_ptr<Shader> m_lightingShader;
         std::unique_ptr<Shader> m_compositeShader;
         
-        static const int SHADOW_MAP_SIZE = 1024;
+        static const int SHADOW_MAP_SIZE = 512;
         Matrix4 m_lightSpaceMatrix;
+        
+        std::unique_ptr<LightManager> m_cachedLightManager;
         
         void CreateGBuffer();
         void CreateShaders();

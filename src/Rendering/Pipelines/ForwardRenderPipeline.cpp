@@ -460,43 +460,7 @@ void ForwardRenderPipeline::BeginFrame(const RenderData& renderData) {
 }
 
 void ForwardRenderPipeline::EndFrame() {
-    static int frameCount = 0;
-    std::string filename = "frames/frame" + std::to_string(frameCount) + ".png";
-    
-    Logger::Info("Saving frame " + std::to_string(frameCount) + " to " + filename);
-    
-    unsigned char* pixels = new unsigned char[m_renderData.viewportWidth * m_renderData.viewportHeight * 4];
-    
-    Logger::Debug("Reading pixels from bound framebuffer before unbinding");
-    glReadPixels(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR) {
-        Logger::Error("OpenGL error after glReadPixels: " + std::to_string(error));
-    } else {
-        Logger::Debug("glReadPixels completed successfully from framebuffer");
-    }
-    
     m_framebuffer->Unbind();
-    
-    unsigned char* flippedPixels = new unsigned char[m_renderData.viewportWidth * m_renderData.viewportHeight * 4];
-    for (int y = 0; y < m_renderData.viewportHeight; y++) {
-        std::memcpy(flippedPixels + (m_renderData.viewportHeight - 1 - y) * m_renderData.viewportWidth * 4, 
-                   pixels + y * m_renderData.viewportWidth * 4, 
-                   m_renderData.viewportWidth * 4);
-    }
-    
-    int result = stbi_write_png(filename.c_str(), m_renderData.viewportWidth, m_renderData.viewportHeight, 4, flippedPixels, m_renderData.viewportWidth * 4);
-    if (result) {
-        Logger::Info("Successfully saved frame " + std::to_string(frameCount));
-    } else {
-        Logger::Error("Failed to save frame " + std::to_string(frameCount));
-    }
-    
-    delete[] pixels;
-    delete[] flippedPixels;
-    
-    frameCount++;
 }
 
 std::shared_ptr<Texture> ForwardRenderPipeline::GetFinalTexture() const {
@@ -856,9 +820,11 @@ void ForwardRenderPipeline::CompositePass() {
 void ForwardRenderPipeline::RenderShadowPass(World* world) {
     if (!world) return;
 
-    LightManager lm;
-    lm.CollectLights(world);
-    auto act = lm.GetActiveLights();
+    if (!m_cachedLightManager) {
+        m_cachedLightManager = std::make_unique<LightManager>();
+    }
+    m_cachedLightManager->CollectLights(world);
+    auto act = m_cachedLightManager->GetActiveLights();
     if (act.empty()) return;
 
     glEnable(GL_DEPTH_TEST);
@@ -916,12 +882,19 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
                 Matrix4 lightSpace = proj * view;
                 m_depthShader->SetMatrix4("lightSpaceMatrix", lightSpace);
 
+                Vector3 cameraPos = Vector3(m_renderData.viewMatrix.Inverted().m[12], 
+                                           m_renderData.viewMatrix.Inverted().m[13], 
+                                           m_renderData.viewMatrix.Inverted().m[14]);
+                
                 for (const auto& e : world->GetEntities()) {
                     auto* t = world->GetComponent<TransformComponent>(e);
                     auto* mc = world->GetComponent<MeshComponent>(e);
                     if (!t || !mc) continue;
                     auto mesh = mc->GetMesh();
                     if (!mesh) continue;
+
+                    float distance = (t->transform.GetPosition() - cameraPos).Length();
+                    if (distance > 100.0f) continue;
 
                     Matrix4 model = t->transform.GetLocalToWorldMatrix();
                     m_depthShader->SetMatrix4("model", model);
@@ -941,12 +914,19 @@ void ForwardRenderPipeline::RenderShadowPass(World* world) {
             Matrix4 lightSpace = shadowLight->GetLightSpaceMatrix();
             m_depthShader->SetMatrix4("lightSpaceMatrix", lightSpace);
 
+            Vector3 cameraPos = Vector3(m_renderData.viewMatrix.Inverted().m[12], 
+                                       m_renderData.viewMatrix.Inverted().m[13], 
+                                       m_renderData.viewMatrix.Inverted().m[14]);
+            
             for (const auto& e : world->GetEntities()) {
                 auto* t = world->GetComponent<TransformComponent>(e);
                 auto* mc = world->GetComponent<MeshComponent>(e);
                 if (!t || !mc) continue;
                 auto mesh = mc->GetMesh();
                 if (!mesh) continue;
+
+                float distance = (t->transform.GetPosition() - cameraPos).Length();
+                if (distance > 100.0f) continue;
 
                 Matrix4 model = t->transform.GetLocalToWorldMatrix();
                 m_depthShader->SetMatrix4("model", model);

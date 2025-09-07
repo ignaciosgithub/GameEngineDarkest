@@ -97,33 +97,6 @@ void DeferredRenderPipeline::Render(World* world) {
 
 void DeferredRenderPipeline::EndFrame() {
     m_lightingBuffer->Unbind();
-    
-    static int frameCount = 0;
-    std::string filename = "frames/frame" + std::to_string(frameCount) + ".png";
-    
-    Logger::Info("Saving frame " + std::to_string(frameCount) + " to " + filename);
-    
-    unsigned char* pixels = new unsigned char[m_width * m_height * 4];
-    glReadPixels(0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    
-    unsigned char* flippedPixels = new unsigned char[m_width * m_height * 4];
-    for (int y = 0; y < m_height; y++) {
-        std::memcpy(flippedPixels + (m_height - 1 - y) * m_width * 4, 
-                   pixels + y * m_width * 4, 
-                   m_width * 4);
-    }
-    
-    int result = stbi_write_png(filename.c_str(), m_width, m_height, 4, flippedPixels, m_width * 4);
-    if (result) {
-        Logger::Info("Successfully saved frame " + std::to_string(frameCount));
-    } else {
-        Logger::Error("Failed to save frame " + std::to_string(frameCount));
-    }
-    
-    delete[] pixels;
-    delete[] flippedPixels;
-    
-    frameCount++;
 }
 
 void DeferredRenderPipeline::Resize(int width, int height) {
@@ -369,10 +342,12 @@ void DeferredRenderPipeline::ShadowPass(World* world) {
     glViewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
     glClear(GL_DEPTH_BUFFER_BIT);
     
-    LightManager lightManager;
-    lightManager.CollectLights(world);
+    if (!m_cachedLightManager) {
+        m_cachedLightManager = std::make_unique<LightManager>();
+    }
+    m_cachedLightManager->CollectLights(world);
     
-    auto lights = lightManager.GetActiveLights();
+    auto lights = m_cachedLightManager->GetActiveLights();
     if (!lights.empty() && lights[0]->GetType() == LightType::Directional) {
         Vector3 lightDir = lights[0]->GetDirection().Normalized();
         Vector3 lightPos = Vector3(0, 10, 0) - lightDir * 10.0f;
@@ -386,11 +361,18 @@ void DeferredRenderPipeline::ShadowPass(World* world) {
             m_geometryShader->SetMatrix4("uView", lightView);
             m_geometryShader->SetMatrix4("uProjection", lightProjection);
             
+            Vector3 cameraPos = Vector3(m_renderData.viewMatrix.Inverted().m[12], 
+                                       m_renderData.viewMatrix.Inverted().m[13], 
+                                       m_renderData.viewMatrix.Inverted().m[14]);
+            
             for (const auto& entity : world->GetEntities()) {
                 if (world->HasComponent<TransformComponent>(entity) && world->HasComponent<MeshComponent>(entity)) {
                     auto* transformComp = world->GetComponent<TransformComponent>(entity);
                     auto* meshComp = world->GetComponent<MeshComponent>(entity);
                     if (transformComp && meshComp && meshComp->HasMesh() && meshComp->IsVisible()) {
+                        float distance = (transformComp->transform.GetPosition() - cameraPos).Length();
+                        if (distance > 100.0f) continue;
+                        
                         Matrix4 modelMatrix = transformComp->transform.GetLocalToWorldMatrix();
                         m_geometryShader->SetMatrix4("uModel", modelMatrix);
                         meshComp->GetMesh()->Draw();
@@ -413,12 +395,19 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
     }
     
     if (world) {
+        Vector3 cameraPos = Vector3(m_renderData.viewMatrix.Inverted().m[12], 
+                                   m_renderData.viewMatrix.Inverted().m[13], 
+                                   m_renderData.viewMatrix.Inverted().m[14]);
+        
         int entityCount = 0;
         for (const auto& entity : world->GetEntities()) {
             if (world->HasComponent<TransformComponent>(entity) && world->HasComponent<MeshComponent>(entity)) {
                 auto* transformComp = world->GetComponent<TransformComponent>(entity);
                 auto* meshComp = world->GetComponent<MeshComponent>(entity);
                 if (transformComp && meshComp && meshComp->HasMesh() && meshComp->IsVisible()) {
+                    float distance = (transformComp->transform.GetPosition() - cameraPos).Length();
+                    if (distance > 100.0f) continue;
+                    
                     Matrix4 modelMatrix = transformComp->transform.GetLocalToWorldMatrix();
                     
                     if (m_geometryShader) {
@@ -474,12 +463,14 @@ void DeferredRenderPipeline::LightingPass(World* world) {
             }
         }
         
-        LightManager lightManager;
-        lightManager.CollectLights(world);
-        lightManager.ApplyBrightnessLimits();
+        if (!m_cachedLightManager) {
+            m_cachedLightManager = std::make_unique<LightManager>();
+        }
+        m_cachedLightManager->CollectLights(world);
+        m_cachedLightManager->ApplyBrightnessLimits();
         
         std::vector<LightManager::ShaderLightData> lightData;
-        lightManager.GetShaderLightData(lightData);
+        m_cachedLightManager->GetShaderLightData(lightData);
         
         m_lightingShader->SetInt("numLights", static_cast<int>(lightData.size()));
         

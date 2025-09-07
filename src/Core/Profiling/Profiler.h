@@ -103,7 +103,7 @@ private:
     static std::mutex s_mutex;
     static std::chrono::high_resolution_clock::time_point s_startTime;
     
-    static double GetCurrentTime();
+    static double GetTickCount();
     static void ProcessGPUQueries();
 };
 

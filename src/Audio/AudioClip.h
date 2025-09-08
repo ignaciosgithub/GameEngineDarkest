@@ -36,6 +36,7 @@ namespace GameEngine {
         
     private:
         bool LoadWAV(const std::string& filepath);
+        bool LoadMP3(const std::string& filepath);
         void CalculateDuration();
         
         std::string m_filepath;

@@ -7,6 +7,7 @@ add_library(Audio STATIC
 target_include_directories(Audio PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
+    ${CMAKE_CURRENT_SOURCE_DIR}/External
 )
 
 target_link_libraries(Audio PUBLIC

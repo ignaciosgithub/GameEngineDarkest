@@ -30,5 +30,19 @@ target_link_libraries(GameObjectDemo PRIVATE
     # UI  # Temporarily disabled
 )
 
+add_executable(AudioTestDemo
+    audio_test.cpp
+)
+
+target_include_directories(AudioTestDemo PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
+
+target_link_libraries(AudioTestDemo PRIVATE
+    Core
+    Audio
+)
+
 target_compile_features(GameEngineDemo PRIVATE cxx_std_20)
 target_compile_features(GameObjectDemo PRIVATE cxx_std_20)
+target_compile_features(AudioTestDemo PRIVATE cxx_std_20)

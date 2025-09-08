@@ -3,6 +3,10 @@
 #include "AudioSource.h"
 #include "../Core/Logging/Logger.h"
 #include "../Core/Profiling/Profiler.h"
+#ifdef OPENAL_AVAILABLE
+#include <AL/al.h>
+#include <AL/alc.h>
+#endif
 #include <algorithm>
 
 namespace GameEngine {
@@ -19,7 +23,32 @@ namespace GameEngine {
             return true;
         }
         
-        Logger::Info("AudioManager initialized (basic implementation)");
+#ifdef OPENAL_AVAILABLE
+        m_alDevice = alcOpenDevice(nullptr);
+        if (!m_alDevice) {
+            Logger::Error("Failed to open OpenAL device");
+            return false;
+        }
+        
+        m_alContext = alcCreateContext(static_cast<ALCdevice*>(m_alDevice), nullptr);
+        if (!m_alContext) {
+            Logger::Error("Failed to create OpenAL context");
+            alcCloseDevice(static_cast<ALCdevice*>(m_alDevice));
+            m_alDevice = nullptr;
+            return false;
+        }
+        
+        alcMakeContextCurrent(static_cast<ALCcontext*>(m_alContext));
+        
+        alListener3f(AL_POSITION, 0.0f, 0.0f, 0.0f);
+        alListener3f(AL_VELOCITY, 0.0f, 0.0f, 0.0f);
+        float orientation[] = {0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f};
+        alListenerfv(AL_ORIENTATION, orientation);
+        
+        Logger::Info("AudioManager initialized with OpenAL");
+#else
+        Logger::Info("AudioManager initialized (basic implementation - OpenAL not available)");
+#endif
         
         m_initialized = true;
         return true;
@@ -49,6 +78,18 @@ namespace GameEngine {
         
         m_audioClips.clear();
         
+#ifdef OPENAL_AVAILABLE
+        if (m_alContext) {
+            alcMakeContextCurrent(nullptr);
+            alcDestroyContext(static_cast<ALCcontext*>(m_alContext));
+            m_alContext = nullptr;
+        }
+        
+        if (m_alDevice) {
+            alcCloseDevice(static_cast<ALCdevice*>(m_alDevice));
+            m_alDevice = nullptr;
+        }
+#else
         if (m_alContext) {
             m_alContext = nullptr;
         }
@@ -56,6 +97,7 @@ namespace GameEngine {
         if (m_alDevice) {
             m_alDevice = nullptr;
         }
+#endif
         
         m_initialized = false;
         Logger::Info("AudioManager shutdown successfully");

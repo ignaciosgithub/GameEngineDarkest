@@ -79,7 +79,7 @@ Matrix4 Light::GetLightSpaceMatrix() const {
 Matrix4 Light::GetProjectionMatrix() const {
     switch (m_type) {
         case LightType::Directional: {
-            float orthoSize = 25.0f;
+            float orthoSize = 50.0f;
             float nearPlane = m_data.shadowNearPlane;
             float farPlane = m_data.shadowFarPlane;
             return Matrix4::Orthographic(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
@@ -91,7 +91,7 @@ Matrix4 Light::GetProjectionMatrix() const {
         }
         case LightType::Spot: {
             float aspect = 1.0f;
-            float fov = std::max(1.0f, m_data.outerConeAngle * 2.0f) * static_cast<float>(M_PI) / 180.0f;
+            float fov = std::max(10.0f, m_data.outerConeAngle * 2.0f) * static_cast<float>(M_PI) / 180.0f;
             return Matrix4::Perspective(fov, aspect, m_data.shadowNearPlane, m_data.shadowFarPlane);
         }
     }
@@ -106,8 +106,9 @@ Matrix4 Light::GetViewMatrix() const {
 
     switch (m_type) {
         case LightType::Directional: {
-            Vector3 lightPos = m_data.position - m_data.direction * 50.0f;
-            Vector3 target = m_data.position;
+            Vector3 lightDirection = m_data.direction.Normalized();
+            Vector3 lightPos = m_data.position - lightDirection * 100.0f;
+            Vector3 target = m_data.position + lightDirection;
             return Matrix4::LookAt(lightPos, target, up);
         }
         case LightType::Point:

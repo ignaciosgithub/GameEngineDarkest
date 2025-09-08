@@ -348,18 +348,26 @@ void DeferredRenderPipeline::ShadowPass(World* world) {
     m_cachedLightManager->CollectLights(world);
     
     auto lights = m_cachedLightManager->GetActiveLights();
-    if (!lights.empty() && lights[0]->GetType() == LightType::Directional) {
-        Vector3 lightDir = lights[0]->GetDirection().Normalized();
-        Vector3 lightPos = Vector3(0, 10, 0) - lightDir * 10.0f;
+    
+    for (auto* light : lights) {
+        if (!light || !light->GetCastShadows()) continue;
         
-        Matrix4 lightView = Matrix4::LookAt(lightPos, Vector3(0, 0, 0), Vector3(0, 1, 0));
-        Matrix4 lightProjection = Matrix4::Orthographic(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 20.0f);
-        m_lightSpaceMatrix = lightProjection * lightView;
+        light->InitializeShadowMap();
+        auto shadowFramebuffer = light->GetShadowFramebuffer();
+        if (!shadowFramebuffer) continue;
+        
+        shadowFramebuffer->Bind();
+        glViewport(0, 0, light->GetShadowMapSize(), light->GetShadowMapSize());
+        glClear(GL_DEPTH_BUFFER_BIT);
+        
+        if (m_lightSpaceMatrix.m[0] == 0.0f && m_lightSpaceMatrix.m[5] == 0.0f) {
+            m_lightSpaceMatrix = light->GetLightSpaceMatrix();
+        }
         
         if (m_geometryShader) {
             m_geometryShader->Use();
-            m_geometryShader->SetMatrix4("uView", lightView);
-            m_geometryShader->SetMatrix4("uProjection", lightProjection);
+            m_geometryShader->SetMatrix4("uView", light->GetViewMatrix());
+            m_geometryShader->SetMatrix4("uProjection", light->GetProjectionMatrix());
             
             Vector3 cameraPos = Vector3(m_renderData.viewMatrix.Inverted().m[12], 
                                        m_renderData.viewMatrix.Inverted().m[13], 
@@ -380,6 +388,10 @@ void DeferredRenderPipeline::ShadowPass(World* world) {
                 }
             }
         }
+        
+        shadowFramebuffer->Unbind();
+        
+        break;
     }
     
     m_shadowMapBuffer->Unbind();

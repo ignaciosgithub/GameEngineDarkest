@@ -338,9 +338,7 @@ void DeferredRenderPipeline::CreateShaders() {
 void DeferredRenderPipeline::ShadowPass(World* world) {
     if (!m_shadowMapBuffer) return;
     
-    m_shadowMapBuffer->Bind();
-    glViewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
-    glClear(GL_DEPTH_BUFFER_BIT);
+    m_lightSpaceMatrix = Matrix4::Identity();
     
     if (!m_cachedLightManager) {
         m_cachedLightManager = std::make_unique<LightManager>();
@@ -349,20 +347,15 @@ void DeferredRenderPipeline::ShadowPass(World* world) {
     
     auto lights = m_cachedLightManager->GetActiveLights();
     
+    m_shadowMapBuffer->Bind();
+    glViewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    
     for (auto* light : lights) {
         if (!light || !light->GetCastShadows()) continue;
         
         light->InitializeShadowMap();
-        auto shadowFramebuffer = light->GetShadowFramebuffer();
-        if (!shadowFramebuffer) continue;
-        
-        shadowFramebuffer->Bind();
-        glViewport(0, 0, light->GetShadowMapSize(), light->GetShadowMapSize());
-        glClear(GL_DEPTH_BUFFER_BIT);
-        
-        if (m_lightSpaceMatrix.m[0] == 0.0f && m_lightSpaceMatrix.m[5] == 0.0f) {
-            m_lightSpaceMatrix = light->GetLightSpaceMatrix();
-        }
+        m_lightSpaceMatrix = light->GetLightSpaceMatrix();
         
         if (m_geometryShader) {
             m_geometryShader->Use();
@@ -388,8 +381,6 @@ void DeferredRenderPipeline::ShadowPass(World* world) {
                 }
             }
         }
-        
-        shadowFramebuffer->Unbind();
         
         break;
     }

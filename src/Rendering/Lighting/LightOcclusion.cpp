@@ -16,6 +16,9 @@
 
 namespace GameEngine {
 
+LightOcclusion::SoftShadowMode LightOcclusion::s_defaultSoftShadowMode = LightOcclusion::SoftShadowMode::Fixed;
+int LightOcclusion::s_defaultFixedSampleCount = 6;
+
 static inline unsigned long long EdgeKey(unsigned int a, unsigned int b) {
     unsigned int x = a < b ? a : b;
     unsigned int y = a < b ? b : a;
@@ -24,6 +27,8 @@ static inline unsigned long long EdgeKey(unsigned int a, unsigned int b) {
 
 LightOcclusion::LightOcclusion() {
     Logger::Debug("LightOcclusion created");
+    m_softShadowMode = s_defaultSoftShadowMode;
+    m_fixedSampleCount = s_defaultFixedSampleCount;
     InitializeComputeShaders();
 }
 

@@ -66,6 +66,11 @@ public:
 
     void SetSoftShadowMode(SoftShadowMode mode) { m_softShadowMode = mode; }
     void SetFixedSampleCount(int count) { m_fixedSampleCount = count; }
+
+    static void SetDefaultSoftShadowMode(SoftShadowMode mode) { s_defaultSoftShadowMode = mode; }
+    static void SetDefaultFixedSampleCount(int count) { s_defaultFixedSampleCount = count; }
+    static SoftShadowMode GetDefaultSoftShadowMode() { return s_defaultSoftShadowMode; }
+    static int GetDefaultFixedSampleCount() { return s_defaultFixedSampleCount; }
     
 public:
     void BuildShadowVolumesForLight(const Light* light, World* world, int lightIndex, float dirFar);
@@ -122,6 +127,9 @@ private:
     float m_maxOcclusionDistance = 100.0f;
     SoftShadowMode m_softShadowMode = SoftShadowMode::Off;
     int m_fixedSampleCount = 6;
+
+    static SoftShadowMode s_defaultSoftShadowMode;
+    static int s_defaultFixedSampleCount;
 };
 
 }

@@ -1,6 +1,7 @@
 #include "WorldSettingsPanel.h"
 #include "../../Physics/PhysicsWorld.h"
 #include "../../Core/Logging/Logger.h"
+#include "../../Rendering/Lighting/LightOcclusion.h"
 #include <imgui.h>
 
 namespace GameEngine {
@@ -19,6 +20,19 @@ void WorldSettingsPanel::Update(World* /*world*/, float /*deltaTime*/) {
             DrawPhysicsSettings();
             ImGui::Separator();
             DrawPerformanceSettings();
+            ImGui::Separator();
+            if (ImGui::CollapsingHeader("Rendering / Shadows", ImGuiTreeNodeFlags_DefaultOpen)) {
+                int mode = static_cast<int>(LightOcclusion::GetDefaultSoftShadowMode());
+                const char* items[] = {"Off", "Fixed", "Adaptive"};
+                if (ImGui::Combo("Soft Shadow Mode", &mode, items, 3)) {
+                    LightOcclusion::SetDefaultSoftShadowMode(static_cast<LightOcclusion::SoftShadowMode>(mode));
+                }
+                int fixedSamples = LightOcclusion::GetDefaultFixedSampleCount();
+                if (ImGui::SliderInt("Fixed Sample Count", &fixedSamples, 4, 16)) {
+                    LightOcclusion::SetDefaultFixedSampleCount(fixedSamples);
+                }
+                ImGui::Text("New lights/occlusion instances will use these defaults");
+            }
         } else {
             ImGui::Text("Physics World not available");
         }

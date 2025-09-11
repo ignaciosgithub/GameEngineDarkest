@@ -41,6 +41,8 @@ target_include_directories(AudioTestDemo PRIVATE
 target_link_libraries(AudioTestDemo PRIVATE
     Core
     Audio
+    Physics
+    Physics2D
 )
 
 target_compile_features(GameEngineDemo PRIVATE cxx_std_20)

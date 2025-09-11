@@ -376,23 +376,6 @@ void ForwardRenderPipeline::Render(World* world) {
     
     glViewport(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight);
     Logger::Debug("ForwardRenderPipeline: Set viewport to " + std::to_string(m_renderData.viewportWidth) + "x" + std::to_string(m_renderData.viewportHeight));
-    {
-        std::string depthVS = R"(
-            #version 330 core
-            layout (location = 0) in vec3 aPos;
-            uniform mat4 model;
-            uniform mat4 lightSpaceMatrix;
-            void main() {
-                gl_Position = lightSpaceMatrix * vec4(aPos, 1.0);
-            }
-        )";
-        std::string depthFS = R"(
-            #version 330 core
-            void main() { }
-        )";
-        m_depthShader = std::make_shared<Shader>();
-        m_depthShader->LoadFromSource(depthVS, depthFS);
-    }
 
     
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);

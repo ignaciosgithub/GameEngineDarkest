@@ -356,6 +356,23 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
     
     m_transparentShader->LoadFromSource(vertexShaderSource, transparentFragmentSource);
     m_effectsShader->LoadFromSource(vertexShaderSource, fragmentShaderSource);
+    if (!m_depthShader) {
+        std::string depthVS = R"(
+            #version 330 core
+            layout (location = 0) in vec3 aPos;
+            uniform mat4 model;
+            uniform mat4 lightSpaceMatrix;
+            void main() {
+                gl_Position = lightSpaceMatrix * vec4(aPos, 1.0);
+            }
+        )";
+        std::string depthFS = R"(
+            #version 330 core
+            void main() { }
+        )";
+        m_depthShader = std::make_shared<Shader>();
+        m_depthShader->LoadFromSource(depthVS, depthFS);
+    }
     m_initialized = true;
     Logger::Info("Forward rendering pipeline initialized successfully");
     return true;

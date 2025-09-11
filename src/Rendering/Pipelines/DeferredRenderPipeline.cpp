@@ -8,6 +8,7 @@
 #include "../Core/OpenGLHeaders.h"
 #include "../Lighting/LightManager.h"
 #include "../Lighting/Light.h"
+#include "../Lighting/LightOcclusion.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #ifdef _MSC_VER
@@ -220,6 +221,33 @@ void DeferredRenderPipeline::CreateShaders() {
         uniform float lightRanges[32];
         uniform vec3 viewPos;
         uniform mat4 lightSpaceMatrix;
+
+        struct VolumeHeader { int lightIndex; int vertCount; int baseOffset; int farOffset; };
+        layout(std430, binding = 3) buffer ShadowVolumeHeaders { VolumeHeader headers[]; };
+        layout(std430, binding = 4) buffer ShadowVolumeVertices { vec4 vertices[]; };
+        uniform int numVolumeHeaders;
+
+        bool insidePrism(int vertCount, int baseOffset, int farOffset, vec3 P) {
+            if (vertCount < 3) return false;
+            for (int i = 0; i < vertCount; ++i) {
+                vec3 a0 = vertices[baseOffset + i].xyz;
+                vec3 a1 = vertices[baseOffset + ((i + 1) % vertCount)].xyz;
+                vec3 b0 = vertices[farOffset + i].xyz;
+                vec3 edge = a1 - a0;
+                vec3 extrude = b0 - a0;
+                vec3 n = normalize(cross(edge, extrude));
+                if (dot(n, P - a0) > 0.0) return false;
+            }
+            return true;
+        }
+
+        bool insideAnyLightVolume(int lightIdx, vec3 P) {
+            for (int h = 0; h < numVolumeHeaders; ++h) {
+                if (headers[h].lightIndex != lightIdx) continue;
+                if (insidePrism(headers[h].vertCount, headers[h].baseOffset, headers[h].farOffset, P)) return true;
+            }
+            return false;
+        }
         
         float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir) {
             vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
@@ -436,8 +464,74 @@ void DeferredRenderPipeline::LightingPass(World* world) {
     
     glDisable(GL_DEPTH_TEST);
     
+    if (!m_cachedLightManager) {
+        m_cachedLightManager = std::make_unique<LightManager>();
+    }
+    m_cachedLightManager->CollectLights(world);
+    m_cachedLightManager->ApplyBrightnessLimits();
+    auto lights = m_cachedLightManager->GetActiveLights();
+
+    if (!m_lightOcclusion) {
+        m_lightOcclusion = std::make_unique<LightOcclusion>();
+    }
+
+    std::vector<unsigned int> headersCPU;
+    std::vector<float> vertsCPU;
+    int totalHeaders = 0;
+    int vertFloatOffset = 0;
+
+    for (size_t li = 0; li < lights.size(); ++li) {
+        const Light* light = lights[li];
+        if (!light || !light->GetCastShadows()) continue;
+
+        m_lightOcclusion->BuildShadowVolumesForLight(light, world, static_cast<int>(li), 50.0f);
+        const auto* vols = m_lightOcclusion->GetVolumesForLight(light);
+        if (!vols) continue;
+
+        for (const auto& v : *vols) {
+            int vertCount = static_cast<int>(v.basePolygon.size());
+            if (vertCount < 3 || v.farPolygon.size() != v.basePolygon.size()) continue;
+
+            int baseOffset = vertFloatOffset / 4;
+            for (int i = 0; i < vertCount; ++i) {
+                const Vector3& p = v.basePolygon[i];
+                vertsCPU.push_back(p.x); vertsCPU.push_back(p.y); vertsCPU.push_back(p.z); vertsCPU.push_back(0.0f);
+            }
+            vertFloatOffset += vertCount * 4;
+
+            int farOffset = vertFloatOffset / 4;
+            for (int i = 0; i < vertCount; ++i) {
+                const Vector3& p = v.farPolygon[i];
+                vertsCPU.push_back(p.x); vertsCPU.push_back(p.y); vertsCPU.push_back(p.z); vertsCPU.push_back(0.0f);
+            }
+            vertFloatOffset += vertCount * 4;
+
+            headersCPU.push_back(static_cast<unsigned int>(v.lightIndex < 0 ? static_cast<int>(li) : v.lightIndex));
+            headersCPU.push_back(static_cast<unsigned int>(vertCount));
+            headersCPU.push_back(static_cast<unsigned int>(baseOffset));
+            headersCPU.push_back(static_cast<unsigned int>(farOffset));
+            totalHeaders += 1;
+        }
+    }
+
+    if (m_shadowVolumeHeadersSSBO == 0) {
+        glGenBuffers(1, &m_shadowVolumeHeadersSSBO);
+    }
+    if (m_shadowVolumeVerticesSSBO == 0) {
+        glGenBuffers(1, &m_shadowVolumeVerticesSSBO);
+    }
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_shadowVolumeHeadersSSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, headersCPU.size() * sizeof(unsigned int), headersCPU.empty() ? nullptr : headersCPU.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_shadowVolumeHeadersSSBO);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_shadowVolumeVerticesSSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, vertsCPU.size() * sizeof(float), vertsCPU.empty() ? nullptr : vertsCPU.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_shadowVolumeVerticesSSBO);
+
     if (m_lightingShader) {
         m_lightingShader->Use();
+        m_lightingShader->SetInt("numVolumeHeaders", totalHeaders);
         
         if (m_gBuffer) {
             auto albedoTexture = m_gBuffer->GetColorTexture(0);

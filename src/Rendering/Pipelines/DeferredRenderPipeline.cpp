@@ -11,20 +11,6 @@
 #include "../Lighting/LightOcclusion.h"
 #include "../Core/FrameCapture.h"
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4996) // Disable sprintf deprecation warning
-#elif defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-#endif
-#include "../Core/stb_image_write.h"
-#ifdef _MSC_VER
-#pragma warning(pop)
-#elif defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
 #include <string>
 #include <cstring>
 

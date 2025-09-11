@@ -7,6 +7,9 @@
 #include <memory>
 
 namespace GameEngine {
+
+    class LightOcclusion;
+
     class DeferredRenderPipeline : public RenderPipeline {
     public:
         DeferredRenderPipeline();
@@ -37,6 +40,11 @@ namespace GameEngine {
         Matrix4 m_lightSpaceMatrix;
         
         std::unique_ptr<LightManager> m_cachedLightManager;
+
+        unsigned int m_shadowVolumeHeadersSSBO = 0;
+        unsigned int m_shadowVolumeVerticesSSBO = 0;
+        int m_numVolumeHeadersLast = 0;
+        std::unique_ptr<LightOcclusion> m_lightOcclusion;
         
         void CreateGBuffer();
         void CreateShaders();

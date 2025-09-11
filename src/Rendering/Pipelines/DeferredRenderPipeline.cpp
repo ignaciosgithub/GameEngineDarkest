@@ -284,6 +284,7 @@ void DeferredRenderPipeline::CreateShaders() {
             
             for(int i = 0; i < numLights && i < 32; i++) {
                 vec3 lightContribution = vec3(0.0);
+                if (insideAnyLightVolume(i, fragPos)) { continue; }
                 
                 if(lightTypes[i] == 0) {
                     vec3 lightDir = normalize(-lightPositions[i]);

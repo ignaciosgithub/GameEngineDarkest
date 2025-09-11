@@ -9,6 +9,7 @@
 #include "../Lighting/LightManager.h"
 #include "../Lighting/Light.h"
 #include "../Lighting/LightOcclusion.h"
+#include "../Core/FrameCapture.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #ifdef _MSC_VER
@@ -495,6 +496,15 @@ void DeferredRenderPipeline::LightingPass(World* world) {
 
             int baseOffset = vertFloatOffset / 4;
             for (int i = 0; i < vertCount; ++i) {
+    static bool s_captured = false;
+    if (!s_captured) {
+        int w = m_renderData.viewportWidth;
+        int h = m_renderData.viewportHeight;
+        (void)w; (void)h;
+        GameEngine::FrameCapture::SaveDefaultFramebufferPNG(w, h, "/home/ubuntu/frames/frame0.png");
+        s_captured = true;
+    }
+
                 const Vector3& p = v.basePolygon[i];
                 vertsCPU.push_back(p.x); vertsCPU.push_back(p.y); vertsCPU.push_back(p.z); vertsCPU.push_back(0.0f);
             }

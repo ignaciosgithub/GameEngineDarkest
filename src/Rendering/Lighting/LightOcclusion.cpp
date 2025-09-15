@@ -16,6 +16,9 @@
 
 namespace GameEngine {
 
+LightOcclusion::SoftShadowMode LightOcclusion::s_defaultSoftShadowMode = LightOcclusion::SoftShadowMode::Fixed;
+int LightOcclusion::s_defaultFixedSampleCount = 6;
+
 static inline unsigned long long EdgeKey(unsigned int a, unsigned int b) {
     unsigned int x = a < b ? a : b;
     unsigned int y = a < b ? b : a;
@@ -24,6 +27,8 @@ static inline unsigned long long EdgeKey(unsigned int a, unsigned int b) {
 
 LightOcclusion::LightOcclusion() {
     Logger::Debug("LightOcclusion created");
+    m_softShadowMode = s_defaultSoftShadowMode;
+    m_fixedSampleCount = s_defaultFixedSampleCount;
     InitializeComputeShaders();
 }
 
@@ -186,7 +191,12 @@ float LightOcclusion::CalculateDistanceAttenuation(float distance, float maxDist
 }
 
 float LightOcclusion::CalculateSoftShadowOcclusion(const Light* light, const Vector3& targetPoint, World* /* world */) {
-    const int sampleCount = 6;
+    int sampleCount = m_fixedSampleCount;
+    if (m_softShadowMode == SoftShadowMode::Off) {
+        sampleCount = 1;
+    } else if (m_softShadowMode == SoftShadowMode::Adaptive) {
+        sampleCount = std::max(4, std::min(16, m_fixedSampleCount));
+    }
     Vector3 baseLightPos;
     Vector3 baseDir;
     float baseMaxDist = m_maxOcclusionDistance;
@@ -267,13 +277,19 @@ const LightOcclusion::MeshAdjacency& LightOcclusion::GetOrBuildAdjacency(const M
     adj.positions.reserve(verts.size());
     for (const auto& v : verts) adj.positions.push_back(v.position);
     adj.indices = mesh->GetIndices();
-    for (size_t i = 0; i + 2 < adj.indices.size(); i += 3) {
-        unsigned int i0 = adj.indices[i];
-        unsigned int i1 = adj.indices[i + 1];
-        unsigned int i2 = adj.indices[i + 2];
-        adj.edgeFaceCount[EdgeKey(i0, i1)] += 1;
-        adj.edgeFaceCount[EdgeKey(i1, i2)] += 1;
-        adj.edgeFaceCount[EdgeKey(i2, i0)] += 1;
+    for (size_t tri = 0; tri + 2 < adj.indices.size(); tri += 3) {
+        unsigned int i0 = adj.indices[tri];
+        unsigned int i1 = adj.indices[tri + 1];
+        unsigned int i2 = adj.indices[tri + 2];
+        unsigned long long e01 = EdgeKey(i0, i1);
+        unsigned long long e12 = EdgeKey(i1, i2);
+        unsigned long long e20 = EdgeKey(i2, i0);
+        adj.edgeFaceCount[e01] += 1;
+        adj.edgeFaceCount[e12] += 1;
+        adj.edgeFaceCount[e20] += 1;
+        adj.edgeToTris[e01].push_back((unsigned int)tri);
+        adj.edgeToTris[e12].push_back((unsigned int)tri);
+        adj.edgeToTris[e20].push_back((unsigned int)tri);
     }
     adj.built = true;
     auto ins = m_adjacencyCache.emplace(mesh, std::move(adj));
@@ -437,41 +453,70 @@ void LightOcclusion::ProcessEntitiesForShadowVertices(Iterator start, Iterator e
 
         Matrix4 model = tc->transform.GetLocalToWorldMatrix();
 
-        for (size_t i = 0; i + 2 < idx.size(); i += 3) {
-            unsigned int i0 = idx[i], i1 = idx[i + 1], i2 = idx[i + 2];
+        auto faceFacing = [&](unsigned int triStart)->float {
+            unsigned int i0 = idx[triStart], i1 = idx[triStart + 1], i2 = idx[triStart + 2];
             Vector3 p0 = model * pos[i0];
             Vector3 p1 = model * pos[i1];
             Vector3 p2 = model * pos[i2];
             Vector3 n = (p1 - p0).Cross(p2 - p0).Normalized();
-
-            float facing = 0.0f;
             if (light->GetType() == LightType::Directional) {
-                Vector3 lightDirNorm = lightDir.Normalized();
-                facing = n.Dot(-lightDirNorm);
+                return n.Dot(-lightDir.Normalized());
             } else {
                 Vector3 lightToVertex = (p0 - lightPos);
                 if (lightToVertex.LengthSquared() > 1e-6f) {
-                    facing = n.Dot(lightToVertex.Normalized());
+                    return n.Dot(lightToVertex.Normalized());
                 }
+                return 0.0f;
             }
-            
-            if (facing <= 1e-4f) continue;
+        };
 
-            auto push = [&](const Vector3& v) {
-                ShadowVertex sv;
-                sv.positionWS = v;
-                sv.dirFromLight = (light->GetType() == LightType::Directional) ? -lightDir : (v - lightPos).Normalized();
-                out.push_back(sv);
+        auto emitEdge = [&](const Vector3& a, const Vector3& b) {
+            ShadowVertex svA; svA.positionWS = a;
+            svA.dirFromLight = (light->GetType() == LightType::Directional) ? -lightDir : (a - lightPos).Normalized();
+            ShadowVertex svB; svB.positionWS = b;
+            svB.dirFromLight = (light->GetType() == LightType::Directional) ? -lightDir : (b - lightPos).Normalized();
+            out.push_back(svA);
+            out.push_back(svB);
+        };
+
+        for (size_t tri = 0; tri + 2 < idx.size(); tri += 3) {
+            unsigned int i0 = idx[tri], i1 = idx[tri + 1], i2 = idx[tri + 2];
+            float fThis = faceFacing((unsigned int)tri);
+            if (fThis <= 1e-4f) continue;
+
+            Vector3 p0 = model * pos[i0];
+            Vector3 p1 = model * pos[i1];
+            Vector3 p2 = model * pos[i2];
+
+            auto handleEdge = [&](unsigned int a, unsigned int b, const Vector3& pa, const Vector3& pb) {
+                unsigned long long ek = EdgeKey(a, b);
+                auto fcIt = adj.edgeFaceCount.find(ek);
+                int count = (fcIt != adj.edgeFaceCount.end()) ? fcIt->second : 0;
+                bool boundary = count <= 1;
+
+                bool opposite = false;
+                if (!boundary) {
+                    auto adjIt = adj.edgeToTris.find(ek);
+                    if (adjIt != adj.edgeToTris.end()) {
+                        for (unsigned int triIdx : adjIt->second) {
+                            if (triIdx == tri) continue;
+                            float fOther = faceFacing(triIdx);
+                            if ((fThis > 1e-4f) != (fOther > 1e-4f)) {
+                                opposite = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (boundary || opposite) {
+                    emitEdge(pa, pb);
+                }
             };
 
-            int c01 = 0, c12 = 0, c20 = 0;
-            auto it01 = adj.edgeFaceCount.find(EdgeKey(i0, i1)); if (it01 != adj.edgeFaceCount.end()) c01 = it01->second;
-            auto it12 = adj.edgeFaceCount.find(EdgeKey(i1, i2)); if (it12 != adj.edgeFaceCount.end()) c12 = it12->second;
-            auto it20 = adj.edgeFaceCount.find(EdgeKey(i2, i0)); if (it20 != adj.edgeFaceCount.end()) c20 = it20->second;
-
-            if (c01 <= 1) { push(p0); push(p1); }
-            if (c12 <= 1) { push(p1); push(p2); }
-            if (c20 <= 1) { push(p2); push(p0); }
+            handleEdge(i0, i1, p0, p1);
+            handleEdge(i1, i2, p1, p2);
+            handleEdge(i2, i0, p2, p0);
         }
     }
 }

@@ -86,32 +86,18 @@ void main() {
         return;
     }
     
-    // Check edges for silhouette detection
-    // This is simplified - in practice you'd need proper adjacency data
-    uint baseOutputIndex = atomicAdd(shadowVertexCount, 6);  // 2 vertices per edge * 3 edges
-    
-    // Add boundary vertices for each edge
-    for (int edge = 0; edge < 3; ++edge) {
-        vec3 edgeV0, edgeV1;
-        if (edge == 0) { edgeV0 = v0; edgeV1 = v1; }
-        else if (edge == 1) { edgeV0 = v1; edgeV1 = v2; }
-        else { edgeV0 = v2; edgeV1 = v0; }
-        
-        // Store shadow vertices
-        uint outputIdx = baseOutputIndex + edge * 2;
-        shadowVertices[outputIdx] = vec4(edgeV0, float(lightType));
-        shadowVertices[outputIdx + 1] = vec4(edgeV1, float(lightType));
-        
-        // Calculate direction from light
-        vec3 dir0, dir1;
-        if (lightType == 0) {  // Directional
-            dir0 = dir1 = -normalize(lightDirection);
-        } else {  // Point/spot
-            dir0 = normalize(edgeV0 - lightPosition);
-            dir1 = normalize(edgeV1 - lightPosition);
-        }
-        
-        shadowDirections[outputIdx] = vec4(dir0, 0.0);
-        shadowDirections[outputIdx + 1] = vec4(dir1, 0.0);
+    // Emit only one representative edge per triangle to reduce overdraw until full adjacency is wired
+    uint baseOutputIndex = atomicAdd(shadowVertexCount, 2);
+    uint outputIdx = baseOutputIndex;
+    shadowVertices[outputIdx] = vec4(v0, float(lightType));
+    shadowVertices[outputIdx + 1] = vec4(v1, float(lightType));
+    vec3 dir0, dir1;
+    if (lightType == 0) {
+        dir0 = dir1 = -normalize(lightDirection);
+    } else {
+        dir0 = normalize(v0 - lightPosition);
+        dir1 = normalize(v1 - lightPosition);
     }
+    shadowDirections[outputIdx] = vec4(dir0, 0.0);
+    shadowDirections[outputIdx + 1] = vec4(dir1, 0.0);
 }

@@ -1,3 +1,5 @@
+#include "Texture.h"
+
 #include "FrameCapture.h"
 #include "OpenGLHeaders.h"
 #include <vector>
@@ -46,5 +48,23 @@ bool FrameCapture::SaveDefaultFramebufferPNG(int width, int height, const std::s
     Logger::Info("FrameCapture: wrote " + filename);
     return true;
 }
+bool FrameCapture::SaveTexturePNG(Texture* texture, int width, int height, const std::string& filename) {
+    if (!texture || width <= 0 || height <= 0) {
+        Logger::Error("FrameCapture: invalid texture or dimensions");
+        return false;
+    }
+    std::vector<unsigned char> pixels(width * height * 4);
+    glBindTexture(GL_TEXTURE_2D, texture->GetHandle());
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    FlipImageVertical(pixels.data(), width, height, 4);
+    int ok = stbi_write_png(filename.c_str(), width, height, 4, pixels.data(), width * 4);
+    if (!ok) {
+        Logger::Error("FrameCapture: failed to write texture png: " + filename);
+        return false;
+    }
+    Logger::Info("FrameCapture: wrote " + filename);
+    return true;
+}
+
 
 }

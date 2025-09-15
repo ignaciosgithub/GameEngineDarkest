@@ -600,6 +600,15 @@ void DeferredRenderPipeline::LightingPass(World* world) {
     if (m_lightingShader) {
         m_lightingShader->Use();
         m_lightingShader->SetInt("numVolumeHeaders", totalHeaders);
+        m_lightingShader->SetInt("numLights", static_cast<int>(lights.size()));
+        m_lightingShader->SetVector3("viewPos", Vector3(m_renderData.viewMatrix.Inverted().m[12], m_renderData.viewMatrix.Inverted().m[13], m_renderData.viewMatrix.Inverted().m[14]));
+        m_lightingShader->SetInt("gAlbedoMetallic", 0);
+        m_lightingShader->SetInt("gNormalRoughness", 1);
+        m_lightingShader->SetInt("gPosition", 2);
+        int screenLoc2 = glGetUniformLocation(m_lightingShader->GetProgramID(), "screenSize");
+        if (screenLoc2 >= 0) glUniform2i(screenLoc2, m_width, m_height);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_lightGridSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_lightIndexSSBO);
         
         if (m_gBuffer) {
             auto albedoTexture = m_gBuffer->GetColorTexture(0);

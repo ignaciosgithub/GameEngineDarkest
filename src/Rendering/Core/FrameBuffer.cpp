@@ -39,6 +39,14 @@ void FrameBuffer::AddColorAttachment(TextureFormat format) {
     
     Bind();
     AttachTexture(texture, attachment);
+    std::vector<GLenum> drawBuffers;
+    drawBuffers.reserve(m_colorAttachments.size());
+    for (const auto& a : m_colorAttachments) {
+        drawBuffers.push_back(a.attachmentType);
+    }
+    if (!drawBuffers.empty()) {
+        glDrawBuffers(static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
+    }
     
     Logger::Info("FrameBuffer color attachment " + std::to_string(attachmentIndex) + " added");
 }
@@ -55,9 +63,16 @@ void FrameBuffer::Resize(int width, int height) {
     m_width = width;
     m_height = height;
     
+    Bind();
     for (auto& attachment : m_colorAttachments) {
         attachment.texture->CreateEmpty(width, height, attachment.texture->GetFormat());
         AttachTexture(attachment.texture, attachment.attachmentType);
+    }
+    if (!m_colorAttachments.empty()) {
+        std::vector<GLenum> drawBuffers;
+        drawBuffers.reserve(m_colorAttachments.size());
+        for (const auto& a : m_colorAttachments) drawBuffers.push_back(a.attachmentType);
+        glDrawBuffers(static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
     }
     
     if (m_depthAttachment) {

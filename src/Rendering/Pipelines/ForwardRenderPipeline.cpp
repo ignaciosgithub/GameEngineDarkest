@@ -464,7 +464,7 @@ void ForwardRenderPipeline::EndFrame() {
 }
 
 std::shared_ptr<Texture> ForwardRenderPipeline::GetFinalTexture() const {
-    return m_colorTexture;
+    return m_framebuffer ? m_framebuffer->GetColorTexture(0) : nullptr;
 }
 
 std::shared_ptr<FrameBuffer> ForwardRenderPipeline::GetFramebuffer() const {

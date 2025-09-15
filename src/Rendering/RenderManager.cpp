@@ -91,14 +91,6 @@ void RenderManager::BeginFrame(const RenderData& renderData) {
 
 void RenderManager::Render(World* world) {
     PROFILE_GPU("RenderManager::Render");
-    const char* cap = std::getenv("GE_CAPTURE");
-    if (cap && std::string(cap) == "1") {
-        auto tex = GetFinalTexture();
-        int w = m_width > 0 ? m_width : 1280;
-        int h = m_height > 0 ? m_height : 720;
-        std::filesystem::create_directories("/home/ubuntu/frames");
-        FrameCapture::SaveDefaultFramebufferPNG(w, h, "/home/ubuntu/frames/frame0.png");
-    }
     if (m_currentPipeline) {
         m_currentPipeline->Render(world);
     }
@@ -108,6 +100,13 @@ void RenderManager::EndFrame() {
     PROFILE_GPU("RenderManager::EndFrame");
     if (m_currentPipeline) {
         m_currentPipeline->EndFrame();
+    }
+    const char* cap = std::getenv("GE_CAPTURE");
+    if (cap && std::string(cap) == "1") {
+        int w = m_width > 0 ? m_width : 1280;
+        int h = m_height > 0 ? m_height : 720;
+        std::filesystem::create_directories("/home/ubuntu/frames");
+        FrameCapture::SaveDefaultFramebufferPNG(w, h, "/home/ubuntu/frames/frame0.png");
     }
 }
 

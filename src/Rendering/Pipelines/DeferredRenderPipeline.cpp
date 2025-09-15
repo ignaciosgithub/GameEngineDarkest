@@ -485,6 +485,23 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
     } else {
         Logger::Warning("DeferredRenderPipeline: World is null; skipping geometry draw");
     }
+
+    const char* cap = std::getenv("GE_CAPTURE");
+    if (cap && std::string(cap) == "1") {
+        static bool s_dumped = false;
+        if (!s_dumped) {
+            int w = m_width, h = m_height;
+            auto c0 = m_gBuffer->GetColorTexture(0);
+            auto c1 = m_gBuffer->GetColorTexture(1);
+            auto c2 = m_gBuffer->GetColorTexture(2);
+            auto c3 = m_gBuffer->GetColorTexture(3);
+            if (c0) FrameCapture::SaveTexturePNG(c0.get(), w, h, "/home/ubuntu/frames/gbuf0_albedo.png");
+            if (c1) FrameCapture::SaveTexturePNG(c1.get(), w, h, "/home/ubuntu/frames/gbuf1_normal.png");
+            if (c2) FrameCapture::SaveTexturePNG(c2.get(), w, h, "/home/ubuntu/frames/gbuf2_position.png");
+            if (c3) FrameCapture::SaveTexturePNG(c3.get(), w, h, "/home/ubuntu/frames/gbuf3_misc.png");
+            s_dumped = true;
+        }
+    }
 }
 
 void DeferredRenderPipeline::LightingPass(World* world) {

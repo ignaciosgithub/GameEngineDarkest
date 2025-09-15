@@ -249,6 +249,10 @@ void DeferredRenderPipeline::CreateShaders() {
         uniform float lightRanges[32];
         uniform vec3 viewPos;
         uniform mat4 lightSpaceMatrix;
+        uniform ivec2 screenSize;
+
+        layout(std430, binding = 0) buffer LightGrid { ivec2 grid[]; };
+        layout(std430, binding = 1) buffer LightIndex { int indices[]; };
 
         struct VolumeHeader { int lightIndex; int vertCount; int baseOffset; int farOffset; };
         layout(std430, binding = 3) buffer ShadowVolumeHeaders { VolumeHeader headers[]; };
@@ -291,6 +295,15 @@ void DeferredRenderPipeline::CreateShaders() {
             
             return shadow;
         }
+
+        ivec2 tileOf(vec2 fragCoord) {
+            ivec2 tile = ivec2(fragCoord / 16.0);
+            int tilesX = (screenSize.x + 15) / 16;
+            int tilesY = (screenSize.y + 15) / 16;
+            tile.x = clamp(tile.x, 0, max(tilesX - 1, 0));
+            tile.y = clamp(tile.y, 0, max(tilesY - 1, 0));
+            return tile;
+        }
         
         void main() {
             vec4 albedoMetallic = texture(gAlbedoMetallic, TexCoord);
@@ -309,8 +322,18 @@ void DeferredRenderPipeline::CreateShaders() {
             
             vec3 totalLighting = vec3(0.0);
             float totalBrightness = 0.0;
+
+            ivec2 tiles = ivec2((screenSize.x + 15) / 16, (screenSize.y + 15) / 16);
+            ivec2 tile = tileOf(gl_FragCoord.xy);
+            int tileIndex = tile.y * max(tiles.x, 1) + tile.x;
+            ivec2 oc = grid[tileIndex];
+            int off = oc.x;
+            int cnt = oc.y;
             
-            for(int i = 0; i < numLights && i < 32; i++) {
+            for(int k = 0; k < cnt; ++k) {
+                int i = indices[off + k];
+                if (i < 0 || i >= numLights) continue;
+
                 vec3 lightContribution = vec3(0.0);
                 if (insideAnyLightVolume(i, fragPos)) { continue; }
                 

@@ -24,6 +24,7 @@ namespace GameEngine {
         
         static void SetLogLevel(LogLevel level);
         static LogLevel GetLogLevel();
+        static bool IsEnabled(LogLevel level);
         
         static void EnableConsoleOutput(bool enable);
         static void EnableFileOutput(bool enable);

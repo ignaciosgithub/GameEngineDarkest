@@ -29,6 +29,29 @@ bool DeferredRenderPipeline::Initialize(int width, int height) {
     
     CreateGBuffer();
     CreateShaders();
+
+    const int TILE_SIZE = 16;
+    m_tilesX = (m_width + TILE_SIZE - 1) / TILE_SIZE;
+    m_tilesY = (m_height + TILE_SIZE - 1) / TILE_SIZE;
+
+    if (m_lightGridSSBO == 0) {
+        glGenBuffers(1, &m_lightGridSSBO);
+    }
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_lightGridSSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, static_cast<GLsizeiptr>(m_tilesX * m_tilesY * sizeof(int) * 2), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_lightGridSSBO);
+
+    if (m_lightIndexSSBO == 0) {
+        glGenBuffers(1, &m_lightIndexSSBO);
+    }
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_lightIndexSSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, static_cast<GLsizeiptr>(1024 * 1024 * sizeof(int)), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_lightIndexSSBO);
+
+    if (!m_tiledCullShader) {
+        m_tiledCullShader = std::make_shared<Shader>();
+        m_tiledCullShader->LoadComputeShader("src/Rendering/Shaders/tiled_light_cull.comp");
+    }
     
     if (!m_gBuffer->IsComplete()) {
         Logger::Error("G-Buffer is not complete");
@@ -51,6 +74,15 @@ void DeferredRenderPipeline::Shutdown() {
     m_geometryShader.reset();
     m_lightingShader.reset();
     m_compositeShader.reset();
+    if (m_lightGridSSBO) {
+        glDeleteBuffers(1, &m_lightGridSSBO);
+        m_lightGridSSBO = 0;
+    }
+    if (m_lightIndexSSBO) {
+        glDeleteBuffers(1, &m_lightIndexSSBO);
+        m_lightIndexSSBO = 0;
+    }
+    m_tiledCullShader.reset();
 }
 
 void DeferredRenderPipeline::BeginFrame(const RenderData& renderData) {
@@ -97,6 +129,15 @@ void DeferredRenderPipeline::Resize(int width, int height) {
     
     if (m_lightingBuffer) {
         m_lightingBuffer->Resize(width, height);
+    }
+
+    const int TILE_SIZE = 16;
+    m_tilesX = (m_width + TILE_SIZE - 1) / TILE_SIZE;
+    m_tilesY = (m_height + TILE_SIZE - 1) / TILE_SIZE;
+    if (m_lightGridSSBO) {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_lightGridSSBO);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, static_cast<GLsizeiptr>(m_tilesX * m_tilesY * sizeof(int) * 2), nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_lightGridSSBO);
     }
 }
 
@@ -458,6 +499,19 @@ void DeferredRenderPipeline::LightingPass(World* world) {
     m_cachedLightManager->CollectLights(world);
     m_cachedLightManager->ApplyBrightnessLimits();
     auto lights = m_cachedLightManager->GetActiveLights();
+
+    if (m_tiledCullShader && m_lightGridSSBO && m_lightIndexSSBO) {
+        m_tiledCullShader->Use();
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_lightGridSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_lightIndexSSBO);
+        int screenLoc = glGetUniformLocation(m_tiledCullShader->GetProgramID(), "screenSize");
+        if (screenLoc >= 0) glUniform2i(screenLoc, m_width, m_height);
+        m_tiledCullShader->SetInt("numLights", static_cast<int>(lights.size()));
+        int groupsX = (m_width + 15) / 16;
+        int groupsY = (m_height + 15) / 16;
+        glDispatchCompute(groupsX, groupsY, 1);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    }
 
     if (!m_lightOcclusion) {
         m_lightOcclusion = std::make_unique<LightOcclusion>();

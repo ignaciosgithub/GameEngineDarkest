@@ -1,0 +1,19 @@
+#version 430
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(std430, binding = 0) buffer LightGrid { ivec2 grid[]; }; 
+layout(std430, binding = 1) buffer LightIndex { int indices[]; };
+
+uniform ivec2 screenSize;
+uniform int numLights;
+
+void main() {
+    ivec2 tile = ivec2(gl_WorkGroupID.xy);
+    int tilesX = (screenSize.x + 15) / 16;
+    int tileIndex = tile.y * tilesX + tile.x;
+    if (tileIndex < 0) return;
+    grid[tileIndex] = ivec2(tileIndex * 256, min(numLights, 256));
+    for (int i = int(gl_LocalInvocationIndex); i < min(numLights, 256); i += int(gl_WorkGroupSize.x * gl_WorkGroupSize.y)) {
+        indices[tileIndex * 256 + i] = i;
+    }
+}

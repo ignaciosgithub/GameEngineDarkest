@@ -20,6 +20,8 @@ PhysicsWorld::~PhysicsWorld() {
 }
 
 void PhysicsWorld::Initialize() {
+    m_rigidBodies.reserve(1024);
+    m_staticColliders.reserve(1024);
     if (m_initialized) {
         Logger::Warning("PhysicsWorld already initialized");
         return;
@@ -147,6 +149,9 @@ void PhysicsWorld::RemoveRigidBody(RigidBody* rigidBody) {
 void PhysicsWorld::DetectCollisions() {
     m_collisions.clear();
     m_collisionCount = 0;
+    if (m_collisions.capacity() < 1024) {
+        m_collisions.reserve(1024);
+    }
 
     std::mutex appendMutex;
 
@@ -205,7 +210,9 @@ void PhysicsWorld::DetectCollisions() {
                 }
             }
         }
-        Logger::Debug("Detected " + std::to_string(m_collisionCount) + " total collisions (single-thread)");
+        if (Logger::IsEnabled(LogLevel::Debug)) {
+            Logger::Debug("Detected " + std::to_string(m_collisionCount) + " total collisions (single-thread)");
+        }
         return;
     }
 

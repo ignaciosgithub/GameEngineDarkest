@@ -382,6 +382,10 @@ void LightOcclusion::ExtrudeAreasToVolumes(const Light* light, const std::vector
 }
 
 void LightOcclusion::BuildShadowVolumesForLight(const Light* light, World* world, int lightIndex, float dirFar) {
+    if (m_useGPUCompute) {
+        BuildShadowVolumesGPU(light, world, lightIndex, dirFar);
+        return;
+    }
     if (!light || !world) return;
     
     if (!ShouldRebuildShadowVolumes(light, world)) {
@@ -522,6 +526,7 @@ void LightOcclusion::ProcessEntitiesForShadowVertices(Iterator start, Iterator e
 }
 
 void LightOcclusion::InitializeComputeShaders() {
+    m_useGPUCompute = true;
     if (!m_shadowVolumeGenShader) {
         m_shadowVolumeGenShader = std::make_shared<Shader>();
         if (!m_shadowVolumeGenShader->LoadComputeShader("src/Rendering/Shaders/shadow_volume_generation.comp")) {

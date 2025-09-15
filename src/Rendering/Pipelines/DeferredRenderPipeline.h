@@ -43,6 +43,14 @@ namespace GameEngine {
 
         unsigned int m_shadowVolumeHeadersSSBO = 0;
         unsigned int m_shadowVolumeVerticesSSBO = 0;
+        // Tiled light culling resources
+        unsigned int m_lightGridSSBO = 0;
+        unsigned int m_lightIndexSSBO = 0;
+        int m_tilesX = 0;
+        int m_tilesY = 0;
+        std::shared_ptr<Shader> m_tiledCullShader;
+
+
         int m_numVolumeHeadersLast = 0;
         std::unique_ptr<LightOcclusion> m_lightOcclusion;
         

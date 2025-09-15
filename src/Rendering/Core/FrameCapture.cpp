@@ -54,7 +54,7 @@ bool FrameCapture::SaveTexturePNG(Texture* texture, int width, int height, const
         return false;
     }
     std::vector<unsigned char> pixels(width * height * 4);
-    glBindTexture(GL_TEXTURE_2D, texture->GetHandle());
+    glBindTexture(GL_TEXTURE_2D, texture->GetID());
     glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     FlipImageVertical(pixels.data(), width, height, 4);
     int ok = stbi_write_png(filename.c_str(), width, height, 4, pixels.data(), width * 4);

@@ -89,6 +89,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform int lightTypes[32];
         uniform float lightRanges[32];
         uniform vec3 viewPos;
+        uniform int debugAlbedo;
 
         uniform int lightHasShadow[32];
         uniform int shadowType[32];                 // 0 = Directional, 1 = Point, 2 = Spot
@@ -207,6 +208,10 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
             vec3 V = normalize(viewPos - FragPos);
             
             vec3 albedo = clamp(Color, 0.0, 1.0);
+            if (debugAlbedo == 1) {
+                FragColor = vec4(albedo, 1.0);
+                return;
+            }
             float metallic = 0.0;
             float roughness = 0.5;
             float ao = 1.0;
@@ -281,6 +286,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         uniform int lightTypes[32];
         uniform float lightRanges[32];
         uniform vec3 viewPos;
+        uniform int debugAlbedo;
         uniform float alpha;
         
         float DistributionGGX(vec3 N, vec3 H, float roughness) {
@@ -310,6 +316,10 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
             vec3 N = normalize(Normal);
             vec3 V = normalize(viewPos - FragPos);
             vec3 albedo = clamp(Color, 0.0, 1.0);
+            if (debugAlbedo == 1) {
+                FragColor = vec4(albedo, 1.0);
+                return;
+            }
             float metallic = 0.0;
             float roughness = 0.5;
             float ao = 1.0;
@@ -583,6 +593,8 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     lightManager.GetShaderLightData(lightData);
     
     m_forwardShader->SetInt("numLights", static_cast<int>(lightData.size()));
+    const char* dbg = std::getenv("GE_DEBUG_ALBEDO");
+    m_forwardShader->SetInt("debugAlbedo", (dbg && std::string(dbg) == "1") ? 1 : 0);
     
     for (size_t i = 0; i < lightData.size() && i < MAX_LIGHTS; ++i) {
         std::string indexStr = std::to_string(i);
@@ -659,6 +671,10 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_shadowVolumeVerticesSSBO);
 
     Logger::Debug("Shadow volumes: headers=" + std::to_string(totalHeaders) + ", headerInts=" + std::to_string(headersCPU.size()) + ", vertsFloats=" + std::to_string(vertsCPU.size()));
+    const char* disVol = std::getenv("GE_DISABLE_VOLUMES");
+    if (disVol && std::string(disVol) == "1") {
+        totalHeaders = 0;
+    }
     m_forwardShader->SetInt("numVolumeHeaders", totalHeaders);
 
     Matrix4 invViewMatrix = m_renderData.viewMatrix.Inverted();

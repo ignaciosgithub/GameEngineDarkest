@@ -540,7 +540,9 @@ void DeferredRenderPipeline::LightingPass(World* world) {
     m_cachedLightManager->ApplyBrightnessLimits();
     auto lights = m_cachedLightManager->GetActiveLights();
 
-    if (m_tiledCullShader && m_lightGridSSBO && m_lightIndexSSBO) {
+    const char* tcEnv = std::getenv("GE_TILED_CULL");
+    bool useTiled = !(tcEnv && std::string(tcEnv) == "0");
+    if (useTiled && m_tiledCullShader && m_lightGridSSBO && m_lightIndexSSBO) {
         m_tiledCullShader->Use();
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_lightGridSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_lightIndexSSBO);

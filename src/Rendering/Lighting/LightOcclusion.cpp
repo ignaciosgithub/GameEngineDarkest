@@ -526,7 +526,13 @@ void LightOcclusion::ProcessEntitiesForShadowVertices(Iterator start, Iterator e
 }
 
 void LightOcclusion::InitializeComputeShaders() {
-    m_useGPUCompute = true;
+    const char* gpuVol = std::getenv("GE_GPU_SHADOW_VOL");
+    m_useGPUCompute = !(gpuVol && std::string(gpuVol) == "0");
+    if (!m_useGPUCompute) {
+        Logger::Info("GPU shadow volumes disabled by GE_GPU_SHADOW_VOL=0");
+        return;
+    }
+
     if (!m_shadowVolumeGenShader) {
         m_shadowVolumeGenShader = std::make_shared<Shader>();
         if (!m_shadowVolumeGenShader->LoadComputeShader("src/Rendering/Shaders/shadow_volume_generation.comp")) {

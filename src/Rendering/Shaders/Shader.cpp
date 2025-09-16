@@ -53,11 +53,17 @@ bool Shader::LoadComputeShader(const std::string& computePath) {
 }
 
 bool Shader::LoadComputeShaderFromSource(const std::string& computeSource) {
-    (void)computeSource; // Mark parameter as intentionally unused
-    Logger::Info("Loading compute shader (simplified for compatibility)");
-    m_programID = 2; // Set dummy program ID for compute shader
-    Logger::Info("Compute shader compiled and linked successfully (simplified)");
-    return true;
+    unsigned int computeShader = CompileShader(computeSource, GL_COMPUTE_SHADER);
+    if (computeShader == 0) {
+        Logger::Error("Failed to compile compute shader");
+        return false;
+    }
+    bool linked = LinkComputeProgram(computeShader);
+    glDeleteShader(computeShader);
+    if (linked) {
+        Logger::Info("Compute shader compiled and linked successfully");
+    }
+    return linked;
 }
 
 void Shader::Use() const {
@@ -142,9 +148,27 @@ bool Shader::LinkProgram(unsigned int vertexShader, unsigned int fragmentShader)
     return true;
 }
 
-bool Shader::LinkComputeProgram(unsigned int /*computeShader*/) {
-    m_programID = 2; // Set dummy program ID for compute shader
-    Logger::Info("Compute shader program linked (simplified for compatibility)");
+bool Shader::LinkComputeProgram(unsigned int computeShader) {
+    if (m_programID != 0) {
+        glDeleteProgram(m_programID);
+        m_programID = 0;
+    }
+    unsigned int program = glCreateProgram();
+    glAttachShader(program, computeShader);
+    glLinkProgram(program);
+
+    int success = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetProgramInfoLog(program, 512, nullptr, infoLog);
+        Logger::Error("Compute shader linking failed: " + std::string(infoLog));
+        glDeleteProgram(program);
+        return false;
+    }
+
+    m_programID = program;
+    Logger::Info("Compute shader program linked successfully");
     return true;
 }
 

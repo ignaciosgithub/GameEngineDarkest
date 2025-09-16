@@ -162,6 +162,7 @@ void DeferredRenderPipeline::CreateGBuffer() {
     m_lightingBuffer->AddColorAttachment(TextureFormat::RGBA16F);
     
     m_shadowMapBuffer = std::make_unique<FrameBuffer>(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+    if (!m_gBuffer->IsComplete()) { Logger::Error("GBuffer incomplete at creation"); }
     m_shadowMapBuffer->AddDepthAttachment(TextureFormat::Depth24);
 }
 
@@ -207,9 +208,19 @@ void DeferredRenderPipeline::CreateShaders() {
         
         uniform float uMetallic = 0.0;
         uniform float uRoughness = 0.5;
+        uniform vec3 uBaseColor = vec3(1.0, 1.0, 1.0);
+        uniform int GE_DEBUG_FORCE_ALBEDO = 0;
         
         void main() {
-            gAlbedoMetallic = vec4(VertexColor, uMetallic);
+            if (GE_DEBUG_FORCE_ALBEDO == 1) {
+                gAlbedoMetallic = vec4(0.0, 1.0, 0.0, 1.0);
+                gNormalRoughness = vec4(0.0, 1.0, 0.0, 1.0);
+                gPosition = vec4(FragPos, gl_FragCoord.z);
+                gMotionMaterial = vec4(0.0, 0.0, 1.0, 1.0);
+                return;
+            }
+            vec3 albedo = vec3(0.8, 0.2, 0.2);
+            gAlbedoMetallic = vec4(albedo, uMetallic);
             gNormalRoughness = vec4(normalize(Normal) * 0.5 + 0.5, uRoughness);
             gPosition = vec4(FragPos, gl_FragCoord.z);
             gMotionMaterial = vec4(0.0, 0.0, 1.0, 1.0);
@@ -235,151 +246,13 @@ void DeferredRenderPipeline::CreateShaders() {
         #version 330 core
         in vec2 TexCoord;
         out vec4 FragColor;
-        
+
         uniform sampler2D gAlbedoMetallic;
-        uniform sampler2D gNormalRoughness;
-        uniform sampler2D gPosition;
-        uniform sampler2D shadowMap;
-        
-        uniform int numLights;
-        uniform vec3 lightPositions[32];
-        uniform vec3 lightColors[32];
-        uniform float lightIntensities[32];
-        uniform int lightTypes[32];
-        uniform float lightRanges[32];
-        uniform vec3 viewPos;
-        uniform mat4 lightSpaceMatrix;
-        uniform ivec2 screenSize;
+        uniform int GE_DEBUG_FORCE_ALBEDO = 0;
 
-        layout(std430, binding = 0) buffer LightGrid { ivec2 grid[]; };
-        layout(std430, binding = 1) buffer LightIndex { int indices[]; };
-
-        struct VolumeHeader { int lightIndex; int vertCount; int baseOffset; int farOffset; };
-        layout(std430, binding = 3) buffer ShadowVolumeHeaders { VolumeHeader headers[]; };
-        layout(std430, binding = 4) buffer ShadowVolumeVertices { vec4 vertices[]; };
-        uniform int numVolumeHeaders;
-
-        bool insidePrism(int vertCount, int baseOffset, int farOffset, vec3 P) {
-            if (vertCount < 3) return false;
-            for (int i = 0; i < vertCount; ++i) {
-                vec3 a0 = vertices[baseOffset + i].xyz;
-                vec3 a1 = vertices[baseOffset + ((i + 1) % vertCount)].xyz;
-                vec3 b0 = vertices[farOffset + i].xyz;
-                vec3 edge = a1 - a0;
-                vec3 extrude = b0 - a0;
-                vec3 n = normalize(cross(edge, extrude));
-                if (dot(n, P - a0) > 0.0) return false;
-            }
-            return true;
-        }
-
-        bool insideAnyLightVolume(int lightIdx, vec3 P) {
-            for (int h = 0; h < numVolumeHeaders; ++h) {
-                if (headers[h].lightIndex != lightIdx) continue;
-                if (insidePrism(headers[h].vertCount, headers[h].baseOffset, headers[h].farOffset, P)) return true;
-            }
-            return false;
-        }
-        
-        float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir) {
-            vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-            projCoords = projCoords * 0.5 + 0.5;
-            
-            if(projCoords.z > 1.0) return 0.0;
-            
-            float closestDepth = texture(shadowMap, projCoords.xy).r;
-            float currentDepth = projCoords.z;
-            
-            float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-            float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
-            
-            return shadow;
-        }
-
-        ivec2 tileOf(vec2 fragCoord) {
-            ivec2 tile = ivec2(fragCoord / 16.0);
-            int tilesX = (screenSize.x + 15) / 16;
-            int tilesY = (screenSize.y + 15) / 16;
-            tile.x = clamp(tile.x, 0, max(tilesX - 1, 0));
-            tile.y = clamp(tile.y, 0, max(tilesY - 1, 0));
-            return tile;
-        }
-        
         void main() {
-            vec4 albedoMetallic = texture(gAlbedoMetallic, TexCoord);
-            vec4 normalRoughness = texture(gNormalRoughness, TexCoord);
-            vec4 position = texture(gPosition, TexCoord);
-            
-            if (position.w <= 0.0 || length(albedoMetallic.rgb) < 0.01) {
-                FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-                return;
-            }
-            
-            vec3 albedo = albedoMetallic.rgb;
-            vec3 normal = normalize(normalRoughness.rgb * 2.0 - 1.0);
-            vec3 fragPos = position.xyz;
-            vec3 viewDir = normalize(viewPos - fragPos);
-            
-            vec3 totalLighting = vec3(0.0);
-            float totalBrightness = 0.0;
-
-            ivec2 tiles = ivec2((screenSize.x + 15) / 16, (screenSize.y + 15) / 16);
-            ivec2 tile = tileOf(gl_FragCoord.xy);
-            int tileIndex = tile.y * max(tiles.x, 1) + tile.x;
-            ivec2 oc = grid[tileIndex];
-            int off = oc.x;
-            int cnt = oc.y;
-            
-            for(int k = 0; k < cnt; ++k) {
-                int i = indices[off + k];
-                if (i < 0 || i >= numLights) continue;
-
-                vec3 lightContribution = vec3(0.0);
-                if (insideAnyLightVolume(i, fragPos)) { continue; }
-                
-                if(lightTypes[i] == 0) {
-                    vec3 lightDir = normalize(-lightPositions[i]);
-                    
-                    vec4 fragPosLightSpace = lightSpaceMatrix * vec4(fragPos, 1.0);
-                    float shadow = ShadowCalculation(fragPosLightSpace, normal, lightDir);
-                    
-                    float diff = max(dot(normal, lightDir), 0.0);
-                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i] * albedo;
-                    
-                    vec3 reflectDir = reflect(-lightDir, normal);
-                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-                    vec3 specular = spec * lightColors[i] * lightIntensities[i];
-                    
-                    lightContribution = (diffuse + specular) * (1.0 - shadow);
-                } else if(lightTypes[i] == 1) {
-                    vec3 lightDir = normalize(lightPositions[i] - fragPos);
-                    float distance = length(lightPositions[i] - fragPos);
-                    
-                    float attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
-                    if(distance > lightRanges[i]) attenuation = 0.0;
-                    
-                    float diff = max(dot(normal, lightDir), 0.0);
-                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i] * attenuation * albedo;
-                    
-                    vec3 reflectDir = reflect(-lightDir, normal);
-                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-                    vec3 specular = spec * lightColors[i] * lightIntensities[i] * attenuation;
-                    
-                    lightContribution = diffuse + specular;
-                }
-                
-                totalLighting += lightContribution;
-                totalBrightness += lightIntensities[i];
-            }
-            
-            if(totalBrightness > 100.0) {
-                totalLighting *= (100.0 / totalBrightness);
-            }
-            
-            vec3 ambient = vec3(0.1, 0.1, 0.1) * albedo;
-            vec3 result = ambient + totalLighting;
-            
-            FragColor = vec4(result, 1.0);
+            vec4 albMet = texture(gAlbedoMetallic, TexCoord);
+            FragColor = albMet;
         }
     )";
     
@@ -469,12 +342,16 @@ void DeferredRenderPipeline::ShadowPass(World* world) {
 }
 
 void DeferredRenderPipeline::GeometryPass(World* world) {
+    if (!m_gBuffer->IsComplete()) { Logger::Error("GBuffer incomplete before GeometryPass"); }
     m_gBuffer->Bind();
+    glViewport(0, 0, m_width, m_height);
+    glClear(GL_DEPTH_BUFFER_BIT);
     
     if (m_geometryShader) {
         m_geometryShader->Use();
         m_geometryShader->SetMatrix4("uView", m_renderData.viewMatrix);
         m_geometryShader->SetMatrix4("uProjection", m_renderData.projectionMatrix);
+        m_geometryShader->SetInt("GE_DEBUG_FORCE_ALBEDO", 1);
     }
     
     if (world) {
@@ -497,6 +374,7 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
                         m_geometryShader->SetMatrix4("uModel", modelMatrix);
                         m_geometryShader->SetFloat("uMetallic", meshComp->GetMetallic());
                         m_geometryShader->SetFloat("uRoughness", meshComp->GetRoughness());
+                        m_geometryShader->SetVector3("uBaseColor", meshComp->GetColor());
                     }
                     
                     meshComp->GetMesh()->Draw();
@@ -529,6 +407,7 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
 
 void DeferredRenderPipeline::LightingPass(World* world) {
     m_lightingBuffer->Bind();
+    glViewport(0, 0, m_width, m_height);
     glClear(GL_COLOR_BUFFER_BIT);
     
     glDisable(GL_DEPTH_TEST);
@@ -585,15 +464,6 @@ void DeferredRenderPipeline::LightingPass(World* world) {
 
             int baseOffset = vertFloatOffset / 4;
             for (int i = 0; i < vertCount; ++i) {
-    static bool s_captured = false;
-    if (!s_captured) {
-        int w = m_renderData.viewportWidth;
-        int h = m_renderData.viewportHeight;
-        (void)w; (void)h;
-        GameEngine::FrameCapture::SaveDefaultFramebufferPNG(w, h, "/home/ubuntu/frames/frame0.png");
-        s_captured = true;
-    }
-
                 const Vector3& p = v.basePolygon[i];
                 vertsCPU.push_back(p.x); vertsCPU.push_back(p.y); vertsCPU.push_back(p.z); vertsCPU.push_back(0.0f);
             }
@@ -639,6 +509,10 @@ void DeferredRenderPipeline::LightingPass(World* world) {
         m_lightingShader->SetInt("gPosition", 2);
         int screenLoc2 = glGetUniformLocation(m_lightingShader->GetProgramID(), "screenSize");
         if (screenLoc2 >= 0) glUniform2i(screenLoc2, m_width, m_height);
+        const char* dbgAlb = std::getenv("GE_DEBUG_FORCE_ALBEDO");
+        int dbgVal = (dbgAlb && std::string(dbgAlb) == "1") ? 1 : 0;
+        int dbgLoc = glGetUniformLocation(m_lightingShader->GetProgramID(), "GE_DEBUG_FORCE_ALBEDO");
+        if (dbgLoc >= 0) glUniform1i(dbgLoc, dbgVal);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_lightGridSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_lightIndexSSBO);
         
@@ -697,12 +571,20 @@ void DeferredRenderPipeline::LightingPass(World* world) {
     
     RenderFullscreenQuad();
     
+    const char* capLight = std::getenv("GE_CAPTURE");
+    if (capLight && std::string(capLight) == "1") {
+        auto litTex = m_lightingBuffer->GetColorTexture(0);
+        if (litTex) {
+            FrameCapture::SaveTexturePNG(litTex.get(), m_width, m_height, "/home/ubuntu/frames/lighting_color0.png");
+        }
+    }
+    
     glEnable(GL_DEPTH_TEST);
 }
 
 void DeferredRenderPipeline::CompositePass() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight);
+    glViewport(0, 0, m_width, m_height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     glDisable(GL_DEPTH_TEST);
@@ -718,6 +600,16 @@ void DeferredRenderPipeline::CompositePass() {
     }
     
     RenderFullscreenQuad();
+    
+    const char* capEnv = std::getenv("GE_CAPTURE");
+    if (capEnv && std::string(capEnv) == "1") {
+        auto finalTex = m_lightingBuffer->GetColorTexture(0);
+        if (finalTex) {
+            FrameCapture::SaveTexturePNG(finalTex.get(), m_width, m_height, "/home/ubuntu/frames/frame0.png");
+        } else {
+            GameEngine::FrameCapture::SaveDefaultFramebufferPNG(m_width, m_height, "/home/ubuntu/frames/frame0.png");
+        }
+    }
     
     glEnable(GL_DEPTH_TEST);
 }

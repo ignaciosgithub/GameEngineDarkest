@@ -548,7 +548,14 @@ void DeferredRenderPipeline::LightingPass(World* world) {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_lightIndexSSBO);
         int screenLoc = glGetUniformLocation(m_tiledCullShader->GetProgramID(), "screenSize");
         if (screenLoc >= 0) glUniform2i(screenLoc, m_width, m_height);
-        m_tiledCullShader->SetInt("numLights", static_cast<int>(lights.size()));
+        int maxUpload = static_cast<int>(std::min<size_t>(lights.size(), 128));
+        for (int i = 0; i < maxUpload; ++i) {
+            std::string idx = std::to_string(i);
+            m_tiledCullShader->SetVector3("lightPositions[" + idx + "]", lights[i]->GetPosition());
+            m_tiledCullShader->SetInt("lightTypes[" + idx + "]", static_cast<int>(lights[i]->GetType()));
+            m_tiledCullShader->SetFloat("lightRanges[" + idx + "]", lights[i]->GetRange());
+        }
+        m_tiledCullShader->SetInt("numLights", maxUpload);
         int groupsX = (m_width + 15) / 16;
         int groupsY = (m_height + 15) / 16;
         glDispatchCompute(groupsX, groupsY, 1);

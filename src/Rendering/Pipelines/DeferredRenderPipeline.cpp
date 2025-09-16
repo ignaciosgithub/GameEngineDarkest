@@ -351,7 +351,11 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
         m_geometryShader->Use();
         m_geometryShader->SetMatrix4("uView", m_renderData.viewMatrix);
         m_geometryShader->SetMatrix4("uProjection", m_renderData.projectionMatrix);
-        m_geometryShader->SetInt("GE_DEBUG_FORCE_ALBEDO", 1);
+        {
+            const char* dbgAlb = std::getenv("GE_DEBUG_FORCE_ALBEDO");
+            int dbgVal = (dbgAlb && std::string(dbgAlb) == "1") ? 1 : 0;
+            m_geometryShader->SetInt("GE_DEBUG_FORCE_ALBEDO", dbgVal);
+        }
     }
     
     if (world) {

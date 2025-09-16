@@ -53,11 +53,31 @@ bool FrameCapture::SaveTexturePNG(Texture* texture, int width, int height, const
         Logger::Error("FrameCapture: invalid texture or dimensions");
         return false;
     }
-    std::vector<unsigned char> pixels(width * height * 4);
+
+    auto fmt = texture->GetFormat();
+    bool isFloat =
+        fmt == TextureFormat::RGB16F || fmt == TextureFormat::RGBA16F ||
+        fmt == TextureFormat::RGB32F || fmt == TextureFormat::RGBA32F ||
+        fmt == TextureFormat::Depth32F;
+
+    std::vector<unsigned char> out(width * height * 4);
     glBindTexture(GL_TEXTURE_2D, texture->GetID());
-    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-    FlipImageVertical(pixels.data(), width, height, 4);
-    int ok = stbi_write_png(filename.c_str(), width, height, 4, pixels.data(), width * 4);
+
+    if (isFloat) {
+        std::vector<float> fpix(width * height * 4, 0.0f);
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, fpix.data());
+        for (size_t i = 0; i < fpix.size(); ++i) {
+            float v = fpix[i];
+            if (!std::isfinite(v)) v = 0.0f;
+            v = std::max(0.0f, std::min(v, 1.0f));
+            out[i] = static_cast<unsigned char>(v * 255.0f + 0.5f);
+        }
+    } else {
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, out.data());
+    }
+
+    FlipImageVertical(out.data(), width, height, 4);
+    int ok = stbi_write_png(filename.c_str(), width, height, 4, out.data(), width * 4);
     if (!ok) {
         Logger::Error("FrameCapture: failed to write texture png: " + filename);
         return false;

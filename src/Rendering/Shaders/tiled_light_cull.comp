@@ -1,7 +1,7 @@
 #version 430
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(std430, binding = 0) buffer LightGrid { ivec2 grid[]; }; 
+layout(std430, binding = 0) buffer LightGrid { ivec2 grid[]; };
 layout(std430, binding = 1) buffer LightIndex { int indices[]; };
 
 uniform ivec2 screenSize;
@@ -12,6 +12,8 @@ uniform vec3 lightPositions[128];
 uniform float lightRanges[128];
 uniform int lightTypes[128];
 
+shared uint countShared;
+
 bool lightAffectsTile(int li, ivec2 tile, int tileSize) {
     if (li < 0 || li >= numLights) return false;
     int type = lightTypes[li];
@@ -20,7 +22,6 @@ bool lightAffectsTile(int li, ivec2 tile, int tileSize) {
     }
     vec2 tileMin = vec2(tile * tileSize);
     vec2 tileMax = tileMin + vec2(tileSize);
-    vec2 tileCenter = 0.5 * (tileMin + tileMax);
 
     vec2 lp = lightPositions[li].xy;
     float r = lightRanges[li];
@@ -36,23 +37,29 @@ void main() {
     if (tileIndex < 0) return;
 
     int base = tileIndex * 256;
-    int count = 0;
+
+    if (gl_LocalInvocationIndex == 0u) {
+        countShared = 0u;
+    }
+    memoryBarrierShared();
+    barrier();
 
     for (int i = int(gl_LocalInvocationIndex); i < min(numLights, 128); i += int(gl_WorkGroupSize.x * gl_WorkGroupSize.y)) {
         if (lightAffectsTile(i, tile, 16)) {
-            int dst = atomicAdd(count, 1);
-            if (dst < 256) {
-                indices[base + dst] = i;
+            uint dst = atomicAdd(countShared, 1u);
+            if (dst < 256u) {
+                indices[base + int(dst)] = i;
             }
         }
     }
 
     barrier();
 
-    if (gl_LocalInvocationIndex == 0) {
-        grid[tileIndex] = ivec2(base, min(count, 256));
-        for (int j = count; j < 256; ++j) {
-            indices[base + j] = -1;
+    if (gl_LocalInvocationIndex == 0u) {
+        uint c = min(countShared, 256u);
+        grid[tileIndex] = ivec2(base, int(c));
+        for (uint j = c; j < 256u; ++j) {
+            indices[base + int(j)] = -1;
         }
     }
 }

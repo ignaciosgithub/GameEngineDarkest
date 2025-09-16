@@ -345,7 +345,7 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
     if (!m_gBuffer->IsComplete()) { Logger::Error("GBuffer incomplete before GeometryPass"); }
     m_gBuffer->Bind();
     glViewport(0, 0, m_width, m_height);
-    glClear(GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     if (m_geometryShader) {
         m_geometryShader->Use();

@@ -105,7 +105,7 @@ void Shader::SetVector4(const std::string& name, const Vector4& /*value*/) {
 
 void Shader::SetMatrix4(const std::string& name, const Matrix4& value) {
     int location = GetUniformLocation(name);
-    glUniformMatrix4fv(location, 1, GL_TRUE, value.Data());
+    glUniformMatrix4fv(location, 1, GL_FALSE, value.Data());
     Logger::Debug("Set Matrix4 uniform: " + name);
 }
 

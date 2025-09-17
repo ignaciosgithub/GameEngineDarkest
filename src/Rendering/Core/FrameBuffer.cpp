@@ -20,6 +20,12 @@ FrameBuffer::~FrameBuffer() {
 void FrameBuffer::Bind() const {
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebufferID);
     glViewport(0, 0, m_width, m_height);
+    std::vector<GLenum> drawBuffers;
+    drawBuffers.reserve(m_colorAttachments.size());
+    for (const auto& a : m_colorAttachments) drawBuffers.push_back(a.attachmentType);
+    if (!drawBuffers.empty()) {
+        glDrawBuffers(static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
+    }
     Logger::Debug("FrameBuffer bound with ID: " + std::to_string(m_framebufferID));
 }
 

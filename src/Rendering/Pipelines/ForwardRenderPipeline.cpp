@@ -84,11 +84,14 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         
         uniform int numLights;
         uniform vec3 lightPositions[32];
+        uniform vec3 lightDirections[32];
         uniform vec3 lightColors[32];
         uniform float lightIntensities[32];
         uniform int lightTypes[32];
         uniform float lightRanges[32];
         uniform vec3 viewPos;
+        uniform int debugAlbedo;
+        uniform int noToneMap;
 
         uniform int lightHasShadow[32];
         uniform int shadowType[32];                 // 0 = Directional, 1 = Point, 2 = Spot
@@ -207,6 +210,10 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
             vec3 V = normalize(viewPos - FragPos);
             
             vec3 albedo = clamp(Color, 0.0, 1.0);
+            if (debugAlbedo == 1) {
+                FragColor = vec4(albedo, 1.0);
+                return;
+            }
             float metallic = 0.0;
             float roughness = 0.5;
             float ao = 1.0;
@@ -218,7 +225,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
                 vec3 L;
                 float attenuation = 1.0;
                 if (lightTypes[i] == 0) {
-                    L = normalize(-lightPositions[i]);
+                    L = normalize(-lightDirections[i]);
                 } else {
                     vec3 lightVec = lightPositions[i] - FragPos;
                     float distance = length(lightVec);
@@ -258,6 +265,10 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
             
             vec3 ambient = vec3(0.03) * albedo * ao;
             vec3 color = ambient + Lo;
+            if (noToneMap == 1) {
+                FragColor = vec4(color, 1.0);
+                return;
+            }
             color = color / (color + vec3(1.0));
             color = pow(color, vec3(1.0/2.2));
             FragColor = vec4(color, 1.0);
@@ -276,11 +287,14 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
         
         uniform int numLights;
         uniform vec3 lightPositions[32];
+        uniform vec3 lightDirections[32];
         uniform vec3 lightColors[32];
         uniform float lightIntensities[32];
         uniform int lightTypes[32];
         uniform float lightRanges[32];
         uniform vec3 viewPos;
+        uniform int debugAlbedo;
+        uniform int noToneMap;
         uniform float alpha;
         
         float DistributionGGX(vec3 N, vec3 H, float roughness) {
@@ -310,6 +324,10 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
             vec3 N = normalize(Normal);
             vec3 V = normalize(viewPos - FragPos);
             vec3 albedo = clamp(Color, 0.0, 1.0);
+            if (debugAlbedo == 1) {
+                FragColor = vec4(albedo, 1.0);
+                return;
+            }
             float metallic = 0.0;
             float roughness = 0.5;
             float ao = 1.0;
@@ -320,7 +338,7 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
                 vec3 L;
                 float attenuation = 1.0;
                 if (lightTypes[i] == 0) {
-                    L = normalize(-lightPositions[i]);
+                    L = normalize(-lightDirections[i]);
                 } else {
                     vec3 lightVec = lightPositions[i] - FragPos;
                     float distance = length(lightVec);
@@ -347,8 +365,11 @@ bool ForwardRenderPipeline::Initialize(int width, int height) {
             
             vec3 ambient = vec3(0.03) * albedo * ao;
             vec3 color = ambient + Lo;
+            if (noToneMap == 1) {
+                FragColor = vec4(color, alpha);
+                return;
+            }
             color = color / (color + vec3(1.0));
-
             color = pow(color, vec3(1.0/2.2));
             FragColor = vec4(color, alpha);
         }
@@ -464,7 +485,7 @@ void ForwardRenderPipeline::EndFrame() {
 }
 
 std::shared_ptr<Texture> ForwardRenderPipeline::GetFinalTexture() const {
-    return m_colorTexture;
+    return m_framebuffer ? m_framebuffer->GetColorTexture(0) : nullptr;
 }
 
 std::shared_ptr<FrameBuffer> ForwardRenderPipeline::GetFramebuffer() const {
@@ -515,38 +536,43 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
         m_forwardShader->SetInt("shadowMapsCube[" + std::to_string(i) + "]", baseCube + i);
     }
 
-    for (size_t i = 0; i < actEmbed.size() && i < 32; ++i) {
-        Light* l = actEmbed[i];
-        if (!l || !l->GetCastShadows()) continue;
-        l->InitializeShadowMap();
-        auto sm = l->GetShadowMap();
-        auto fb = l->GetShadowFramebuffer();
-        if (!sm || !fb) continue;
+    const char* disSm = std::getenv("GE_DISABLE_SHADOWMAPS");
+    bool disableShadowMaps = (disSm && std::string(disSm) == "1");
 
-        lightHasShadowArr[i] = 1;
-        shadowBiasesArr[i] = l->GetShadowBias();
+    if (!disableShadowMaps) {
+        for (size_t i = 0; i < actEmbed.size() && i < 32; ++i) {
+            Light* l = actEmbed[i];
+            if (!l || !l->GetCastShadows()) continue;
+            l->InitializeShadowMap();
+            auto sm = l->GetShadowMap();
+            auto fb = l->GetShadowFramebuffer();
+            if (!sm || !fb) continue;
 
-        if (l->GetType() == LightType::Point) {
-            shadowTypeArr[i] = 1;
-            shadowLightPosArr[i] = l->GetPosition();
-            shadowNearArr[i] = l->GetData().shadowNearPlane;
-            shadowFarArr[i] = l->GetData().shadowFarPlane;
+            lightHasShadowArr[i] = 1;
+            shadowBiasesArr[i] = l->GetShadowBias();
 
-            int cubeIdx = usedCube;
-            shadowSamplerIdxArr[i] = cubeIdx;
-            int unit = baseCube + cubeIdx;
-            sm->Bind(unit);
-            usedCube++;
-        } else {
-            shadowTypeArr[i] = (l->GetType() == LightType::Directional) ? 0 : 2;
-            lightSpaceMatricesArr[i] = l->GetLightSpaceMatrix();
-            shadowTexelSizesArr[i] = 1.0f / static_cast<float>(l->GetShadowMapSize());
+            if (l->GetType() == LightType::Point) {
+                shadowTypeArr[i] = 1;
+                shadowLightPosArr[i] = l->GetPosition();
+                shadowNearArr[i] = l->GetData().shadowNearPlane;
+                shadowFarArr[i] = l->GetData().shadowFarPlane;
 
-            int idx2d = used2D;
-            shadowSamplerIdxArr[i] = idx2d;
-            int unit = base2D + idx2d;
-            sm->Bind(unit);
-            used2D++;
+                int cubeIdx = usedCube;
+                shadowSamplerIdxArr[i] = cubeIdx;
+                int unit = baseCube + cubeIdx;
+                sm->Bind(unit);
+                usedCube++;
+            } else {
+                shadowTypeArr[i] = (l->GetType() == LightType::Directional) ? 0 : 2;
+                lightSpaceMatricesArr[i] = l->GetLightSpaceMatrix();
+                shadowTexelSizesArr[i] = 1.0f / static_cast<float>(l->GetShadowMapSize());
+
+                int idx2d = used2D;
+                shadowSamplerIdxArr[i] = idx2d;
+                int unit = base2D + idx2d;
+                sm->Bind(unit);
+                used2D++;
+            }
         }
     }
 
@@ -583,10 +609,15 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     lightManager.GetShaderLightData(lightData);
     
     m_forwardShader->SetInt("numLights", static_cast<int>(lightData.size()));
+    const char* dbg = std::getenv("GE_DEBUG_ALBEDO");
+    m_forwardShader->SetInt("debugAlbedo", (dbg && std::string(dbg) == "1") ? 1 : 0);
+    const char* ntm = std::getenv("GE_NO_TONEMAP");
+    m_forwardShader->SetInt("noToneMap", (ntm && std::string(ntm) == "1") ? 1 : 0);
     
     for (size_t i = 0; i < lightData.size() && i < MAX_LIGHTS; ++i) {
         std::string indexStr = std::to_string(i);
         m_forwardShader->SetVector3("lightPositions[" + indexStr + "]", lightData[i].position);
+        m_forwardShader->SetVector3("lightDirections[" + indexStr + "]", lightData[i].direction);
         m_forwardShader->SetVector3("lightColors[" + indexStr + "]", lightData[i].color);
         m_forwardShader->SetFloat("lightIntensities[" + indexStr + "]", lightData[i].intensity);
         m_forwardShader->SetInt("lightTypes[" + indexStr + "]", lightData[i].type);
@@ -659,6 +690,10 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_shadowVolumeVerticesSSBO);
 
     Logger::Debug("Shadow volumes: headers=" + std::to_string(totalHeaders) + ", headerInts=" + std::to_string(headersCPU.size()) + ", vertsFloats=" + std::to_string(vertsCPU.size()));
+    const char* disVol = std::getenv("GE_DISABLE_VOLUMES");
+    if (disVol && std::string(disVol) == "1") {
+        totalHeaders = 0;
+    }
     m_forwardShader->SetInt("numVolumeHeaders", totalHeaders);
 
     Matrix4 invViewMatrix = m_renderData.viewMatrix.Inverted();

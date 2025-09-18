@@ -29,6 +29,46 @@ bool DeferredRenderPipeline::Initialize(int width, int height) {
     
     CreateGBuffer();
     CreateShaders();
+
+    const int TILE_SIZE = 16;
+    m_tilesX = (m_width + TILE_SIZE - 1) / TILE_SIZE;
+    m_tilesY = (m_height + TILE_SIZE - 1) / TILE_SIZE;
+
+    if (m_lightGridSSBO == 0) {
+        glGenBuffers(1, &m_lightGridSSBO);
+    }
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_lightGridSSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, static_cast<GLsizeiptr>(m_tilesX * m_tilesY * sizeof(int) * 2), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_lightGridSSBO);
+
+    if (m_lightIndexSSBO == 0) {
+        glGenBuffers(1, &m_lightIndexSSBO);
+    }
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_lightIndexSSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, static_cast<GLsizeiptr>(1024 * 1024 * sizeof(int)), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_lightIndexSSBO);
+
+    GLint glMajor = 0, glMinor = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &glMajor);
+    glGetIntegerv(GL_MINOR_VERSION, &glMinor);
+    bool hasCompute = (glMajor > 4) || (glMajor == 4 && glMinor >= 3);
+
+    GLint maxInvocations = 0;
+    glGetIntegerv(0x90EB /* GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS */, &maxInvocations);
+    if (maxInvocations <= 0) {
+        hasCompute = false;
+    }
+
+    if (hasCompute && !m_tiledCullShader) {
+        m_tiledCullShader = std::make_shared<Shader>();
+        if (!m_tiledCullShader->LoadComputeShader("src/Rendering/Shaders/tiled_light_cull.comp")) {
+            hasCompute = false;
+            m_tiledCullShader.reset();
+        }
+    }
+    if (!hasCompute) {
+        Logger::Warning("Compute shaders not supported on this GL context; tiled culling disabled");
+    }
     
     if (!m_gBuffer->IsComplete()) {
         Logger::Error("G-Buffer is not complete");
@@ -51,6 +91,15 @@ void DeferredRenderPipeline::Shutdown() {
     m_geometryShader.reset();
     m_lightingShader.reset();
     m_compositeShader.reset();
+    if (m_lightGridSSBO) {
+        glDeleteBuffers(1, &m_lightGridSSBO);
+        m_lightGridSSBO = 0;
+    }
+    if (m_lightIndexSSBO) {
+        glDeleteBuffers(1, &m_lightIndexSSBO);
+        m_lightIndexSSBO = 0;
+    }
+    m_tiledCullShader.reset();
 }
 
 void DeferredRenderPipeline::BeginFrame(const RenderData& renderData) {
@@ -58,6 +107,8 @@ void DeferredRenderPipeline::BeginFrame(const RenderData& renderData) {
     
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
+    glDisable(GL_SCISSOR_TEST);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     
     m_gBuffer->Bind();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -98,6 +149,15 @@ void DeferredRenderPipeline::Resize(int width, int height) {
     if (m_lightingBuffer) {
         m_lightingBuffer->Resize(width, height);
     }
+
+    const int TILE_SIZE = 16;
+    m_tilesX = (m_width + TILE_SIZE - 1) / TILE_SIZE;
+    m_tilesY = (m_height + TILE_SIZE - 1) / TILE_SIZE;
+    if (m_lightGridSSBO) {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_lightGridSSBO);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, static_cast<GLsizeiptr>(m_tilesX * m_tilesY * sizeof(int) * 2), nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_lightGridSSBO);
+    }
 }
 
 std::shared_ptr<Texture> DeferredRenderPipeline::GetFinalTexture() const {
@@ -121,6 +181,7 @@ void DeferredRenderPipeline::CreateGBuffer() {
     m_lightingBuffer->AddColorAttachment(TextureFormat::RGBA16F);
     
     m_shadowMapBuffer = std::make_unique<FrameBuffer>(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+    if (!m_gBuffer->IsComplete()) { Logger::Error("GBuffer incomplete at creation"); }
     m_shadowMapBuffer->AddDepthAttachment(TextureFormat::Depth24);
 }
 
@@ -166,9 +227,19 @@ void DeferredRenderPipeline::CreateShaders() {
         
         uniform float uMetallic = 0.0;
         uniform float uRoughness = 0.5;
+        uniform vec3 uBaseColor = vec3(1.0, 1.0, 1.0);
+        uniform int GE_DEBUG_FORCE_ALBEDO = 0;
         
         void main() {
-            gAlbedoMetallic = vec4(VertexColor, uMetallic);
+            if (GE_DEBUG_FORCE_ALBEDO == 1) {
+                gAlbedoMetallic = vec4(0.0, 1.0, 0.0, 1.0);
+                gNormalRoughness = vec4(0.0, 1.0, 0.0, 1.0);
+                gPosition = vec4(FragPos, gl_FragCoord.z);
+                gMotionMaterial = vec4(0.0, 0.0, 1.0, 1.0);
+                return;
+            }
+            vec3 albedo = vec3(0.8, 0.2, 0.2);
+            gAlbedoMetallic = vec4(albedo, uMetallic);
             gNormalRoughness = vec4(normalize(Normal) * 0.5 + 0.5, uRoughness);
             gPosition = vec4(FragPos, gl_FragCoord.z);
             gMotionMaterial = vec4(0.0, 0.0, 1.0, 1.0);
@@ -194,128 +265,13 @@ void DeferredRenderPipeline::CreateShaders() {
         #version 330 core
         in vec2 TexCoord;
         out vec4 FragColor;
-        
+
         uniform sampler2D gAlbedoMetallic;
-        uniform sampler2D gNormalRoughness;
-        uniform sampler2D gPosition;
-        uniform sampler2D shadowMap;
-        
-        uniform int numLights;
-        uniform vec3 lightPositions[32];
-        uniform vec3 lightColors[32];
-        uniform float lightIntensities[32];
-        uniform int lightTypes[32];
-        uniform float lightRanges[32];
-        uniform vec3 viewPos;
-        uniform mat4 lightSpaceMatrix;
+        uniform int GE_DEBUG_FORCE_ALBEDO = 0;
 
-        struct VolumeHeader { int lightIndex; int vertCount; int baseOffset; int farOffset; };
-        layout(std430, binding = 3) buffer ShadowVolumeHeaders { VolumeHeader headers[]; };
-        layout(std430, binding = 4) buffer ShadowVolumeVertices { vec4 vertices[]; };
-        uniform int numVolumeHeaders;
-
-        bool insidePrism(int vertCount, int baseOffset, int farOffset, vec3 P) {
-            if (vertCount < 3) return false;
-            for (int i = 0; i < vertCount; ++i) {
-                vec3 a0 = vertices[baseOffset + i].xyz;
-                vec3 a1 = vertices[baseOffset + ((i + 1) % vertCount)].xyz;
-                vec3 b0 = vertices[farOffset + i].xyz;
-                vec3 edge = a1 - a0;
-                vec3 extrude = b0 - a0;
-                vec3 n = normalize(cross(edge, extrude));
-                if (dot(n, P - a0) > 0.0) return false;
-            }
-            return true;
-        }
-
-        bool insideAnyLightVolume(int lightIdx, vec3 P) {
-            for (int h = 0; h < numVolumeHeaders; ++h) {
-                if (headers[h].lightIndex != lightIdx) continue;
-                if (insidePrism(headers[h].vertCount, headers[h].baseOffset, headers[h].farOffset, P)) return true;
-            }
-            return false;
-        }
-        
-        float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir) {
-            vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-            projCoords = projCoords * 0.5 + 0.5;
-            
-            if(projCoords.z > 1.0) return 0.0;
-            
-            float closestDepth = texture(shadowMap, projCoords.xy).r;
-            float currentDepth = projCoords.z;
-            
-            float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-            float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
-            
-            return shadow;
-        }
-        
         void main() {
-            vec4 albedoMetallic = texture(gAlbedoMetallic, TexCoord);
-            vec4 normalRoughness = texture(gNormalRoughness, TexCoord);
-            vec4 position = texture(gPosition, TexCoord);
-            
-            if (position.w <= 0.0 || length(albedoMetallic.rgb) < 0.01) {
-                FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-                return;
-            }
-            
-            vec3 albedo = albedoMetallic.rgb;
-            vec3 normal = normalize(normalRoughness.rgb * 2.0 - 1.0);
-            vec3 fragPos = position.xyz;
-            vec3 viewDir = normalize(viewPos - fragPos);
-            
-            vec3 totalLighting = vec3(0.0);
-            float totalBrightness = 0.0;
-            
-            for(int i = 0; i < numLights && i < 32; i++) {
-                vec3 lightContribution = vec3(0.0);
-                if (insideAnyLightVolume(i, fragPos)) { continue; }
-                
-                if(lightTypes[i] == 0) {
-                    vec3 lightDir = normalize(-lightPositions[i]);
-                    
-                    vec4 fragPosLightSpace = lightSpaceMatrix * vec4(fragPos, 1.0);
-                    float shadow = ShadowCalculation(fragPosLightSpace, normal, lightDir);
-                    
-                    float diff = max(dot(normal, lightDir), 0.0);
-                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i] * albedo;
-                    
-                    vec3 reflectDir = reflect(-lightDir, normal);
-                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-                    vec3 specular = spec * lightColors[i] * lightIntensities[i];
-                    
-                    lightContribution = (diffuse + specular) * (1.0 - shadow);
-                } else if(lightTypes[i] == 1) {
-                    vec3 lightDir = normalize(lightPositions[i] - fragPos);
-                    float distance = length(lightPositions[i] - fragPos);
-                    
-                    float attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
-                    if(distance > lightRanges[i]) attenuation = 0.0;
-                    
-                    float diff = max(dot(normal, lightDir), 0.0);
-                    vec3 diffuse = diff * lightColors[i] * lightIntensities[i] * attenuation * albedo;
-                    
-                    vec3 reflectDir = reflect(-lightDir, normal);
-                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-                    vec3 specular = spec * lightColors[i] * lightIntensities[i] * attenuation;
-                    
-                    lightContribution = diffuse + specular;
-                }
-                
-                totalLighting += lightContribution;
-                totalBrightness += lightIntensities[i];
-            }
-            
-            if(totalBrightness > 100.0) {
-                totalLighting *= (100.0 / totalBrightness);
-            }
-            
-            vec3 ambient = vec3(0.1, 0.1, 0.1) * albedo;
-            vec3 result = ambient + totalLighting;
-            
-            FragColor = vec4(result, 1.0);
+            vec4 albMet = texture(gAlbedoMetallic, TexCoord);
+            FragColor = albMet;
         }
     )";
     
@@ -405,12 +361,24 @@ void DeferredRenderPipeline::ShadowPass(World* world) {
 }
 
 void DeferredRenderPipeline::GeometryPass(World* world) {
+    if (!m_gBuffer->IsComplete()) { Logger::Error("GBuffer incomplete before GeometryPass"); }
     m_gBuffer->Bind();
+    glViewport(0, 0, m_width, m_height);
+    glDisable(GL_SCISSOR_TEST);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     if (m_geometryShader) {
         m_geometryShader->Use();
         m_geometryShader->SetMatrix4("uView", m_renderData.viewMatrix);
         m_geometryShader->SetMatrix4("uProjection", m_renderData.projectionMatrix);
+        {
+            const char* dbgAlb = std::getenv("GE_DEBUG_FORCE_ALBEDO");
+            int dbgVal = (dbgAlb && std::string(dbgAlb) == "1") ? 1 : 0;
+            m_geometryShader->SetInt("GE_DEBUG_FORCE_ALBEDO", dbgVal);
+        }
     }
     
     if (world) {
@@ -433,6 +401,7 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
                         m_geometryShader->SetMatrix4("uModel", modelMatrix);
                         m_geometryShader->SetFloat("uMetallic", meshComp->GetMetallic());
                         m_geometryShader->SetFloat("uRoughness", meshComp->GetRoughness());
+                        m_geometryShader->SetVector3("uBaseColor", meshComp->GetColor());
                     }
                     
                     meshComp->GetMesh()->Draw();
@@ -444,10 +413,28 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
     } else {
         Logger::Warning("DeferredRenderPipeline: World is null; skipping geometry draw");
     }
+
+    const char* cap = std::getenv("GE_CAPTURE");
+    if (cap && std::string(cap) == "1") {
+        static bool s_dumped = false;
+        if (!s_dumped) {
+            int w = m_width, h = m_height;
+            auto c0 = m_gBuffer->GetColorTexture(0);
+            auto c1 = m_gBuffer->GetColorTexture(1);
+            auto c2 = m_gBuffer->GetColorTexture(2);
+            auto c3 = m_gBuffer->GetColorTexture(3);
+            if (c0) FrameCapture::SaveTexturePNG(c0.get(), w, h, "/home/ubuntu/frames/gbuf0_albedo.png");
+            if (c1) FrameCapture::SaveTexturePNG(c1.get(), w, h, "/home/ubuntu/frames/gbuf1_normal.png");
+            if (c2) FrameCapture::SaveTexturePNG(c2.get(), w, h, "/home/ubuntu/frames/gbuf2_position.png");
+            if (c3) FrameCapture::SaveTexturePNG(c3.get(), w, h, "/home/ubuntu/frames/gbuf3_misc.png");
+            s_dumped = true;
+        }
+    }
 }
 
 void DeferredRenderPipeline::LightingPass(World* world) {
     m_lightingBuffer->Bind();
+    glViewport(0, 0, m_width, m_height);
     glClear(GL_COLOR_BUFFER_BIT);
     
     glDisable(GL_DEPTH_TEST);
@@ -458,6 +445,42 @@ void DeferredRenderPipeline::LightingPass(World* world) {
     m_cachedLightManager->CollectLights(world);
     m_cachedLightManager->ApplyBrightnessLimits();
     auto lights = m_cachedLightManager->GetActiveLights();
+
+    const char* tcEnv = std::getenv("GE_TILED_CULL");
+    bool useTiled = !(tcEnv && std::string(tcEnv) == "0");
+
+    GLint glMajorC = 0, glMinorC = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &glMajorC);
+    glGetIntegerv(GL_MINOR_VERSION, &glMinorC);
+    bool hasComputeC = (glMajorC > 4) || (glMajorC == 4 && glMinorC >= 3);
+
+    GLint maxInvocationsC = 0;
+    glGetIntegerv(0x90EB /* GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS */, &maxInvocationsC);
+    if (maxInvocationsC <= 0) {
+        hasComputeC = false;
+    }
+
+    if (useTiled && hasComputeC && m_tiledCullShader && m_lightGridSSBO && m_lightIndexSSBO) {
+        m_tiledCullShader->Use();
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_lightGridSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_lightIndexSSBO);
+        int screenLoc = glGetUniformLocation(m_tiledCullShader->GetProgramID(), "screenSize");
+        if (screenLoc >= 0) glUniform2i(screenLoc, m_width, m_height);
+        int maxUpload = static_cast<int>(std::min<size_t>(lights.size(), 128));
+        for (int i = 0; i < maxUpload; ++i) {
+            std::string idx = std::to_string(i);
+            m_tiledCullShader->SetVector3("lightPositions[" + idx + "]", lights[i]->GetPosition());
+            m_tiledCullShader->SetInt("lightTypes[" + idx + "]", static_cast<int>(lights[i]->GetType()));
+            m_tiledCullShader->SetFloat("lightRanges[" + idx + "]", lights[i]->GetRange());
+        }
+        m_tiledCullShader->SetInt("numLights", maxUpload);
+        int groupsX = (m_width + 15) / 16;
+        int groupsY = (m_height + 15) / 16;
+        glDispatchCompute(groupsX, groupsY, 1);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    } else if (useTiled && !hasComputeC) {
+        Logger::Warning("Skipping tiled culling: GL compute unsupported on this context");
+    }
 
     if (!m_lightOcclusion) {
         m_lightOcclusion = std::make_unique<LightOcclusion>();
@@ -482,15 +505,6 @@ void DeferredRenderPipeline::LightingPass(World* world) {
 
             int baseOffset = vertFloatOffset / 4;
             for (int i = 0; i < vertCount; ++i) {
-    static bool s_captured = false;
-    if (!s_captured) {
-        int w = m_renderData.viewportWidth;
-        int h = m_renderData.viewportHeight;
-        (void)w; (void)h;
-        GameEngine::FrameCapture::SaveDefaultFramebufferPNG(w, h, "/home/ubuntu/frames/frame0.png");
-        s_captured = true;
-    }
-
                 const Vector3& p = v.basePolygon[i];
                 vertsCPU.push_back(p.x); vertsCPU.push_back(p.y); vertsCPU.push_back(p.z); vertsCPU.push_back(0.0f);
             }
@@ -529,6 +543,19 @@ void DeferredRenderPipeline::LightingPass(World* world) {
     if (m_lightingShader) {
         m_lightingShader->Use();
         m_lightingShader->SetInt("numVolumeHeaders", totalHeaders);
+        m_lightingShader->SetInt("numLights", static_cast<int>(lights.size()));
+        m_lightingShader->SetVector3("viewPos", Vector3(m_renderData.viewMatrix.Inverted().m[12], m_renderData.viewMatrix.Inverted().m[13], m_renderData.viewMatrix.Inverted().m[14]));
+        m_lightingShader->SetInt("gAlbedoMetallic", 0);
+        m_lightingShader->SetInt("gNormalRoughness", 1);
+        m_lightingShader->SetInt("gPosition", 2);
+        int screenLoc2 = glGetUniformLocation(m_lightingShader->GetProgramID(), "screenSize");
+        if (screenLoc2 >= 0) glUniform2i(screenLoc2, m_width, m_height);
+        const char* dbgAlb = std::getenv("GE_DEBUG_FORCE_ALBEDO");
+        int dbgVal = (dbgAlb && std::string(dbgAlb) == "1") ? 1 : 0;
+        int dbgLoc = glGetUniformLocation(m_lightingShader->GetProgramID(), "GE_DEBUG_FORCE_ALBEDO");
+        if (dbgLoc >= 0) glUniform1i(dbgLoc, dbgVal);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_lightGridSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_lightIndexSSBO);
         
         if (m_gBuffer) {
             auto albedoTexture = m_gBuffer->GetColorTexture(0);
@@ -585,12 +612,20 @@ void DeferredRenderPipeline::LightingPass(World* world) {
     
     RenderFullscreenQuad();
     
+    const char* capLight = std::getenv("GE_CAPTURE");
+    if (capLight && std::string(capLight) == "1") {
+        auto litTex = m_lightingBuffer->GetColorTexture(0);
+        if (litTex) {
+            FrameCapture::SaveTexturePNG(litTex.get(), m_width, m_height, "/home/ubuntu/frames/lighting_color0.png");
+        }
+    }
+    
     glEnable(GL_DEPTH_TEST);
 }
 
 void DeferredRenderPipeline::CompositePass() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, m_renderData.viewportWidth, m_renderData.viewportHeight);
+    glViewport(0, 0, m_width, m_height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     glDisable(GL_DEPTH_TEST);
@@ -606,6 +641,16 @@ void DeferredRenderPipeline::CompositePass() {
     }
     
     RenderFullscreenQuad();
+    
+    const char* capEnv = std::getenv("GE_CAPTURE");
+    if (capEnv && std::string(capEnv) == "1") {
+        auto finalTex = m_lightingBuffer->GetColorTexture(0);
+        if (finalTex) {
+            FrameCapture::SaveTexturePNG(finalTex.get(), m_width, m_height, "/home/ubuntu/frames/frame0.png");
+        } else {
+            GameEngine::FrameCapture::SaveDefaultFramebufferPNG(m_width, m_height, "/home/ubuntu/frames/frame0.png");
+        }
+    }
     
     glEnable(GL_DEPTH_TEST);
 }
@@ -626,7 +671,7 @@ void DeferredRenderPipeline::RenderFullscreenQuad() {
         glGenBuffers(1, &quadVBO);
         glBindVertexArray(quadVAO);
         glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(1);

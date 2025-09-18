@@ -15,8 +15,8 @@ namespace GameEngine {
         float& operator[](int index) { return m[index]; }
         const float& operator[](int index) const { return m[index]; }
         
-        float& operator()(int row, int col) { return m[row * 4 + col]; }
-        const float& operator()(int row, int col) const { return m[row * 4 + col]; }
+        float& operator()(int row, int col) { return m[col * 4 + row]; }
+        const float& operator()(int row, int col) const { return m[col * 4 + row]; }
         
         // Matrix operations
         Matrix4 operator*(const Matrix4& other) const;

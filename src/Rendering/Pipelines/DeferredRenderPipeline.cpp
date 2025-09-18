@@ -53,10 +53,20 @@ bool DeferredRenderPipeline::Initialize(int width, int height) {
     glGetIntegerv(GL_MINOR_VERSION, &glMinor);
     bool hasCompute = (glMajor > 4) || (glMajor == 4 && glMinor >= 3);
 
+    GLint maxInvocations = 0;
+    glGetIntegerv(0x90EB /* GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS */, &maxInvocations);
+    if (maxInvocations <= 0) {
+        hasCompute = false;
+    }
+
     if (hasCompute && !m_tiledCullShader) {
         m_tiledCullShader = std::make_shared<Shader>();
-        m_tiledCullShader->LoadComputeShader("src/Rendering/Shaders/tiled_light_cull.comp");
-    } else if (!hasCompute) {
+        if (!m_tiledCullShader->LoadComputeShader("src/Rendering/Shaders/tiled_light_cull.comp")) {
+            hasCompute = false;
+            m_tiledCullShader.reset();
+        }
+    }
+    if (!hasCompute) {
         Logger::Warning("Compute shaders not supported on this GL context; tiled culling disabled");
     }
     
@@ -443,6 +453,12 @@ void DeferredRenderPipeline::LightingPass(World* world) {
     glGetIntegerv(GL_MAJOR_VERSION, &glMajorC);
     glGetIntegerv(GL_MINOR_VERSION, &glMinorC);
     bool hasComputeC = (glMajorC > 4) || (glMajorC == 4 && glMinorC >= 3);
+
+    GLint maxInvocationsC = 0;
+    glGetIntegerv(0x90EB /* GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS */, &maxInvocationsC);
+    if (maxInvocationsC <= 0) {
+        hasComputeC = false;
+    }
 
     if (useTiled && hasComputeC && m_tiledCullShader && m_lightGridSSBO && m_lightIndexSSBO) {
         m_tiledCullShader->Use();

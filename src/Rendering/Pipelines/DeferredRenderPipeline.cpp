@@ -48,9 +48,16 @@ bool DeferredRenderPipeline::Initialize(int width, int height) {
     glBufferData(GL_SHADER_STORAGE_BUFFER, static_cast<GLsizeiptr>(1024 * 1024 * sizeof(int)), nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_lightIndexSSBO);
 
-    if (!m_tiledCullShader) {
+    GLint glMajor = 0, glMinor = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &glMajor);
+    glGetIntegerv(GL_MINOR_VERSION, &glMinor);
+    bool hasCompute = (glMajor > 4) || (glMajor == 4 && glMinor >= 3);
+
+    if (hasCompute && !m_tiledCullShader) {
         m_tiledCullShader = std::make_shared<Shader>();
         m_tiledCullShader->LoadComputeShader("src/Rendering/Shaders/tiled_light_cull.comp");
+    } else if (!hasCompute) {
+        Logger::Warning("Compute shaders not supported on this GL context; tiled culling disabled");
     }
     
     if (!m_gBuffer->IsComplete()) {
@@ -431,7 +438,13 @@ void DeferredRenderPipeline::LightingPass(World* world) {
 
     const char* tcEnv = std::getenv("GE_TILED_CULL");
     bool useTiled = !(tcEnv && std::string(tcEnv) == "0");
-    if (useTiled && m_tiledCullShader && m_lightGridSSBO && m_lightIndexSSBO) {
+
+    GLint glMajorC = 0, glMinorC = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &glMajorC);
+    glGetIntegerv(GL_MINOR_VERSION, &glMinorC);
+    bool hasComputeC = (glMajorC > 4) || (glMajorC == 4 && glMinorC >= 3);
+
+    if (useTiled && hasComputeC && m_tiledCullShader && m_lightGridSSBO && m_lightIndexSSBO) {
         m_tiledCullShader->Use();
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_lightGridSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_lightIndexSSBO);
@@ -449,6 +462,8 @@ void DeferredRenderPipeline::LightingPass(World* world) {
         int groupsY = (m_height + 15) / 16;
         glDispatchCompute(groupsX, groupsY, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    } else if (useTiled && !hasComputeC) {
+        Logger::Warning("Skipping tiled culling: GL compute unsupported on this context");
     }
 
     if (!m_lightOcclusion) {

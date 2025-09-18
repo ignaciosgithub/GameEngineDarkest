@@ -95,15 +95,17 @@ Matrix4 Matrix4::Scale(const Vector3& scale) {
 
 Matrix4 Matrix4::Perspective(float fov, float aspect, float near, float far) {
     Matrix4 result;
-    
+    std::fill(result.m.begin(), result.m.end(), 0.0f);
+
     float tanHalfFov = std::tan(fov * 0.5f);
-    
-    result.m[0] = 1.0f / (aspect * tanHalfFov);
-    result.m[5] = 1.0f / tanHalfFov;
-    result.m[10] = -(far + near) / (far - near);
-    result.m[11] = -1.0f;
-    result.m[14] = -(2.0f * far * near) / (far - near);
-    
+
+    result(0, 0) = 1.0f / (aspect * tanHalfFov);
+    result(1, 1) = 1.0f / tanHalfFov;
+    result(2, 2) = -(far + near) / (far - near);
+    result(2, 3) = -1.0f;
+    result(3, 2) = -(2.0f * far * near) / (far - near);
+    result(3, 3) = 0.0f;
+
     return result;
 }
 
@@ -122,36 +124,29 @@ Matrix4 Matrix4::Orthographic(float left, float right, float bottom, float top, 
 
 Matrix4 Matrix4::LookAt(const Vector3& eye, const Vector3& center, const Vector3& up) {
     Vector3 direction = center - eye;
-    
+
     if (direction.LengthSquared() < 0.0001f) {
-        direction = Vector3(0.0f, 0.0f, -1.0f); // Default forward direction
+        direction = Vector3(0.0f, 0.0f, -1.0f);
     }
-    
+
     Vector3 f = direction.Normalized();
     Vector3 crossProduct = f.Cross(up);
-    
+
     if (crossProduct.LengthSquared() < 0.0001f) {
         Vector3 alternateUp = (std::abs(f.y) < 0.9f) ? Vector3(0.0f, 1.0f, 0.0f) : Vector3(1.0f, 0.0f, 0.0f);
         crossProduct = f.Cross(alternateUp);
     }
-    
+
     Vector3 s = crossProduct.Normalized();
     Vector3 u = s.Cross(f);
-    
+
     Matrix4 result = Identity();
-    result.m[0] = s.x;
-    result.m[4] = s.y;
-    result.m[8] = s.z;
-    result.m[1] = u.x;
-    result.m[5] = u.y;
-    result.m[9] = u.z;
-    result.m[2] = -f.x;
-    result.m[6] = -f.y;
-    result.m[10] = -f.z;
-    result.m[12] = -s.Dot(eye);
-    result.m[13] = -u.Dot(eye);
-    result.m[14] = f.Dot(eye);
-    
+
+    result(0, 0) = s.x;  result(1, 0) = s.y;  result(2, 0) = s.z;  result(3, 0) = -s.Dot(eye);
+    result(0, 1) = u.x;  result(1, 1) = u.y;  result(2, 1) = u.z;  result(3, 1) = -u.Dot(eye);
+    result(0, 2) = -f.x; result(1, 2) = -f.y; result(2, 2) = -f.z; result(3, 2) =  f.Dot(eye);
+    result(0, 3) = 0.0f; result(1, 3) = 0.0f; result(2, 3) = 0.0f; result(3, 3) = 1.0f;
+
     return result;
 }
 

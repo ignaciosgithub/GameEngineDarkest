@@ -101,7 +101,7 @@ private:
     
     void InitializeComputeShaders();
     void BuildShadowVolumesGPU(const Light* light, World* world, int lightIndex, float dirFar);
-    bool m_useGPUCompute = false;
+    bool m_useGPUCompute = true;
     std::shared_ptr<class Shader> m_shadowVolumeGenShader;
     std::shared_ptr<class Shader> m_shadowVolumeExtrudeShader;
     

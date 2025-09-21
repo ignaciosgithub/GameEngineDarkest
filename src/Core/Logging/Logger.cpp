@@ -67,6 +67,10 @@ void Logger::SetLogLevel(LogLevel level) {
 LogLevel Logger::GetLogLevel() {
     return s_logLevel;
 }
+bool Logger::IsEnabled(LogLevel level) {
+    return level >= s_logLevel;
+}
+
 
 void Logger::EnableConsoleOutput(bool enable) {
     s_consoleOutput = enable;

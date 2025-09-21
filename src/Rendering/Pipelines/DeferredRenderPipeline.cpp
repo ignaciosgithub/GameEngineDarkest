@@ -225,22 +225,9 @@ void DeferredRenderPipeline::CreateShaders() {
         in vec3 Normal;
         flat in vec3 VertexColor;
         
-        uniform float uMetallic = 0.0;
-        uniform float uRoughness = 0.5;
-        uniform vec3 uBaseColor = vec3(1.0, 1.0, 1.0);
-        uniform int GE_DEBUG_FORCE_ALBEDO = 0;
-        
         void main() {
-            if (GE_DEBUG_FORCE_ALBEDO == 1) {
-                gAlbedoMetallic = vec4(0.0, 1.0, 0.0, 1.0);
-                gNormalRoughness = vec4(0.0, 1.0, 0.0, 1.0);
-                gPosition = vec4(FragPos, gl_FragCoord.z);
-                gMotionMaterial = vec4(0.0, 0.0, 1.0, 1.0);
-                return;
-            }
-            vec3 albedo = vec3(0.8, 0.2, 0.2);
-            gAlbedoMetallic = vec4(albedo, uMetallic);
-            gNormalRoughness = vec4(normalize(Normal) * 0.5 + 0.5, uRoughness);
+            gAlbedoMetallic = vec4(0.0, 1.0, 0.0, 1.0);
+            gNormalRoughness = vec4(0.5, 0.5, 1.0, 0.5);
             gPosition = vec4(FragPos, gl_FragCoord.z);
             gMotionMaterial = vec4(0.0, 0.0, 1.0, 1.0);
         }
@@ -267,11 +254,25 @@ void DeferredRenderPipeline::CreateShaders() {
         out vec4 FragColor;
 
         uniform sampler2D gAlbedoMetallic;
+        uniform sampler2D gNormalRoughness;
+        uniform sampler2D gPosition;
         uniform int GE_DEBUG_FORCE_ALBEDO = 0;
 
         void main() {
             vec4 albMet = texture(gAlbedoMetallic, TexCoord);
-            FragColor = albMet;
+            vec4 nrmRgh = texture(gNormalRoughness, TexCoord);
+            vec4 posZ   = texture(gPosition, TexCoord);
+
+            if (GE_DEBUG_FORCE_ALBEDO == 1) {
+                FragColor = vec4(albMet.rgb, 1.0);
+                return;
+            }
+
+            vec3 N = normalize(nrmRgh.xyz * 2.0 - 1.0);
+            vec3 L = normalize(vec3(0.5, 1.0, 0.3));
+            float ndotl = max(dot(N, L), 0.0);
+            vec3 color = albMet.rgb * (0.2 + 0.8 * ndotl);
+            FragColor = vec4(color, 1.0);
         }
     )";
     
@@ -368,6 +369,7 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     if (m_geometryShader) {
@@ -413,28 +415,27 @@ void DeferredRenderPipeline::GeometryPass(World* world) {
     } else {
         Logger::Warning("DeferredRenderPipeline: World is null; skipping geometry draw");
     }
+    Logger::Debug(std::string("IDs gbuf: ") + std::to_string(m_gBuffer->GetColorTexture(0) ? m_gBuffer->GetColorTexture(0)->GetID() : 0) + "," + std::to_string(m_gBuffer->GetColorTexture(1) ? m_gBuffer->GetColorTexture(1)->GetID() : 0) + "," + std::to_string(m_gBuffer->GetColorTexture(2) ? m_gBuffer->GetColorTexture(2)->GetID() : 0) + "," + std::to_string(m_gBuffer->GetColorTexture(3) ? m_gBuffer->GetColorTexture(3)->GetID() : 0) + " lit0: " + std::to_string(m_lightingBuffer->GetColorTexture(0) ? m_lightingBuffer->GetColorTexture(0)->GetID() : 0));
 
     const char* cap = std::getenv("GE_CAPTURE");
     if (cap && std::string(cap) == "1") {
-        static bool s_dumped = false;
-        if (!s_dumped) {
-            int w = m_width, h = m_height;
-            auto c0 = m_gBuffer->GetColorTexture(0);
-            auto c1 = m_gBuffer->GetColorTexture(1);
-            auto c2 = m_gBuffer->GetColorTexture(2);
-            auto c3 = m_gBuffer->GetColorTexture(3);
-            if (c0) FrameCapture::SaveTexturePNG(c0.get(), w, h, "/home/ubuntu/frames/gbuf0_albedo.png");
-            if (c1) FrameCapture::SaveTexturePNG(c1.get(), w, h, "/home/ubuntu/frames/gbuf1_normal.png");
+        int w = m_width, h = m_height;
+        auto c0 = m_gBuffer->GetColorTexture(0);
+        auto c1 = m_gBuffer->GetColorTexture(1);
+        auto c2 = m_gBuffer->GetColorTexture(2);
+        auto c3 = m_gBuffer->GetColorTexture(3);
+        if (c0) FrameCapture::SaveTexturePNG(c0.get(), w, h, "/home/ubuntu/frames/gbuf0_albedo.png");
+        if (c1) FrameCapture::SaveTexturePNG(c1.get(), w, h, "/home/ubuntu/frames/gbuf1_normal.png");
+        Logger::Debug("GBuffer capture: IDs a0=" + std::to_string(c0 ? c0->GetID() : 0) + " a1=" + std::to_string(c1 ? c1->GetID() : 0) + " a2=" + std::to_string(c2 ? c2->GetID() : 0) + " a3=" + std::to_string(c3 ? c3->GetID() : 0));
             if (c2) FrameCapture::SaveTexturePNG(c2.get(), w, h, "/home/ubuntu/frames/gbuf2_position.png");
-            if (c3) FrameCapture::SaveTexturePNG(c3.get(), w, h, "/home/ubuntu/frames/gbuf3_misc.png");
-            s_dumped = true;
-        }
+        if (c3) FrameCapture::SaveTexturePNG(c3.get(), w, h, "/home/ubuntu/frames/gbuf3_misc.png");
     }
 }
 
 void DeferredRenderPipeline::LightingPass(World* world) {
     m_lightingBuffer->Bind();
     glViewport(0, 0, m_width, m_height);
+    glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     
     glDisable(GL_DEPTH_TEST);

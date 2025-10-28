@@ -491,9 +491,13 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     m_forwardShader->Use();
     m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
-    LightManager lmEmbed;
-    lmEmbed.CollectLights(world);
-    auto actEmbed = lmEmbed.GetActiveLights();
+    if (!m_cachedLightManager) {
+        m_cachedLightManager = std::make_unique<LightManager>();
+    }
+    m_cachedLightManager->CollectLights(world);
+    m_cachedLightManager->ApplyBrightnessLimits();
+    
+    auto activeLights = m_cachedLightManager->GetActiveLights();
 
     int lightHasShadowArr[32] = {0};
     int shadowTypeArr[32] = {0};
@@ -515,8 +519,8 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
         m_forwardShader->SetInt("shadowMapsCube[" + std::to_string(i) + "]", baseCube + i);
     }
 
-    for (size_t i = 0; i < actEmbed.size() && i < 32; ++i) {
-        Light* l = actEmbed[i];
+    for (size_t i = 0; i < activeLights.size() && i < 32; ++i) {
+        Light* l = activeLights[i];
         if (!l || !l->GetCastShadows()) continue;
         l->InitializeShadowMap();
         auto sm = l->GetShadowMap();
@@ -575,12 +579,8 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
         std::to_string(m_renderData.projectionMatrix.m[4]) + ", " + std::to_string(m_renderData.projectionMatrix.m[5]) + ", " + std::to_string(m_renderData.projectionMatrix.m[6]) + ", " + std::to_string(m_renderData.projectionMatrix.m[7]) + "]");
     m_forwardShader->SetMatrix4("projection", m_renderData.projectionMatrix);
     
-    LightManager lightManager;
-    lightManager.CollectLights(world);
-    lightManager.ApplyBrightnessLimits();
-    
     std::vector<LightManager::ShaderLightData> lightData;
-    lightManager.GetShaderLightData(lightData);
+    m_cachedLightManager->GetShaderLightData(lightData);
     
     m_forwardShader->SetInt("numLights", static_cast<int>(lightData.size()));
     
@@ -608,8 +608,8 @@ void ForwardRenderPipeline::RenderOpaqueObjects(World* world) {
     int baseOffset = 0;
     int farOffset = 0;
 
-    for (size_t li = 0; li < actEmbed.size(); ++li) {
-        Light* l = actEmbed[li];
+    for (size_t li = 0; li < activeLights.size(); ++li) {
+        Light* l = activeLights[li];
         if (!l) continue;
         float dirFar = 1000.0f;
         m_lightOcclusion->BuildShadowVolumesForLight(l, world, static_cast<int>(li), dirFar);

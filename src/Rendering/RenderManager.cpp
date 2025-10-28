@@ -32,7 +32,7 @@ bool RenderManager::Initialize(int width, int height) {
     if (forceForward && std::string(forceForward) == "1") {
         SetPipeline(RenderPipelineType::Forward);
     } else {
-        SetPipeline(RenderPipelineType::Deferred);
+        SetPipeline(RenderPipelineType::Forward);
     }
     
     Logger::Info("Render Manager initialized successfully");

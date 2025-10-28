@@ -38,7 +38,7 @@ namespace GameEngine {
         std::unique_ptr<ForwardRenderPipeline> m_forwardPipeline;
         std::unique_ptr<RaytracingPipeline> m_raytracingPipeline;
         RenderPipeline* m_currentPipeline = nullptr;
-        RenderPipelineType m_currentPipelineType = RenderPipelineType::Deferred;
+        RenderPipelineType m_currentPipelineType = RenderPipelineType::Forward;
         
         int m_width = 0;
         int m_height = 0;

@@ -145,6 +145,6 @@ private:
 
 #define PROFILE_SCOPE(name) ScopedProfiler _prof(name)
 #define PROFILE_FUNCTION() ScopedProfiler _prof(__FUNCTION__)
-#define PROFILE_GPU(name) ScopedGPUProfiler _gpuProf(name)
+#define PROFILE_GPU(name) ScopedGPUProfiler _gpuProf##__LINE__(name)
 
 }

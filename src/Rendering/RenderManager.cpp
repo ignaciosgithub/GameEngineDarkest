@@ -2,6 +2,9 @@
 #include "../Core/Logging/Logger.h"
 #include "../Core/Profiling/Profiler.h"
 #include "Core/GLDebug.h"
+#ifdef _WIN32
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include "Core/stb_image_write.h"
 #include <cstdlib>
 #include <cstring>
@@ -32,12 +35,25 @@ bool RenderManager::Initialize(int width, int height) {
 
     EnableGLDebug();
     
+#ifdef _WIN32
+    char* forceForward = nullptr;
+    size_t len = 0;
+    _dupenv_s(&forceForward, &len, "GE_FORCE_FORWARD");
+    if (forceForward && std::string(forceForward) == "1") {
+        SetPipeline(RenderPipelineType::Forward);
+        free(forceForward);
+    } else {
+        if (forceForward) free(forceForward);
+        SetPipeline(RenderPipelineType::Forward);
+    }
+#else
     const char* forceForward = std::getenv("GE_FORCE_FORWARD");
     if (forceForward && std::string(forceForward) == "1") {
         SetPipeline(RenderPipelineType::Forward);
     } else {
         SetPipeline(RenderPipelineType::Forward);
     }
+#endif
     
     Logger::Info("Render Manager initialized successfully");
     return true;
@@ -106,8 +122,17 @@ void RenderManager::EndFrame() {
     
     static int frameCount = 0;
     static bool frameSaved = false;
+#ifdef _WIN32
+    char* saveFrame = nullptr;
+    size_t len = 0;
+    _dupenv_s(&saveFrame, &len, "GE_SAVE_FRAME");
+    bool shouldSaveFrame = (saveFrame && std::string(saveFrame) == "1");
+    if (saveFrame) free(saveFrame);
+    if (!frameSaved && shouldSaveFrame) {
+#else
     const char* saveFrame = std::getenv("GE_SAVE_FRAME");
     if (!frameSaved && saveFrame && std::string(saveFrame) == "1") {
+#endif
         frameCount++;
         if (frameCount > 10) {
             glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);

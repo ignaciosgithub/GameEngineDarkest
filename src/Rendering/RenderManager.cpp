@@ -2,6 +2,10 @@
 #include "../Core/Logging/Logger.h"
 #include "../Core/Profiling/Profiler.h"
 #include "Core/GLDebug.h"
+#include "Core/stb_image_write.h"
+#include <cstdlib>
+#include <cstring>
+#include <vector>
 
 namespace GameEngine {
 
@@ -98,6 +102,36 @@ void RenderManager::EndFrame() {
     PROFILE_GPU("RenderManager::EndFrame");
     if (m_currentPipeline) {
         m_currentPipeline->EndFrame();
+    }
+    
+    static int frameCount = 0;
+    static bool frameSaved = false;
+    const char* saveFrame = std::getenv("GE_SAVE_FRAME");
+    if (!frameSaved && saveFrame && std::string(saveFrame) == "1") {
+        frameCount++;
+        if (frameCount > 10) {
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            glReadBuffer(GL_BACK);
+            glPixelStorei(GL_PACK_ALIGNMENT, 1);
+            glFinish();
+            
+            std::vector<unsigned char> pixels(m_width * m_height * 4);
+            glReadPixels(0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            
+            std::vector<unsigned char> flipped(m_width * m_height * 4);
+            for (int y = 0; y < m_height; ++y) {
+                memcpy(&flipped[y * m_width * 4], 
+                       &pixels[(m_height - 1 - y) * m_width * 4], 
+                       m_width * 4);
+            }
+            
+            if (stbi_write_png("frame0.png", m_width, m_height, 4, flipped.data(), m_width * 4)) {
+                Logger::Info("Saved frame to frame0.png");
+                frameSaved = true;
+            } else {
+                Logger::Error("Failed to save frame to frame0.png");
+            }
+        }
     }
 }
 

@@ -143,8 +143,17 @@ private:
     std::string m_name;
 };
 
-#define PROFILE_SCOPE(name) ScopedProfiler _prof(name)
-#define PROFILE_FUNCTION() ScopedProfiler _prof(__FUNCTION__)
-#define PROFILE_GPU(name) ScopedGPUProfiler _gpuProf##__LINE__(name)
+// Helper macros for creating unique variable names
+#define GE_CONCAT_INNER(x,y) x##y
+#define GE_CONCAT(x,y) GE_CONCAT_INNER(x,y)
+#ifdef _MSC_VER
+#define GE_UNIQUE(base) GE_CONCAT(base, __COUNTER__)
+#else
+#define GE_UNIQUE(base) GE_CONCAT(base, __LINE__)
+#endif
+
+#define PROFILE_SCOPE(name) ScopedProfiler GE_UNIQUE(_prof)(name)
+#define PROFILE_FUNCTION() ScopedProfiler GE_UNIQUE(_prof)(__FUNCTION__)
+#define PROFILE_GPU(name) ScopedGPUProfiler GE_UNIQUE(_gpuProf)(name)
 
 }

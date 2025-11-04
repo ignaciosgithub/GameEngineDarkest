@@ -1,8 +1,15 @@
 #include "AudioClip.h"
 #include "../Core/Logging/Logger.h"
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4244 4267 4456)
+#endif
 #define MINIMP3_IMPLEMENTATION
 #include "External/minimp3.h"
 #include "External/minimp3_ex.h"
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 #ifdef OPENAL_AVAILABLE
 #include <AL/al.h>
 #endif

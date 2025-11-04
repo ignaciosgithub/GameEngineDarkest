@@ -8,8 +8,15 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #endif
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#endif
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../Core/stb_image_write.h"
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif

@@ -2,9 +2,6 @@
 #include "../Core/Logging/Logger.h"
 #include "../Core/Profiling/Profiler.h"
 #include "Core/GLDebug.h"
-#ifdef _WIN32
-#define _CRT_SECURE_NO_WARNINGS
-#endif
 #include "Core/stb_image_write.h"
 #include <cstdlib>
 #include <cstring>
